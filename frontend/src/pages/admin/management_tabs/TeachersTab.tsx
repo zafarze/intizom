@@ -1,0 +1,72 @@
+import { useState } from 'react';
+import { Search, ChevronLeft, ChevronRight, Plus, Key } from 'lucide-react';
+import toast from 'react-hot-toast';
+import api from '../../../api/axios';
+import { TableTemplate, ActionButtons } from './Shared';
+
+export default function TeachersTab({ data, classes, subjects, refresh }: { data: any[], classes: any[], subjects: any[], refresh: () => void }) {
+	const [searchQuery, setSearchQuery] = useState('');
+	const [currentPage, setCurrentPage] = useState(1);
+	const [isModalOpen, setIsModalOpen] = useState(false);
+	const [editingId, setEditingId] = useState<number | null>(null);
+	const [formData, setFormData] = useState({ username: '', password: '', t_first_name: '', t_last_name: '', subject_ids: [] as number[], led_class_id: '' });
+
+	const openModal = (item?: any) => {
+		setEditingId(item ? item.id : null);
+		setFormData(item ? {
+			username: item.username, password: '', t_first_name: item.first_name, t_last_name: item.last_name,
+			subject_ids: item.active_subject_ids || [], led_class_id: classes.find((c: any) => c.name === item.led_class_name)?.id || ''
+		} : { username: '', password: '', t_first_name: '', t_last_name: '', subject_ids: [], led_class_id: '' });
+		setIsModalOpen(true);
+	};
+
+	const handleDelete = async (id: number) => {
+		if (!window.confirm('Удалить?')) return;
+		try { await api.delete(`teachers/${id}/`); toast.success('Удалено'); refresh(); } catch { toast.error('Ошибка'); }
+	};
+
+	const handleResetPassword = async (id: number, name: string) => {
+		if (!window.confirm(`Сбросить пароль для ${name} на "123456"?`)) return;
+		try { await api.patch(`teachers/${id}/`, { password: '123456' }); toast.success('Пароль сброшен 🔑'); } catch { toast.error('Ошибка'); }
+	};
+
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		const payload: any = { username: formData.username, first_name: formData.t_first_name, last_name: formData.t_last_name, subject_ids: formData.subject_ids, led_class_id: formData.led_class_id || null };
+		if (formData.password) payload.password = formData.password;
+		try {
+			if (editingId) await api.patch(`teachers/${editingId}/`, payload);
+			else await api.post(`teachers/`, payload);
+			toast.success('Сохранено'); setIsModalOpen(false); refresh();
+		} catch { toast.error('Ошибка сохранения'); }
+	};
+
+	const filtered = searchQuery ? data.filter(t => t.first_name.toLowerCase().includes(searchQuery.toLowerCase()) || t.last_name.toLowerCase().includes(searchQuery.toLowerCase())) : data;
+	const paginated = filtered.slice((currentPage - 1) * 10, currentPage * 10);
+
+	return (
+		<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm">
+			<div className="flex justify-between mb-6 border-b border-white pb-4">
+				<div className="relative w-64"><Search size={18} className="absolute left-3 top-2.5 text-slate-400" /><input type="search" placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-white/50 border border-white rounded-xl text-sm outline-none" /></div>
+				<button onClick={() => openModal()} className="flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md"><Plus size={16} /> Добавить</button>
+			</div>
+
+			<TableTemplate headers={['№', 'ФИО Учителя', 'Предметы', 'Кл. Рук.', 'Логин', 'Действия']}>
+				{paginated.map((t, idx) => (
+					<tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50">
+						<td className="py-4 px-4 text-slate-400 text-xs">{idx + 1}</td>
+						<td className="py-4 px-4 font-bold text-slate-800">{t.first_name} {t.last_name}</td>
+						<td className="py-4 px-4 text-[11px] text-slate-600">{t.taught_subjects ? t.taught_subjects.split(', ').map((s: string) => <span key={s} className="bg-slate-100 px-2 py-1 rounded-md mr-1">{s}</span>) : '—'}</td>
+						<td className="py-4 px-4 font-bold text-[12px]">{t.led_class_name ? <span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded-md">{t.led_class_name}</span> : '—'}</td>
+						<td className="py-4 px-4 text-slate-500 font-semibold">@{t.username}</td>
+						<td className="py-4 px-4"><ActionButtons onEdit={() => openModal(t)} onDelete={() => handleDelete(t.id)} extraButton={<button onClick={() => handleResetPassword(t.id, t.first_name)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg"><Key size={16} /></button>} /></td>
+					</tr>
+				))}
+			</TableTemplate>
+
+			{isModalOpen && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"><div className="bg-white p-6 rounded-[2rem] w-full max-w-lg"><h3 className="text-xl font-black mb-4">{editingId ? 'Редактировать' : 'Добавить'} учителя</h3><form onSubmit={handleSubmit} className="space-y-4"><div className="grid grid-cols-2 gap-4"><input placeholder="Имя" required value={formData.t_first_name} onChange={e => setFormData({ ...formData, t_first_name: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" /><input placeholder="Фамилия" required value={formData.t_last_name} onChange={e => setFormData({ ...formData, t_last_name: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" /></div><div className="space-y-2"><label className="text-[11px] font-bold text-slate-400">ПРЕДМЕТЫ</label><div className="flex flex-wrap gap-2">{subjects.map((sub: any) => (<label key={sub.id} className={`px-3 py-2 rounded-xl text-[13px] border cursor-pointer ${formData.subject_ids.includes(sub.id) ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200'} `}><input type="checkbox" className="hidden" checked={formData.subject_ids.includes(sub.id)} onChange={e => setFormData({ ...formData, subject_ids: e.target.checked ? [...formData.subject_ids, sub.id] : formData.subject_ids.filter(id => id !== sub.id) })} />{sub.name}</label>))}</div></div><select value={formData.led_class_id} onChange={e => setFormData({ ...formData, led_class_id: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm"><option value="">— Без класса —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select><div className="grid grid-cols-2 gap-4"><input placeholder="Логин" required value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" /><input type="password" placeholder={editingId ? 'Новый пароль (пусто = не менять)' : 'Пароль'} required={!editingId} value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" /></div><div className="flex gap-3 mt-6"><button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold">Отмена</button><button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button></div></form></div></div>
+			)}
+		</div>
+	);
+}

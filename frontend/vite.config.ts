@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     tailwindcss(), // 👈 2. ДОБАВЬ ВЫЗОВ ПЛАГИНА СЮДА
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'Интизом - Системаи идоракунӣ',

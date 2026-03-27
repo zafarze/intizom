@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Save, Settings2, Globe, Shield, AlertTriangle, Bell, Smartphone, RotateCcw, Database, Loader2 } from 'lucide-react';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import api from '../../api/axios';
 
 export default function Settings() {
@@ -73,8 +73,6 @@ export default function Settings() {
 
 	return (
 		<div className="space-y-6 max-w-5xl mx-auto pb-8 animate-in slide-in-from-bottom-4 duration-500">
-			<Toaster position="top-right" />
-
 			{/* Заголовок */}
 			<div className="bg-white/40 backdrop-blur-md border border-white p-6 rounded-[2rem] shadow-sm flex justify-between items-center">
 				<div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, ChevronLeft, ChevronRight, Plus, FileUp, Filter, X, Save, AlertCircle, Key, Download, FileText } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Plus, FileUp, Filter, X, AlertCircle, Key, Download, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import api from '../../../api/axios';
@@ -24,6 +24,10 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [error, setError] = useState('');
+
+	// Модалка импорта
+	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+	const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
 
 	// 👇 ДОБАВИЛИ new_username И new_password В ФОРМУ
 	const [formData, setFormData] = useState({
@@ -114,9 +118,26 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 	};
 
 	// ИМПОРТ EXCEL
-	const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
-		if (!file) return;
+	const downloadTemplate = () => {
+		const wsData = [
+			{ 'Имя': 'Иван', 'Фамилия': 'Иванов', 'Класс': '10А' },
+			{ 'Имя': 'Анна', 'Фамилия': 'Смирнова', 'Класс': '10А' }
+		];
+		const ws = XLSX.utils.json_to_sheet(wsData);
+		const wb = XLSX.utils.book_new();
+		XLSX.utils.book_append_sheet(wb, ws, "Шаблон");
+		XLSX.writeFile(wb, "Шаблон_Импорта_Учеников.xlsx");
+		toast.success("Шаблон скачан!");
+	};
+
+	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+		if (e.target.files && e.target.files.length > 0) {
+			setSelectedImportFile(e.target.files[0]);
+		}
+	};
+
+	const handleConfirmImport = () => {
+		if (!selectedImportFile) return;
 		const reader = new FileReader();
 		reader.onload = async (evt) => {
 			try {
@@ -131,12 +152,24 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 				if (formattedData.length === 0) { toast.error("Файл пуст или неверный формат"); return; }
 				toast.loading(`Загружаем ${formattedData.length} учеников...`, { id: 'import' });
 				const res = await api.post('students/bulk_create_students/', { students: formattedData });
-				toast.success(res.data.detail, { id: 'import' });
+				toast.dismiss('import');
+
+				// Добавляем красивое информационное окно, если есть детальная информация
+				if (res.data.detail) {
+					toast.success(res.data.detail, { duration: 8000, style: { maxWidth: '500px' } });
+				} else {
+					toast.success("Импорт завершен");
+				}
+
+				setIsImportModalOpen(false);
+				setSelectedImportFile(null);
 				refresh();
-			} catch (err) { toast.error('Ошибка импорта', { id: 'import' }); }
-			e.target.value = '';
+			} catch (err) {
+				toast.dismiss('import');
+				toast.error('Ошибка импорта');
+			}
 		};
-		reader.readAsBinaryString(file);
+		reader.readAsBinaryString(selectedImportFile);
 	};
 
 	const handleBulkUpdateClass = async () => {
@@ -229,10 +262,12 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 						>
 							<Key size={16} /> {isGenerating ? 'Генерация...' : 'Выдать доступы'}
 						</button>
-						<label className="cursor-pointer flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm border border-slate-200 transition-all active:scale-95">
+						<button
+							onClick={() => setIsImportModalOpen(true)}
+							className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm border border-slate-200 transition-all active:scale-95"
+						>
 							<FileUp size={16} /> Импорт
-							<input type="file" accept=".xlsx, .xls, .csv" onChange={handleExcelUpload} className="hidden" />
-						</label>
+						</button>
 						<button onClick={() => openModal()} className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all active:scale-95">
 							<Plus size={16} /> Добавить
 						</button>
@@ -405,6 +440,62 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 								</button>
 							</div>
 						</form>
+					</div>
+				</div>
+			)}
+
+			{/* === МОДАЛКА ИМПОРТА === */}
+			{isImportModalOpen && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+					<div className="bg-white p-6 rounded-[2rem] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+						<div className="flex justify-between items-center mb-6">
+							<h3 className="text-xl font-black text-slate-800">Импорт учеников</h3>
+							<button onClick={() => { setIsImportModalOpen(false); setSelectedImportFile(null); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><X size={20} /></button>
+						</div>
+
+						<div className="space-y-6">
+							{/* Выбор файла */}
+							<div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:bg-slate-50 transition-colors relative">
+								<input
+									type="file"
+									accept=".xlsx, .xls, .csv"
+									onChange={handleFileSelect}
+									className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+								/>
+								<div className="flex flex-col items-center gap-2 pointer-events-none">
+									<div className="p-3 bg-indigo-50 text-indigo-500 rounded-full">
+										<FileUp size={24} />
+									</div>
+									{selectedImportFile ? (
+										<div>
+											<p className="font-bold text-slate-700">{selectedImportFile.name}</p>
+											<p className="text-xs text-slate-400">Нажмите чтобы изменить</p>
+										</div>
+									) : (
+										<div>
+											<p className="font-bold text-slate-700">Выберите файл или перетащите</p>
+											<p className="text-xs text-slate-400">Поддерживаются .xlsx, .xls, .csv</p>
+										</div>
+									)}
+								</div>
+							</div>
+
+							<div className="flex gap-3 pt-2 border-t border-slate-100">
+								<button
+									onClick={downloadTemplate}
+									className="flex-1 flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 py-3 rounded-xl font-bold transition-all"
+								>
+									<Download size={18} /> Шаблон
+								</button>
+								<button
+									onClick={handleConfirmImport}
+									disabled={!selectedImportFile}
+									className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-3 rounded-xl font-bold shadow-md transition-all"
+								>
+									Загрузить
+								</button>
+							</div>
+						</div>
 					</div>
 				</div>
 			)}

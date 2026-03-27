@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, ChevronDown, User, LogOut, Settings, Menu, CheckCircle2, Loader2, LayoutDashboard, BarChart2, Activity, Users } from 'lucide-react';
+import { Search, Bell, ChevronDown, User, LogOut, Settings, Menu, Loader2, LayoutDashboard, BarChart2, Activity, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 

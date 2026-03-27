@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Search, ChevronLeft, ChevronRight, Plus, Key } from 'lucide-react';
+import { Search, Plus, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons } from './Shared';
 
 export default function TeachersTab({ data, classes, subjects, refresh }: { data: any[], classes: any[], subjects: any[], refresh: () => void }) {
 	const [searchQuery, setSearchQuery] = useState('');
-	const [currentPage, setCurrentPage] = useState(1);
+	const [currentPage] = useState(1);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [formData, setFormData] = useState({ username: '', password: '', t_first_name: '', t_last_name: '', subject_ids: [] as number[], led_class_id: '' });

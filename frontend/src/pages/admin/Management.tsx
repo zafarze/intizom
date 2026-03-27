@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Users, Calendar, GraduationCap, BookOpen, ClipboardList, Library, Loader2 } from 'lucide-react';
-import { Toaster } from 'react-hot-toast';
 import api from '../../api/axios';
 
 import StudentsTab from './management_tabs/StudentsTab';
@@ -46,8 +45,6 @@ export default function Management() {
 
 	return (
 		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500">
-			<Toaster position="top-right" toastOptions={{ style: { borderRadius: '16px', background: '#334155', color: '#fff', fontSize: '14px', fontWeight: 'bold' } }} />
-
 			<div className="bg-white/40 backdrop-blur-md border border-white p-6 rounded-[2rem] shadow-sm">
 				<h1 className="text-2xl font-black text-slate-800">Управление школой</h1>
 				<p className="text-sm font-medium text-slate-500 mt-1">Все вкладки синхронизированы с Django API</p>

@@ -67,6 +67,9 @@ class StudentViewSet(viewsets.ModelViewSet):
         class_map = {sc.name: sc for sc in existing_classes}
 
         students_to_create = []
+        class_counts = {}
+        not_found_classes = set()
+
         for data in students_data:
             class_name = data.get('class_name')
             school_class = class_map.get(class_name)
@@ -80,12 +83,23 @@ class StudentViewSet(viewsets.ModelViewSet):
                         school_class=school_class
                     )
                 )
+                class_counts[class_name] = class_counts.get(class_name, 0) + 1
+            else:
+                if class_name:
+                    not_found_classes.add(class_name)
 
         # 3. Делаем ровно ОДИН запрос на сохранение всех учеников
         with transaction.atomic():
             Student.objects.bulk_create(students_to_create)
 
-        return Response({"detail": f"Успешно импортировано {len(students_to_create)} учеников"})
+        detail_msg = f"Успешно импортировано {len(students_to_create)} учеников."
+        if class_counts:
+            classes_info = ", ".join([f"{c} ({cnt})" for c, cnt in class_counts.items()])
+            detail_msg += f" Добавлено по классам: {classes_info}."
+        if not_found_classes:
+            detail_msg += f" Внимание! Этих классов нет в базе: {', '.join(not_found_classes)}."
+
+        return Response({"detail": detail_msg})
 
     # ========================================================
     # 2. ЛОГИКА СИН (ЧЕТВЕРТИ И СТАТУСЫ)

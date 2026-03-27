@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons } from './Shared';
 

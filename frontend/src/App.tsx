@@ -1,4 +1,6 @@
+import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import MainLayout from './components/layout/MainLayout';
 import LoginPage from './pages/auth/LoginPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -24,7 +26,7 @@ const ProtectedRoute = ({
   children,
   allowedRoles
 }: {
-  children: JSX.Element,
+  children: React.ReactNode,
   allowedRoles?: string[]
 }) => {
   const token = localStorage.getItem('access_token');
@@ -45,65 +47,81 @@ const ProtectedRoute = ({
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
+    <>
+      <Toaster
+        position="top-right"
+        containerStyle={{ zIndex: 99999 }}
+        toastOptions={{
+          duration: 4000,
+          style: {
+            borderRadius: '16px',
+            background: '#334155',
+            color: '#fff',
+            fontSize: '14px',
+            fontWeight: 'bold',
+          }
+        }}
+      />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
 
-      {/* Оборачиваем весь Layout в базовую защиту (только для авторизованных) */}
-      <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+        {/* Оборачиваем весь Layout в базовую защиту (только для авторизованных) */}
+        <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
 
-        {/* Умный редирект при заходе на голый домен (/) */}
-        <Route index element={<RoleBasedRedirect />} />
+          {/* Умный редирект при заходе на голый домен (/) */}
+          <Route index element={<RoleBasedRedirect />} />
 
-        {/* ================= АДМИНСКАЯ ЗОНА (ТОЛЬКО ДИРЕКТОР) ================= */}
-        <Route path="admin" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDashboard />
-          </ProtectedRoute>
+          {/* ================= АДМИНСКАЯ ЗОНА (ТОЛЬКО ДИРЕКТОР) ================= */}
+          <Route path="admin" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
+
+          {/* ================= ОБЩИЕ РАЗДЕЛЫ (АДМИН + УЧИТЕЛЬ) ================= */}
+          <Route path="statistics" element={
+            <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+              <Statistics />
+            </ProtectedRoute>
+          } />
+          <Route path="monitoring" element={
+            <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+              <Monitoring />
+            </ProtectedRoute>
+          } />
+          <Route path="management" element={
+            <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+              <Management />
+            </ProtectedRoute>
+          } />
+          <Route path="settings" element={
+            <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+              <Settings />
+            </ProtectedRoute>
+          } />
+
+          {/* ================= ЗОНА УЧИТЕЛЯ ================= */}
+          <Route path="teacher" element={
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <TeacherDashboard />
+            </ProtectedRoute>
+          } />
+
+          {/* ================= ЗОНА УЧЕНИКА ================= */}
+          <Route path="student" element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <StudentDashboard />
+            </ProtectedRoute>
+          } />
+
+        </Route>
+
+        <Route path="*" element={
+          <div className="flex items-center justify-center h-screen text-2xl font-bold text-slate-400">
+            Саҳифа ёфт нашуд (404)
+          </div>
         } />
-
-        {/* ================= ОБЩИЕ РАЗДЕЛЫ (АДМИН + УЧИТЕЛЬ) ================= */}
-        <Route path="statistics" element={
-          <ProtectedRoute allowedRoles={['admin', 'teacher']}>
-            <Statistics />
-          </ProtectedRoute>
-        } />
-        <Route path="monitoring" element={
-          <ProtectedRoute allowedRoles={['admin', 'teacher']}>
-            <Monitoring />
-          </ProtectedRoute>
-        } />
-        <Route path="management" element={
-          <ProtectedRoute allowedRoles={['admin', 'teacher']}>
-            <Management />
-          </ProtectedRoute>
-        } />
-        <Route path="settings" element={
-          <ProtectedRoute allowedRoles={['admin', 'teacher']}>
-            <Settings />
-          </ProtectedRoute>
-        } />
-
-        {/* ================= ЗОНА УЧИТЕЛЯ ================= */}
-        <Route path="teacher" element={
-          <ProtectedRoute allowedRoles={['teacher', 'admin']}>
-            <TeacherDashboard />
-          </ProtectedRoute>
-        } />
-
-        {/* ================= ЗОНА УЧЕНИКА ================= */}
-        <Route path="student" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <StudentDashboard />
-          </ProtectedRoute>
-        } />
-
-      </Route>
-
-      <Route path="*" element={
-        <div className="flex items-center justify-center h-screen text-2xl font-bold text-slate-400">
-          Саҳифа ёфт нашуд (404)
-        </div>
-      } />
-    </Routes>
+      </Routes>
+    </>
   );
 }

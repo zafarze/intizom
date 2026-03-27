@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
 	LayoutDashboard, BarChart2, Activity, Users,
-	Settings, LogOut, PanelLeftClose, PanelLeftOpen
+	Settings, LogOut, PanelLeftClose, PanelLeftOpen, RefreshCw
 } from 'lucide-react';
 import logoUrl from '../../assets/logo.png';
 
@@ -136,6 +136,22 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 					</div>
 
 					<div className="mt-4 pt-4 border-t border-slate-900/5 flex flex-col gap-2">
+						<ActionButton
+							expanded={expanded}
+							icon={<RefreshCw size={20} />}
+							label="Обновить кэш"
+							onClick={() => {
+								if ('serviceWorker' in navigator) {
+									navigator.serviceWorker.getRegistrations().then((registrations) => {
+										for (let registration of registrations) {
+											registration.unregister();
+										}
+									});
+								}
+								localStorage.removeItem('user');
+								window.location.reload();
+							}}
+						/>
 						<ActionButton
 							expanded={expanded}
 							icon={<LogOut size={20} />}

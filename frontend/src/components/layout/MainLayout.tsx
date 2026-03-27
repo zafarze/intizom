@@ -10,6 +10,7 @@ export default function MainLayout() {
 	const [isMobileOpen, setIsMobileOpen] = useState(false);
 	const [pullProgress, setPullProgress] = useState(0);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [refreshKey, setRefreshKey] = useState(0); // Ключ для перерисовки страниц
 	const mainRef = useRef<HTMLElement>(null);
 
 	// ==========================================
@@ -72,15 +73,28 @@ export default function MainLayout() {
 			}
 		};
 
-		const handleTouchEnd = () => {
+		const handleTouchEnd = async () => {
 			if (!isPulling) return;
 			isPulling = false;
 			if (pullProgress > 50 && !isRefreshing) {
 				setIsRefreshing(true);
 				setPullProgress(50);
-				setTimeout(() => {
-					window.location.reload();
-				}, 500);
+
+				try {
+					// Вызываем событие обновления, которое страницы могут перехватить
+					window.dispatchEvent(new Event('app-refresh'));
+
+					// Меняем ключ чтобы заставить текущую страницу смонтироваться заново (и обновить данные)
+					setRefreshKey(prev => prev + 1);
+
+					// Ждем минимум 1 секунду для красивой анимации
+					await new Promise(resolve => setTimeout(resolve, 1000));
+
+				} finally {
+					// Плавно скрываем
+					setPullProgress(0);
+					setTimeout(() => setIsRefreshing(false), 300); // Ждем пока уедет наверх
+				}
 			} else {
 				setPullProgress(0);
 			}
@@ -113,23 +127,23 @@ export default function MainLayout() {
 
 				{/* Pull to refresh индикатор */}
 				<div
-					className="absolute left-1/2 top-16 -translate-x-1/2 z-50 flex items-center justify-center bg-white rounded-full shadow-lg transition-transform duration-200"
+					className={`absolute left-1/2 -translate-x-1/2 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition-all duration-300 ease-out ${isRefreshing ? 'top-20' : 'top-16'}`}
 					style={{
-						width: '40px',
-						height: '40px',
-						transform: `translate(-50%, ${pullProgress > 0 ? pullProgress : -50}px)`,
-						opacity: pullProgress > 0 ? pullProgress / 50 : 0,
-						visibility: pullProgress > 0 ? 'visible' : 'hidden'
+						width: '44px',
+						height: '44px',
+						transform: `translate(-50%, ${isRefreshing ? 0 : (pullProgress > 0 ? pullProgress - 20 : -50)}px)`,
+						opacity: isRefreshing ? 1 : (pullProgress > 0 ? Math.min(pullProgress / 50, 1) : 0),
+						visibility: (pullProgress > 0 || isRefreshing) ? 'visible' : 'hidden'
 					}}
 				>
 					<RefreshCw
-						className={`text-indigo-500 w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`}
-						style={{ transform: `rotate(${pullProgress * 5}deg)` }}
+						className={`text-indigo-600 w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`}
+						style={{ transform: isRefreshing ? 'none' : `rotate(${pullProgress * 7}deg)` }}
 					/>
 				</div>
 
-				<main ref={mainRef} className="flex-1 overflow-y-auto p-4 lg:p-8 relative z-0 transition-transform duration-200" style={{ transform: pullProgress > 0 && !isRefreshing ? `translateY(${pullProgress}px)` : 'none' }}>
-					<Outlet />
+				<main ref={mainRef} className="flex-1 overflow-y-auto p-4 lg:p-8 relative z-0 transition-transform duration-300" style={{ transform: pullProgress > 0 && !isRefreshing ? `translateY(${pullProgress * 0.5}px)` : 'none' }}>
+					<Outlet key={refreshKey} />
 				</main>
 			</div>
 		</div>

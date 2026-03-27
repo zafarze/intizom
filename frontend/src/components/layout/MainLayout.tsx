@@ -13,6 +13,14 @@ export default function MainLayout() {
 	const [refreshKey, setRefreshKey] = useState(0); // Ключ для перерисовки страниц
 	const mainRef = useRef<HTMLElement>(null);
 
+	// Храним состояние touch-событий в ref, чтобы не вызывать пересоздание слушателей
+	const touchState = useRef({
+		startY: 0,
+		isPulling: false,
+		pullProgress: 0,
+		isRefreshing: false
+	});
+
 	// ==========================================
 	// МАГИЯ ОФЛАЙНА: СЛУШАЕМ СТАТУС ИНТЕРНЕТА
 	// ==========================================
@@ -49,35 +57,38 @@ export default function MainLayout() {
 		const mainEl = mainRef.current;
 		if (!mainEl) return;
 
-		let startY = 0;
-		let isPulling = false;
-
 		const handleTouchStart = (e: TouchEvent) => {
-			if (mainEl.scrollTop <= 0) {
-				startY = e.touches[0].clientY;
-				isPulling = true;
+			if (mainEl.scrollTop <= 0 && !touchState.current.isRefreshing) {
+				touchState.current.startY = e.touches[0].clientY;
+				touchState.current.isPulling = true;
 			}
 		};
 
 		const handleTouchMove = (e: TouchEvent) => {
-			if (!isPulling || isRefreshing) return;
+			if (!touchState.current.isPulling || touchState.current.isRefreshing) return;
 			const currentY = e.touches[0].clientY;
-			const pullDistance = currentY - startY;
+			const pullDistance = currentY - touchState.current.startY;
 
 			if (pullDistance > 0 && mainEl.scrollTop <= 0) {
 				if (e.cancelable) e.preventDefault();
 				const resistance = Math.min(pullDistance * 0.4, 70);
+				touchState.current.pullProgress = resistance;
 				setPullProgress(resistance);
 			} else {
+				touchState.current.pullProgress = 0;
 				setPullProgress(0);
 			}
 		};
 
 		const handleTouchEnd = async () => {
-			if (!isPulling) return;
-			isPulling = false;
-			if (pullProgress > 50 && !isRefreshing) {
+			if (!touchState.current.isPulling) return;
+			touchState.current.isPulling = false;
+
+			if (touchState.current.pullProgress > 50 && !touchState.current.isRefreshing) {
+				touchState.current.isRefreshing = true;
 				setIsRefreshing(true);
+
+				touchState.current.pullProgress = 50;
 				setPullProgress(50);
 
 				try {
@@ -92,10 +103,16 @@ export default function MainLayout() {
 
 				} finally {
 					// Плавно скрываем
+					touchState.current.pullProgress = 0;
 					setPullProgress(0);
-					setTimeout(() => setIsRefreshing(false), 300); // Ждем пока уедет наверх
+
+					setTimeout(() => {
+						touchState.current.isRefreshing = false;
+						setIsRefreshing(false);
+					}, 300); // Ждем пока уедет наверх
 				}
 			} else {
+				touchState.current.pullProgress = 0;
 				setPullProgress(0);
 			}
 		};
@@ -109,7 +126,7 @@ export default function MainLayout() {
 			mainEl.removeEventListener('touchmove', handleTouchMove);
 			mainEl.removeEventListener('touchend', handleTouchEnd);
 		};
-	}, [pullProgress, isRefreshing]);
+	}, []);
 
 	return (
 		/* УБРАЛИ сплошной цвет фона (bg-[#F8FAFC]).

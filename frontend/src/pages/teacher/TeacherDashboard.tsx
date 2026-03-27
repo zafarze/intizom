@@ -138,6 +138,26 @@ export default function TeacherDashboard() {
 		}
 	};
 
+	// ==========================================
+	// 4. ОТМЕНА ОЦЕНКИ (DELETE LOG)
+	// ==========================================
+	const handleDeleteLog = async (logId: number) => {
+		if (!window.confirm("Вы уверены, что хотите отменить это действие?")) return;
+
+		try {
+			await api.delete(`logs/${logId}/`);
+			setSuccessMessage("Действие успешно отменено.");
+			await fetchData(); // Обновляем списки
+
+			setTimeout(() => {
+				setSuccessMessage('');
+			}, 3000);
+		} catch (error) {
+			console.error("Ошибка при удалении:", error);
+			alert("Произошла ошибка при отмене. Попробуйте еще раз.");
+		}
+	};
+
 	if (isLoading) {
 		return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={40} /></div>;
 	}
@@ -332,9 +352,18 @@ export default function TeacherDashboard() {
 											<span className="font-bold text-[13px] text-slate-700">
 												{log.student_detail.first_name} {log.student_detail.last_name}
 											</span>
-											<span className={`text-[12px] font-black px-2 py-1 rounded-lg ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-												{isPositive ? '+' : ''}{log.rule_detail.points_impact}
-											</span>
+											<div className="flex items-center gap-2">
+												<span className={`text-[12px] font-black px-2 py-1 rounded-lg ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+													{isPositive ? '+' : ''}{log.rule_detail.points_impact}
+												</span>
+												<button
+													onClick={() => handleDeleteLog(log.id)}
+													className="text-slate-400 hover:text-red-500 transition-colors"
+													title="Отменить"
+												>
+													<XCircle size={16} />
+												</button>
+											</div>
 										</div>
 										<p className="text-[11px] font-medium text-slate-500 mb-2">{log.rule_detail.title}</p>
 										<p className="text-[9px] font-bold text-slate-400 uppercase">
@@ -389,9 +418,18 @@ export default function TeacherDashboard() {
 												<span className="font-bold text-[14px] text-slate-700">
 													{log.student_detail.first_name} {log.student_detail.last_name}
 												</span>
-												<span className={`text-[13px] font-black px-2 py-1 rounded-lg ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-													{isPositive ? '+' : ''}{log.rule_detail.points_impact}
-												</span>
+												<div className="flex items-center gap-2">
+													<span className={`text-[13px] font-black px-2 py-1 rounded-lg ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+														{isPositive ? '+' : ''}{log.rule_detail.points_impact}
+													</span>
+													<button
+														onClick={() => handleDeleteLog(log.id)}
+														className="text-slate-400 hover:text-red-500 transition-colors"
+														title="Отменить"
+													>
+														<XCircle size={16} />
+													</button>
+												</div>
 											</div>
 											<p className="text-[12px] font-medium text-slate-500 mb-2">{log.rule_detail.title}</p>
 											<p className="text-[10px] font-bold text-slate-400 uppercase">

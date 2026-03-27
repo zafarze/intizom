@@ -141,6 +141,21 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 		}
 	};
 
+	const handleDeleteLog = async (logId: number) => {
+		if (!window.confirm("Вы уверены, что хотите отменить это действие?")) return;
+		try {
+			await api.delete(`logs/${logId}/`);
+			// Обновляем историю после удаления
+			if (selectedStudentHistory) {
+				const res = await api.get(`students/${selectedStudentHistory.id}/history/`);
+				setSelectedStudentHistory(res.data);
+			}
+		} catch (error) {
+			console.error("Ошибка при удалении лога:", error);
+			alert("Произошла ошибка при отмене. Попробуйте еще раз.");
+		}
+	};
+
 	// ==========================================
 	// 5. ЭФФЕКТЫ И ЗАКРЫТИЕ ОКОН
 	// ==========================================
@@ -460,22 +475,36 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 						<div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 mt-2">
 							<h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">История изменений</h4>
 							{selectedStudentHistory.recent_logs?.length > 0 ? (
-								selectedStudentHistory.recent_logs.map((log: any) => (
-									<div key={log.id} className="p-3 bg-slate-50 rounded-2xl flex gap-3 items-start border border-slate-100 transition-all hover:bg-slate-100">
-										<div className={`mt-1 flex items-center justify-center w-9 h-9 rounded-xl font-black text-sm shrink-0 shadow-sm ${log.is_positive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
-											{log.is_positive ? '+' : ''}{log.points_impact}
+								selectedStudentHistory.recent_logs.map((log: any) => {
+									const canDelete = user.role === 'admin' || user.id === log.teacher_id;
+									return (
+										<div key={log.id} className="p-3 bg-slate-50 rounded-2xl flex gap-3 items-start border border-slate-100 transition-all hover:bg-slate-100">
+											<div className={`mt-1 flex items-center justify-center w-9 h-9 rounded-xl font-black text-sm shrink-0 shadow-sm ${log.is_positive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+												{log.is_positive ? '+' : ''}{log.points_impact}
+											</div>
+											<div className="flex-1">
+												<div className="flex justify-between items-start">
+													<p className="text-[13px] font-bold text-slate-800 leading-tight pr-2">{log.rule_title}</p>
+													{canDelete && (
+														<button
+															onClick={() => handleDeleteLog(log.id)}
+															className="text-slate-400 hover:text-red-500 transition-colors shrink-0"
+															title="Отменить"
+														>
+															<X size={16} />
+														</button>
+													)}
+												</div>
+												<p className="text-[11px] font-medium text-slate-500 mt-1.5 flex items-center gap-1.5">
+													<span className="inline-flex items-center justify-center w-4 h-4 bg-white rounded-full border border-slate-200 text-[8px] font-bold text-slate-600 shadow-sm">
+														{log.teacher_name[0]}
+													</span>
+													{log.teacher_name} • {formatTime(log.created_at)}
+												</p>
+											</div>
 										</div>
-										<div className="flex-1">
-											<p className="text-[13px] font-bold text-slate-800 leading-tight">{log.rule_title}</p>
-											<p className="text-[11px] font-medium text-slate-500 mt-1.5 flex items-center gap-1.5">
-												<span className="inline-flex items-center justify-center w-4 h-4 bg-white rounded-full border border-slate-200 text-[8px] font-bold text-slate-600 shadow-sm">
-													{log.teacher_name[0]}
-												</span>
-												{log.teacher_name} • {formatTime(log.created_at)}
-											</p>
-										</div>
-									</div>
-								))
+									);
+								})
 							) : (
 								<div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
 									<Activity size={32} className="mx-auto text-slate-300 mb-3" />

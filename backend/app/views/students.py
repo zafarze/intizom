@@ -289,20 +289,23 @@ class StudentViewSet(viewsets.ModelViewSet):
         """
         student = self.get_object()
         
-        recent_logs = student.actions.select_related('rule', 'teacher').order_by('-created_at')[:20]
+        recent_logs = student.actions.select_related('rule', 'teacher').order_by('-created_at')[:50]
         
         logs_data = []
         for log in recent_logs:
             teacher_name = "Система"
+            teacher_id = None
             if log.teacher:
                 first_initial = f" {log.teacher.first_name[0]}." if log.teacher.first_name else ""
                 teacher_name = f"{log.teacher.last_name}{first_initial}"
+                teacher_id = log.teacher.id
 
             logs_data.append({
                 "id": log.id,
                 "rule_title": log.rule.title,
                 "points_impact": log.rule.points_impact,
                 "teacher_name": teacher_name,
+                "teacher_id": teacher_id,
                 "created_at": log.created_at,
                 "is_positive": log.rule.points_impact > 0
             })

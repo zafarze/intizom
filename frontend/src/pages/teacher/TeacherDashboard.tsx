@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Star, CheckCircle2, Award, Clock, Smartphone, UserX, XCircle, Zap, Loader2 } from 'lucide-react';
+import { Search, Star, CheckCircle2, Award, Clock, Smartphone, UserX, XCircle, Zap, Loader2, X, History } from 'lucide-react';
 import api from '../../api/axios';
 
 // ==========================================
@@ -52,6 +52,7 @@ export default function TeacherDashboard() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [successMessage, setSuccessMessage] = useState('');
+	const [showMobileHistory, setShowMobileHistory] = useState(false);
 
 	// ==========================================
 	// 2. ЗАГРУЗКА ДАННЫХ ИЗ DJANGO
@@ -168,14 +169,23 @@ export default function TeacherDashboard() {
 
 				{/* ГЛАВНЫЙ ВИДЖЕТ */}
 				<div className="xl:col-span-2 bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col">
-					<div className="flex items-center gap-3 mb-6 border-b border-white pb-4">
-						<div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-							<Zap size={20} />
+					<div className="flex items-center justify-between mb-6 border-b border-white pb-4">
+						<div className="flex items-center gap-3">
+							<div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+								<Zap size={20} />
+							</div>
+							<div>
+								<h2 className="text-lg font-black text-slate-800">Быстрая фиксация</h2>
+								<p className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Журнал СИН</p>
+							</div>
 						</div>
-						<div>
-							<h2 className="text-lg font-black text-slate-800">Быстрая фиксация</h2>
-							<p className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Журнал СИН</p>
-						</div>
+						<button
+							onClick={() => setShowMobileHistory(true)}
+							className="xl:hidden flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100/50"
+						>
+							<History size={18} />
+							<span className="text-[13px] font-bold">История</span>
+						</button>
 					</div>
 
 					{/* ШАГ 1: Поиск ученика */}
@@ -239,7 +249,7 @@ export default function TeacherDashboard() {
 					</div>
 
 					{/* ШАГ 2: Категория нарушения */}
-					<div className={`transition-all duration-500 ${selectedStudent ? 'opacity-100 max-h-[800px]' : 'opacity-30 pointer-events-none max-h-[400px]'}`}>
+					<div className={`transition-all duration-500 ${selectedStudent ? 'opacity-100 max-h-[3000px]' : 'opacity-30 pointer-events-none max-h-[400px]'}`}>
 						<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block ml-1">2. Категория СИН</label>
 						<div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
 							{Object.keys(CATEGORY_UI_CONFIG).map((categoryKey) => {
@@ -310,7 +320,7 @@ export default function TeacherDashboard() {
 				</div>
 
 				{/* БОКОВАЯ КОЛОНКА (ИСТОРИЯ УЧИТЕЛЯ - ОЖИВЛЕНА!) */}
-				<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm flex flex-col h-full overflow-hidden">
+				<div className="hidden xl:flex bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm flex-col h-full overflow-hidden">
 					<h2 className="text-lg font-bold text-slate-800 mb-6 border-b border-white pb-4">Ваша недавняя история</h2>
 					<div className="flex-1 overflow-y-auto pr-2 space-y-4 hide-scrollbar">
 						{recentLogs.length > 0 ? (
@@ -342,6 +352,63 @@ export default function TeacherDashboard() {
 				</div>
 
 			</div>
+
+			{/* МОДАЛЬНОЕ ОКНО ИСТОРИИ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ */}
+			{showMobileHistory && (
+				<div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center xl:hidden p-4 sm:p-6 animate-in fade-in duration-200">
+					{/* Затемнение фона */}
+					<div
+						className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+						onClick={() => setShowMobileHistory(false)}
+					></div>
+
+					{/* Контент модального окна */}
+					<div className="relative w-full max-w-lg bg-white/95 backdrop-blur-xl border border-white rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-300">
+						<div className="flex items-center justify-between p-6 border-b border-slate-100">
+							<div className="flex items-center gap-3">
+								<div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
+									<History size={20} />
+								</div>
+								<h2 className="text-lg font-black text-slate-800">Ваша недавняя история</h2>
+							</div>
+							<button
+								onClick={() => setShowMobileHistory(false)}
+								className="p-2 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors"
+							>
+								<X size={20} />
+							</button>
+						</div>
+
+						<div className="flex-1 overflow-y-auto p-6 space-y-4 hide-scrollbar">
+							{recentLogs.length > 0 ? (
+								recentLogs.slice(0, 10).map(log => {
+									const isPositive = log.rule_detail.points_impact > 0;
+									return (
+										<div key={log.id} className={`p-4 rounded-2xl border ${isPositive ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100'}`}>
+											<div className="flex justify-between items-start mb-2">
+												<span className="font-bold text-[14px] text-slate-700">
+													{log.student_detail.first_name} {log.student_detail.last_name}
+												</span>
+												<span className={`text-[13px] font-black px-2 py-1 rounded-lg ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+													{isPositive ? '+' : ''}{log.rule_detail.points_impact}
+												</span>
+											</div>
+											<p className="text-[12px] font-medium text-slate-500 mb-2">{log.rule_detail.title}</p>
+											<p className="text-[10px] font-bold text-slate-400 uppercase">
+												{new Date(log.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+											</p>
+										</div>
+									);
+								})
+							) : (
+								<div className="text-center text-sm font-medium text-slate-400 mt-10 pb-10">
+									Вы еще не выставили ни одной оценки.
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

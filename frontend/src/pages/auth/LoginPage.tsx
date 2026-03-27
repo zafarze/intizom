@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, Eye, EyeOff, Sparkles, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Sparkles, AlertCircle } from 'lucide-react';
 import api from '../../api/axios';
+import logoUrl from '../../assets/logo.png';
 
 export default function LoginPage() {
 	const [username, setUsername] = useState('');
@@ -110,8 +111,8 @@ export default function LoginPage() {
 			<div className="relative z-10 w-full max-w-[420px] bg-white/70 backdrop-blur-3xl border border-white shadow-[0_20px_60px_rgba(0,0,0,0.08)] rounded-[2.5rem] p-8 sm:p-10">
 
 				<div className="flex flex-col items-center mt-2 mb-8">
-					<div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white shadow-lg mb-4">
-						<GraduationCap size={36} strokeWidth={2.5} />
+					<div className="w-20 h-20 mb-4 bg-white/40 p-2 rounded-3xl backdrop-blur-md border border-white shadow-sm flex items-center justify-center">
+						<img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
 					</div>
 					<h1 className="text-3xl font-bold text-slate-800 tracking-tight">Интизом</h1>
 					<p className="text-sm text-slate-500 mt-2 text-center font-medium">Система управления школой</p>

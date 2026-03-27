@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
 	LayoutDashboard, BarChart2, Activity, Users,
-	Settings, LogOut, PanelLeftClose, PanelLeftOpen, GraduationCap
+	Settings, LogOut, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
+import logoUrl from '../../assets/logo.png';
 
 interface SidebarProps {
 	isMobileOpen: boolean;
@@ -82,8 +83,8 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 						</button>
 
 						<div className={`flex flex-col items-center justify-center transition-all duration-300 ${expanded ? 'mt-2' : 'mt-0'}`}>
-							<div className={`rounded-2xl bg-white/40 backdrop-blur-md border border-white/60 shadow-sm flex items-center justify-center text-indigo-700 transition-all duration-300 ${expanded ? 'w-14 h-14 mb-3' : 'w-11 h-11 mb-0'}`}>
-								<GraduationCap size={expanded ? 28 : 22} />
+							<div className={`rounded-2xl bg-white/40 backdrop-blur-md border border-white/60 shadow-sm flex items-center justify-center transition-all duration-300 ${expanded ? 'w-16 h-16 mb-3 p-2' : 'w-12 h-12 mb-0 p-1.5'}`}>
+								<img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
 							</div>
 
 							<div className={`text-center transition-all duration-300 overflow-hidden whitespace-nowrap ${expanded ? 'opacity-100 max-h-10' : 'opacity-0 max-h-0'}`}>

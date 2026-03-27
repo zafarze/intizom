@@ -44,6 +44,12 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 		navigate('/login');
 	};
 
+	const handleNavClick = () => {
+		if (window.innerWidth < 1024) {
+			setIsMobileOpen(false);
+		}
+	};
+
 	return (
 		<>
 			{isMobileOpen && (
@@ -105,24 +111,25 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 									to={isAdmin ? "/admin" : isTeacher ? "/teacher" : "/student"}
 									icon={<LayoutDashboard size={20} />}
 									label="Дашбоард"
+									onClick={handleNavClick}
 								/>
 
 								{/* 2. Статистику видят Админ и Учитель */}
 								{(isAdmin || isTeacher) && (
 									<>
-										<NavItem expanded={expanded} to="/statistics" icon={<BarChart2 size={20} />} label="Статистика" />
-										<NavItem expanded={expanded} to="/monitoring" icon={<Activity size={20} />} label="Мониторинг" badge="Live" />
+										<NavItem expanded={expanded} to="/statistics" icon={<BarChart2 size={20} />} label="Статистика" onClick={handleNavClick} />
+										<NavItem expanded={expanded} to="/monitoring" icon={<Activity size={20} />} label="Мониторинг" badge="Live" onClick={handleNavClick} />
 									</>
 								)}
 
 								{/* 3. Управление видит ТОЛЬКО Админ */}
 								{isAdmin && (
-									<NavItem expanded={expanded} to="/management" icon={<Users size={20} />} label="Управление" />
+									<NavItem expanded={expanded} to="/management" icon={<Users size={20} />} label="Управление" onClick={handleNavClick} />
 								)}
 
 								{/* 4. Настройки видят Админ и Учитель */}
 								{(isAdmin || isTeacher) && (
-									<NavItem expanded={expanded} to="/settings" icon={<Settings size={20} />} label="Настройки" />
+									<NavItem expanded={expanded} to="/settings" icon={<Settings size={20} />} label="Настройки" onClick={handleNavClick} />
 								)}
 							</nav>
 						</div>
@@ -153,11 +160,12 @@ interface NavItemProps {
 	label: string;
 	badge?: string;
 	expanded: boolean;
+	onClick?: () => void;
 }
 
-function NavItem({ to, icon, label, badge, expanded }: NavItemProps) {
+function NavItem({ to, icon, label, badge, expanded, onClick }: NavItemProps) {
 	return (
-		<NavLink to={to} className={({ isActive }) => `group relative flex items-center px-3 py-3 rounded-xl transition-all duration-300 ease-out overflow-hidden ${expanded ? 'justify-between' : 'justify-center'} ${isActive ? 'bg-white/60 text-slate-900 font-bold shadow-[0_8px_20px_rgb(0,0,0,0.06)] border border-white/60 backdrop-blur-md translate-x-1' : 'text-slate-700 font-medium hover:bg-white/40 hover:text-slate-900 hover:translate-x-1 hover:shadow-sm'}`} title={!expanded ? label : ""}>
+		<NavLink onClick={onClick} to={to} className={({ isActive }) => `group relative flex items-center px-3 py-3 rounded-xl transition-all duration-300 ease-out overflow-hidden ${expanded ? 'justify-between' : 'justify-center'} ${isActive ? 'bg-white/60 text-slate-900 font-bold shadow-[0_8px_20px_rgb(0,0,0,0.06)] border border-white/60 backdrop-blur-md translate-x-1' : 'text-slate-700 font-medium hover:bg-white/40 hover:text-slate-900 hover:translate-x-1 hover:shadow-sm'}`} title={!expanded ? label : ""}>
 			{({ isActive }) => (
 				<>
 					<div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 -translate-x-full group-hover:translate-x-full"></div>

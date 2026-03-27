@@ -121,7 +121,7 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
     def close_quarter(self, request):
-        """Закрытие четверти: сохранение архива и сброс баллов"""
+        """Закрытие четверти: сохранение архива и перенос бонусов"""
         quarter_id = request.data.get('quarter_id')
         if not quarter_id:
             return Response({"detail": "Не передан quarter_id"}, status=status.HTTP_400_BAD_REQUEST)
@@ -139,7 +139,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         results_to_create = []
 
         with transaction.atomic():
-            # 1. Готовим данные для архива
+            # 1. Готовим данные для архива и считаем бонусы
             for student in students:
                 is_exemplary = student.points >= 90
                 results_to_create.append(QuarterResult(
@@ -148,19 +148,37 @@ class StudentViewSet(viewsets.ModelViewSet):
                     final_points=student.points, 
                     is_exemplary=is_exemplary
                 ))
+                
+                # 2. Проверяем, были ли у ученика минусы (нарушения) в этой четверти
+                has_minuses = student.actions.filter(quarter=quarter, rule__points_impact__lt=0).exists()
+                
+                if not has_minuses:
+                    # У кого никаких минусов не было, их накопленные сверху баллы (points - 100)
+                    # добавляются к их бонусному счету на следующую четверть
+                    extra_points = max(0, student.points - 100)
+                    student.carryover_bonus = extra_points
+                else:
+                    # Если были минусы, бонус сгорает
+                    student.carryover_bonus = 0
+                    
+                # 3. Минусы "обнулятся" автоматически, потому что мы закроем четверть,
+                # и recalculate_points перестанет учитывать старые ActionLog.
+                # Сброс points мы не делаем руками — они пересчитаются по-новому.
+                student.save(update_fields=['carryover_bonus'])
             
-            # 2. Сохраняем весь архив ОДНИМ запросом
+            # 4. Сохраняем весь архив ОДНИМ запросом
             QuarterResult.objects.bulk_create(results_to_create)
             
-            # 3. Сбрасываем баллы до 100 только тем, кто привязан к классу (ОДИН запрос)
-            students.update(points=100)
-            
-            # 4. Закрываем четверть
+            # 5. Закрываем четверть
             quarter.is_active = False
             quarter.save(update_fields=['is_active'])
+            
+            # 6. Пересчитываем баллы всех учеников (теперь active_quarter нет, будет 100 + carryover)
+            for student in students:
+                student.recalculate_points()
 
         return Response({
-            "detail": f"Четверть '{quarter.name}' успешно закрыта. Баллы сброшены. Отличники сохранены в архив!"
+            "detail": f"Четверть '{quarter.name}' успешно закрыта. Баллы сброшены. Бонусы перенесены. Отличники сохранены в архив!"
         })
 
     # ========================================================

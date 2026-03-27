@@ -70,6 +70,7 @@ class Student(models.Model):
     
     # Лимит в 100 убран, теперь баллы могут расти!
     points = models.IntegerField(default=100, verbose_name="Холҳо (Баллы)") 
+    carryover_bonus = models.IntegerField(default=0, verbose_name="Бонуси гузаронидашуда")
 
     class Meta:
         verbose_name = "Хонанда"
@@ -97,11 +98,16 @@ class Student(models.Model):
 
     def recalculate_points(self):
         """
-        Метод-источник истины. Считает баллы по всей истории логов.
+        Метод-источник истины. Считает баллы по активной четверти.
         Вызывается сигналами при любом изменении ActionLog.
         """
-        impact = self.actions.aggregate(total=Sum('rule__points_impact'))['total'] or 0
-        self.points = 100 + impact # Убрали min(..., 100), чтобы баллы росли
+        active_quarter = Quarter.objects.filter(is_active=True).first()
+        if active_quarter:
+            impact = self.actions.filter(quarter=active_quarter).aggregate(total=Sum('rule__points_impact'))['total'] or 0
+        else:
+            impact = 0
+            
+        self.points = 100 + self.carryover_bonus + impact
         self.save(update_fields=['points'])
 
 # НОВАЯ МОДЕЛЬ: АРХИВ БАЛЛОВ ЗА ЧЕТВЕРТЬ
@@ -147,6 +153,7 @@ class ActionLog(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='actions', verbose_name="Хонанда")
     rule = models.ForeignKey(Rule, on_delete=models.RESTRICT, verbose_name="Қоида")
     teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='recorded_actions', verbose_name="Омӯзгор")
+    quarter = models.ForeignKey(Quarter, on_delete=models.SET_NULL, null=True, blank=True, related_name='actions', verbose_name="Чоряк")
     
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Сана (Дата)")
     description = models.TextField(blank=True, null=True, verbose_name="Шарҳ (Комментарий)")

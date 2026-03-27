@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, ChevronDown, User, LogOut, Settings, Menu, Loader2, LayoutDashboard, BarChart2, Activity, Users } from 'lucide-react';
+import { Search, Bell, ChevronDown, User, LogOut, Settings, Menu, Loader2, LayoutDashboard, BarChart2, Activity, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 
@@ -13,6 +13,11 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	const [studentResults, setStudentResults] = useState<any[]>([]);
 	const [navResults, setNavResults] = useState<any[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
+
+	// --- СОСТОЯНИЕ ИСТОРИИ УЧЕНИКА ---
+	const [selectedStudentHistory, setSelectedStudentHistory] = useState<any>(null);
+	const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+	const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
 	// --- СОСТОЯНИЯ УВЕДОМЛЕНИЙ ---
 	const [notifications, setNotifications] = useState<any[]>([]);
@@ -119,7 +124,25 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	}, [searchQuery]);
 
 	// ==========================================
-	// 4. ЭФФЕКТЫ И ЗАКРЫТИЕ ОКОН
+	// 4. ИСТОРИЯ УЧЕНИКА
+	// ==========================================
+	const openStudentHistory = async (studentId: number) => {
+		setIsLoadingHistory(true);
+		try {
+			const res = await api.get(`students/${studentId}/history/`);
+			setSelectedStudentHistory(res.data);
+			setIsHistoryModalOpen(true);
+		} catch (err) {
+			console.error("Ошибка загрузки истории:", err);
+		} finally {
+			setIsLoadingHistory(false);
+			setSearchQuery('');
+			setIsMobileSearchOpen(false);
+		}
+	};
+
+	// ==========================================
+	// 5. ЭФФЕКТЫ И ЗАКРЫТИЕ ОКОН
 	// ==========================================
 	useEffect(() => {
 		function handleClickOutside(event: MouseEvent) {
@@ -227,7 +250,8 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 											<div>
 												<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2">Ученики</p>
 												{studentResults.map(s => (
-													<div key={s.id} onClick={() => { setSearchQuery(''); }} className="p-3 hover:bg-indigo-50/80 rounded-xl cursor-pointer transition-all flex justify-between items-center group border border-transparent hover:border-indigo-100">
+													<div key={s.id} onClick={() => openStudentHistory(s.id)} className="p-3 hover:bg-indigo-50/80 rounded-xl cursor-pointer transition-all flex justify-between items-center group border border-transparent hover:border-indigo-100 relative">
+														{isLoadingHistory && <div className="absolute inset-0 bg-white/50 backdrop-blur-sm rounded-xl z-10 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={20} /></div>}
 														<div>
 															<p className="font-bold text-slate-800 text-[13px] group-hover:text-indigo-700 transition-colors">{s.first_name} {s.last_name}</p>
 															<p className="text-[11px] font-medium text-slate-500 mt-0.5">Класс: <span className="font-bold text-slate-600">{s.class_name || '—'}</span></p>
@@ -399,7 +423,8 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 										<div>
 											<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Ученики</p>
 											{studentResults.map(s => (
-												<div key={s.id} onClick={() => { setSearchQuery(''); setIsMobileSearchOpen(false); }} className="p-3 bg-slate-50/80 active:bg-indigo-50 rounded-2xl flex justify-between items-center transition-colors mb-1">
+												<div key={s.id} onClick={() => openStudentHistory(s.id)} className="p-3 bg-slate-50/80 active:bg-indigo-50 rounded-2xl flex justify-between items-center transition-colors mb-1 relative">
+													{isLoadingHistory && <div className="absolute inset-0 bg-white/50 backdrop-blur-sm rounded-2xl z-10 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={20} /></div>}
 													<div>
 														<p className="font-bold text-slate-800 text-[13px]">{s.first_name} {s.last_name}</p>
 														<p className="text-[11px] font-medium text-slate-500 mt-0.5">Класс: <span className="font-bold text-slate-600">{s.class_name || '—'}</span></p>
@@ -417,6 +442,53 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 							)}
 						</div>
 					)}
+				</div>
+			)}
+
+			{/* МОДАЛКА ИСТОРИИ УЧЕНИКА */}
+			{isHistoryModalOpen && selectedStudentHistory && (
+				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+					<div className="bg-white p-6 rounded-3xl w-full max-w-lg max-h-[80vh] flex flex-col relative shadow-2xl">
+						<button onClick={() => setIsHistoryModalOpen(false)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+							<X size={20} />
+						</button>
+						<h3 className="text-xl font-black text-slate-800 mb-1">{selectedStudentHistory.first_name} {selectedStudentHistory.last_name}</h3>
+						<p className="text-sm text-slate-500 font-medium mb-4">
+							Класс: {selectedStudentHistory.class_name} • Баллы: <span className={`font-bold ${selectedStudentHistory.points >= 80 ? 'text-green-600' : selectedStudentHistory.points >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>{selectedStudentHistory.points}</span>
+						</p>
+
+						<div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 mt-2">
+							<h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">История изменений</h4>
+							{selectedStudentHistory.recent_logs?.length > 0 ? (
+								selectedStudentHistory.recent_logs.map((log: any) => (
+									<div key={log.id} className="p-3 bg-slate-50 rounded-2xl flex gap-3 items-start border border-slate-100 transition-all hover:bg-slate-100">
+										<div className={`mt-1 flex items-center justify-center w-9 h-9 rounded-xl font-black text-sm shrink-0 shadow-sm ${log.is_positive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+											{log.is_positive ? '+' : ''}{log.points_impact}
+										</div>
+										<div className="flex-1">
+											<p className="text-[13px] font-bold text-slate-800 leading-tight">{log.rule_title}</p>
+											<p className="text-[11px] font-medium text-slate-500 mt-1.5 flex items-center gap-1.5">
+												<span className="inline-flex items-center justify-center w-4 h-4 bg-white rounded-full border border-slate-200 text-[8px] font-bold text-slate-600 shadow-sm">
+													{log.teacher_name[0]}
+												</span>
+												{log.teacher_name} • {formatTime(log.created_at)}
+											</p>
+										</div>
+									</div>
+								))
+							) : (
+								<div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+									<Activity size={32} className="mx-auto text-slate-300 mb-3" />
+									<p className="text-sm font-bold text-slate-500">История пуста</p>
+									<p className="text-xs font-medium text-slate-400 mt-1">Никаких событий не зафиксировано</p>
+								</div>
+							)}
+						</div>
+
+						<div className="mt-5 pt-4 border-t border-slate-100">
+							<button onClick={() => setIsHistoryModalOpen(false)} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all active:scale-95">Закрыть</button>
+						</div>
+					</div>
 				</div>
 			)}
 		</header>

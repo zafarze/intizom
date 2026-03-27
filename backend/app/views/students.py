@@ -277,3 +277,42 @@ class StudentViewSet(viewsets.ModelViewSet):
             "total_students": total_students,
             "recent_logs": logs_data
         })
+
+    # ========================================================
+    # 5. ИСТОРИЯ УЧЕНИКА ДЛЯ АДМИНА/УЧИТЕЛЯ
+    # ========================================================
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def history(self, request, pk=None):
+        """
+        Возвращает историю логов конкретного ученика.
+        Используется при клике на ученика в поиске.
+        """
+        student = self.get_object()
+        
+        recent_logs = student.actions.select_related('rule', 'teacher').order_by('-created_at')[:20]
+        
+        logs_data = []
+        for log in recent_logs:
+            teacher_name = "Система"
+            if log.teacher:
+                first_initial = f" {log.teacher.first_name[0]}." if log.teacher.first_name else ""
+                teacher_name = f"{log.teacher.last_name}{first_initial}"
+
+            logs_data.append({
+                "id": log.id,
+                "rule_title": log.rule.title,
+                "points_impact": log.rule.points_impact,
+                "teacher_name": teacher_name,
+                "created_at": log.created_at,
+                "is_positive": log.rule.points_impact > 0
+            })
+            
+        return Response({
+            "id": student.id,
+            "first_name": student.first_name,
+            "last_name": student.last_name,
+            "class_name": student.school_class.name if student.school_class else "Нет класса",
+            "points": student.points,
+            "status_info": student.status_info,
+            "recent_logs": logs_data
+        })

@@ -8,6 +8,8 @@ const api = axios.create({
 	baseURL: BASE_URL,
 });
 
+let refreshPromise: Promise<string> | null = null;
+
 // ==========================================
 // 1. ИНТЕРЦЕПТОР ЗАПРОСОВ (Добавляем токен)
 // ==========================================
@@ -75,23 +77,35 @@ api.interceptors.response.use(
 					return Promise.reject(error);
 				}
 
-				// 👈 ИЗМЕНЕНО: Используем динамический BASE_URL вместо хардкода
-				const response = await axios.post(`${BASE_URL}token/refresh/`, {
-					refresh: refreshToken,
-				});
+				if (!refreshPromise) {
+					refreshPromise = axios.post(`${BASE_URL}token/refresh/`, {
+						refresh: refreshToken,
+					}).then(response => {
+						const newAccessToken = response.data.access;
+						localStorage.setItem('access_token', newAccessToken);
 
-				const newAccessToken = response.data.access;
-				localStorage.setItem('access_token', newAccessToken);
+						if (response.data.refresh) {
+							localStorage.setItem('refresh_token', response.data.refresh);
+						}
 
+						return newAccessToken;
+					}).catch(refreshError => {
+						// Если рефреш-токен протух — убиваем сессию полностью
+						localStorage.removeItem('access_token');
+						localStorage.removeItem('refresh_token');
+						localStorage.removeItem('user_role'); // 👈 ДОБАВЛЕНО: Полностью очищаем стейт юзера
+						window.location.href = '/login';
+						throw refreshError;
+					}).finally(() => {
+						refreshPromise = null;
+					});
+				}
+
+				const newAccessToken = await refreshPromise;
 				originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 				return api(originalRequest);
 
 			} catch (refreshError) {
-				// Если рефреш-токен протух — убиваем сессию полностью
-				localStorage.removeItem('access_token');
-				localStorage.removeItem('refresh_token');
-				localStorage.removeItem('user_role'); // 👈 ДОБАВЛЕНО: Полностью очищаем стейт юзера
-				window.location.href = '/login';
 				return Promise.reject(refreshError);
 			}
 		}

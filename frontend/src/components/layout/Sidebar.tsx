@@ -148,7 +148,6 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 										}
 									});
 								}
-								localStorage.removeItem('user');
 								window.location.reload();
 							}}
 						/>

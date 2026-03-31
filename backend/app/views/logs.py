@@ -56,8 +56,8 @@ class ActionLogViewSet(viewsets.ModelViewSet):
             if already_exists:
                 raise ValidationError({"detail": f"Омӯзгори дигар аллакай барои '{rule.title}' ба ин хонанда имрӯз минус мондааст."})
         
-        # 2. Находим активную четверть
-        active_quarter = Quarter.objects.filter(is_active=True).first()
+        # 2. Находим активную четверть (умный выбор по дате)
+        active_quarter = Quarter.get_current_quarter()
 
         # 3. Автоматически подставляем текущего учителя и четверть при создании записи
         teacher = self.request.user if self.request.user.is_authenticated else None

@@ -16,6 +16,8 @@ from .views import (
     DashboardStatsView,
     StatisticsView,
     MonitoringView,
+    ComparisonMetadataView,
+    CompareEntitiesView,
     SetActiveYearView,  
     ResetPointsView,
     CustomTokenObtainPairView
@@ -41,6 +43,8 @@ urlpatterns = [
     path('dashboard-stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
     path('statistics/', StatisticsView.as_view(), name='statistics'),
     path('monitoring/', MonitoringView.as_view(), name='monitoring'),
+    path('comparison-metadata/', ComparisonMetadataView.as_view(), name='comparison-metadata'),
+    path('compare/', CompareEntitiesView.as_view(), name='compare'),
     
     # НОВЫЕ ЭНДПОИНТЫ ДЛЯ НАСТРОЕК
     path('settings/set-year/<int:year_id>/', SetActiveYearView.as_view(), name='set-year'),

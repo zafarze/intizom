@@ -31,6 +31,17 @@ class Quarter(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.academic_year.year})"
+
+    @classmethod
+    def get_current_quarter(cls):
+        from django.utils import timezone
+        today = timezone.localdate()
+        # 1. Поиск точного совпадения периодов четверти с текущей датой
+        q = cls.objects.filter(start_date__lte=today, end_date__gte=today).first()
+        if q:
+            return q
+        # 2. Фолбэк на ручную активацию, если сейчас каникулы или даты не заполнены
+        return cls.objects.filter(is_active=True).first()
     
 # ==========================================
 # 1. МОДЕЛЬ КЛАССА
@@ -100,10 +111,10 @@ class Student(models.Model):
 
     def recalculate_points(self):
         """
-        Метод-источник истины. Считает баллы по активной четверти.
+        Метод-источник истины. Считает баллы по текущей четверти (умный выбор по дате).
         Вызывается сигналами при любом изменении ActionLog.
         """
-        active_quarter = Quarter.objects.filter(is_active=True).first()
+        active_quarter = Quarter.get_current_quarter()
         if active_quarter:
             impact = self.actions.filter(quarter=active_quarter).aggregate(total=Sum('rule__points_impact'))['total'] or 0
         else:

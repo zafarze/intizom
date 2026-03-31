@@ -8,6 +8,7 @@ import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import StudentDashboard from './pages/student/StudentDashboard';
 import Statistics from './pages/admin/Statistics';
 import Monitoring from './pages/admin/Monitoring';
+import Comparison from './pages/admin/Comparison';
 import Management from './pages/admin/Management';
 import Settings from './pages/admin/Settings';
 
@@ -87,6 +88,11 @@ export default function App() {
           <Route path="monitoring" element={
             <ProtectedRoute allowedRoles={['admin', 'teacher']}>
               <Monitoring />
+            </ProtectedRoute>
+          } />
+          <Route path="comparison" element={
+            <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+              <Comparison />
             </ProtectedRoute>
           } />
           <Route path="management" element={

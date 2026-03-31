@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Star, CheckCircle2, Award, Clock, Smartphone, UserX, XCircle, Zap, Loader2, X, History } from 'lucide-react';
+import { Search, CheckCircle2, Award, Clock, Smartphone, UserX, XCircle, Zap, Loader2, X, History, Users, ArrowLeft } from 'lucide-react';
 import api from '../../api/axios';
 
 // ==========================================
@@ -42,8 +42,10 @@ export default function TeacherDashboard() {
 	const [students, setStudents] = useState<Student[]>([]);
 	const [rulesGrouped, setRulesGrouped] = useState<Record<string, Rule[]>>({});
 	const [recentLogs, setRecentLogs] = useState<ActionLog[]>([]); // 👈 Добавили состояние для истории
+	const [bells, setBells] = useState<any[]>([]); // Состояние расписания
 
 	const [searchQuery, setSearchQuery] = useState('');
+	const [selectedClass, setSelectedClass] = useState<string | null>(null);
 	const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 	const [activeGroup, setActiveGroup] = useState<string | null>(null);
 	const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
@@ -54,6 +56,16 @@ export default function TeacherDashboard() {
 	const [successMessage, setSuccessMessage] = useState('');
 	const [showMobileHistory, setShowMobileHistory] = useState(false);
 
+	const [currentTime, setCurrentTime] = useState(new Date());
+
+	useEffect(() => {
+		const interval = setInterval(() => setCurrentTime(new Date()), 10000); // 10 sec update
+		return () => clearInterval(interval);
+	}, []);
+
+	const userStr = localStorage.getItem('user');
+	const user = userStr ? JSON.parse(userStr) : { name: 'Учитель' };
+
 	// ==========================================
 	// 2. ЗАГРУЗКА ДАННЫХ ИЗ DJANGO
 	// ==========================================
@@ -61,18 +73,21 @@ export default function TeacherDashboard() {
 	const fetchData = useCallback(async () => {
 		try {
 			// Добавили запрос к logs/ для истории учителя
-			const [studentsRes, rulesRes, logsRes] = await Promise.all([
+			const [studentsRes, rulesRes, logsRes, bellsRes] = await Promise.all([
 				api.get('students/'),
 				api.get('rules/'),
-				api.get('logs/')
+				api.get('logs/'),
+				api.get('timetable/')
 			]);
 
 			const studentsData = studentsRes.data.results || studentsRes.data;
 			const rulesData = rulesRes.data.results || rulesRes.data;
 			const logsData = logsRes.data.results || logsRes.data;
+			const bellsData = bellsRes.data.results || bellsRes.data;
 
 			setStudents(studentsData);
 			setRecentLogs(logsData);
+			setBells(bellsData);
 
 			const grouped = rulesData.reduce((acc: any, rule: Rule) => {
 				if (!acc[rule.category]) acc[rule.category] = [];
@@ -92,15 +107,12 @@ export default function TeacherDashboard() {
 		fetchData();
 	}, [fetchData]);
 
-	const filteredStudents = searchQuery
-		? students.filter(s =>
-			`${s.first_name} ${s.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			(s.class_name && s.class_name.toLowerCase().includes(searchQuery.toLowerCase()))
-		)
-		: [];
+	const uniqueClasses = Array.from(new Set(students.map(s => s.class_name))).filter(Boolean).sort();
+	const studentsInClass = selectedClass ? students.filter(s => s.class_name === selectedClass) : [];
 
 	const handleReset = () => {
 		setSelectedStudent(null);
+		// WE DO NOT reset selectedClass here, so the teacher stays in the same class!
 		setActiveGroup(null);
 		setSelectedRule(null);
 		setSearchQuery('');
@@ -162,18 +174,88 @@ export default function TeacherDashboard() {
 		return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={40} /></div>;
 	}
 
+	// ==========================================
+	// 5. РАСЧЕТ РЕЖИМА ДНЯ
+	// ==========================================
+	const getMinutesFromMidnight = (date: Date) => date.getHours() * 60 + date.getMinutes();
+	const getCurrentLessonInfo = () => {
+		if (!bells || bells.length === 0) return { type: 'none', label: 'Расписание не загружено' };
+
+		const currentMins = getMinutesFromMidnight(currentTime);
+
+		for (let i = 0; i < bells.length; i++) {
+			const bell = bells[i];
+			const startParts = bell.start_time.split(':');
+			const endParts = bell.end_time.split(':');
+			const startMins = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
+			const endMins = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
+
+			if (currentMins >= startMins && currentMins <= endMins) {
+				const percent = Math.max(0, Math.min(100, Math.round(((currentMins - startMins) / (endMins - startMins)) * 100)));
+				return { type: 'lesson', label: `${bell.lesson_number} урок`, percent, remains: endMins - currentMins };
+			}
+
+			// check if it's break before the next lesson
+			if (currentMins < startMins) {
+				if (i === 0) return { type: 'before', label: 'До начала занятий', remains: startMins - currentMins };
+				const prevBell = bells[i - 1];
+				const pEndParts = prevBell.end_time.split(':');
+				const pEndMins = parseInt(pEndParts[0]) * 60 + parseInt(pEndParts[1]);
+				return { type: 'break', label: 'Перемена', remains: startMins - currentMins, totalBreak: startMins - pEndMins, passed: currentMins - pEndMins };
+			}
+		}
+
+		return { type: 'after', label: 'Уроки окончены' };
+	};
+
+	const lessonInfo = getCurrentLessonInfo();
+
 	return (
 		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500">
 
-			{/* 1. ШАПКА */}
-			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 bg-white/40 backdrop-blur-md border border-white p-6 rounded-[2rem] shadow-sm">
-				<div>
-					<h1 className="text-2xl font-black text-slate-800 tracking-tight">Здравствуйте, Учитель!</h1>
-					<p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-2">
-						<Star size={14} className="text-orange-400 fill-orange-400" />
-						Панель управления дисциплиной
-					</p>
+			{/* 1. ШАПКА И РАСПИСАНИЕ ЗВОНКОВ */}
+			<div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-4 mt-2 px-2">
+				{/* Приветствие */}
+				<div className="flex items-center gap-3">
+					<h1 className="text-[15px] font-bold text-slate-500">
+						👋 Здравствуйте, <span className="text-indigo-600 font-black">{user.name.split(' ')[0]}</span>!
+					</h1>
 				</div>
+
+				{/* Мини-виджет расписания */}
+				{bells.length > 0 && lessonInfo.type !== 'none' && (
+					<div className="bg-white/70 backdrop-blur-xl border border-white px-4 py-3 rounded-2xl shadow-sm flex items-center justify-between sm:justify-end gap-5">
+						<div className="flex items-center gap-3">
+							<div className={`w-8 h-8 rounded-full flex items-center justify-center ${lessonInfo.type === 'lesson' ? 'bg-indigo-100 text-indigo-500 animate-pulse' : lessonInfo.type === 'break' ? 'bg-orange-100 text-orange-500' : 'bg-slate-100 text-slate-400'}`}>
+								<Clock size={16} />
+							</div>
+							<div className="flex flex-col justify-center">
+								<span className="text-[12px] font-black text-slate-800 tracking-wide leading-none">{lessonInfo.label}</span>
+								{lessonInfo.type === 'lesson' && (
+									<span className="text-[11px] font-bold text-indigo-500 mt-1 leading-none">Осталось {lessonInfo.remains} мин</span>
+								)}
+								{(lessonInfo.type === 'break' || lessonInfo.type === 'before') && (
+									<span className="text-[11px] font-bold text-orange-500 mt-1 leading-none">Начнется через {lessonInfo.remains} мин</span>
+								)}
+								{lessonInfo.type === 'after' && (
+									<span className="text-[11px] font-medium text-slate-400 mt-1 leading-none">Отдыхайте</span>
+								)}
+							</div>
+						</div>
+
+						{/* ProgressBar */}
+						{lessonInfo.type === 'lesson' && (
+							<div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden shrink-0 hidden sm:block">
+								<div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${lessonInfo.percent}%` }}></div>
+							</div>
+						)}
+						{lessonInfo.type === 'break' && (
+							<div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden shrink-0 hidden sm:block">
+								<div className="h-full bg-orange-400 rounded-full transition-all duration-1000" style={{ width: `${((lessonInfo.passed ?? 0) / (lessonInfo.totalBreak ?? 1)) * 100}%` }}></div>
+							</div>
+						)}
+					</div>
+				)}
 			</div>
 
 			{/* УВЕДОМЛЕНИЕ ОБ УСПЕХЕ */}
@@ -196,7 +278,7 @@ export default function TeacherDashboard() {
 							</div>
 							<div>
 								<h2 className="text-lg font-black text-slate-800">Быстрая фиксация</h2>
-								<p className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Журнал СИН</p>
+
 							</div>
 						</div>
 						<button
@@ -208,65 +290,102 @@ export default function TeacherDashboard() {
 						</button>
 					</div>
 
-					{/* ШАГ 1: Поиск ученика */}
-					<div className="relative z-20 mb-6">
-						<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 block ml-1">1. Выберите ученика</label>
-						{!selectedStudent ? (
-							<div className="relative">
+					{/* WIZARD FLOW */}
+					{!selectedClass && !selectedStudent && (
+						<div className="animate-in fade-in zoom-in-95 duration-300 relative z-20 mb-6">
+							<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block ml-1">1. Выберите класс</label>
+							<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+								{uniqueClasses.length > 0 ? uniqueClasses.map(cls => (
+									<button
+										key={cls}
+										onClick={() => { setSelectedClass(cls); setSearchQuery(''); }}
+										className="bg-white/80 backdrop-blur-md border border-slate-100 hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5 transition-all p-4 rounded-2xl flex flex-col items-center justify-center gap-2 group"
+									>
+										<div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+											<Users size={20} />
+										</div>
+										<span className="font-black text-slate-700 text-lg">{cls}</span>
+									</button>
+								)) : (
+									<div className="col-span-full text-center p-6 text-slate-400 text-sm font-medium border border-dashed border-slate-200 rounded-2xl">
+										Классы пока не загружены
+									</div>
+								)}
+							</div>
+						</div>
+					)}
+
+					{selectedClass && !selectedStudent && (
+						<div className="animate-in fade-in slide-in-from-right-4 duration-300 relative z-20 mb-6">
+							<div className="flex items-center justify-between mb-4">
+								<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">2. Выберите ученика</label>
+								<button onClick={() => { setSelectedClass(null); setSearchQuery(''); }} className="text-[11px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95">
+									<ArrowLeft size={14} /> Назад к классам
+								</button>
+							</div>
+
+							{/* Поиск внутри класса */}
+							<div className="relative mb-4">
 								<div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
 									<Search size={18} className="text-slate-400" />
 								</div>
 								<input
 									type="text"
-									placeholder="Введите имя или класс (например: Умед или 9 Б)..."
+									placeholder={`Быстрый поиск в классе ${selectedClass}...`}
 									value={searchQuery}
 									onChange={(e) => setSearchQuery(e.target.value)}
-									className="w-full bg-white border border-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100/50 rounded-2xl pl-11 pr-4 py-4 text-[15px] font-medium text-slate-800 placeholder-slate-400 outline-none transition-all shadow-sm"
+									className="w-full bg-white border border-slate-200 focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100/50 rounded-2xl pl-11 pr-4 py-3.5 text-[15px] font-medium text-slate-800 placeholder-slate-400 outline-none transition-all shadow-sm"
 								/>
+							</div>
 
-								{/* Выпадающий список поиска */}
-								{searchQuery && (
-									<div className="absolute top-full left-0 right-0 mt-2 bg-white/90 backdrop-blur-3xl border border-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-										{filteredStudents.length > 0 ? (
-											filteredStudents.map(s => (
-												<button
-													key={s.id}
-													onClick={() => { setSelectedStudent(s); setSearchQuery(''); }}
-													className="w-full text-left px-4 py-3 hover:bg-indigo-50 flex items-center justify-between transition-colors border-b border-slate-50 last:border-0"
-												>
-													<div>
-														<p className="font-bold text-slate-800">{s.first_name} {s.last_name}</p>
-														<p className="text-[12px] font-medium text-slate-500">Класс: {s.class_name || 'Нет класса'}</p>
-													</div>
-													<div className={`px-2 py-1 rounded-md text-[11px] font-bold ${s.points >= 80 ? 'bg-green-100 text-green-700' : s.points >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-														{s.points} баллов
-													</div>
-												</button>
-											))
-										) : (
-											<div className="px-4 py-6 text-center text-slate-500 text-sm font-medium">Ученик не найден</div>
-										)}
-									</div>
+							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[40vh] sm:max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
+								{studentsInClass
+									.filter(s => `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()))
+									.map(s => (
+										<button
+											key={s.id}
+											onClick={() => setSelectedStudent(s)}
+											className="bg-white border border-slate-100 p-3 rounded-2xl flex items-center justify-between hover:border-indigo-300 hover:shadow-sm transition-all text-left active:scale-[0.98]"
+										>
+											<div className="flex items-center gap-3 overflow-hidden">
+												<div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center font-black text-slate-600 border border-slate-100 shrink-0 shadow-sm">
+													{s.first_name.charAt(0)}
+												</div>
+												<div className="overflow-hidden">
+													<p className="font-bold text-slate-800 text-[13px] truncate">{s.first_name} {s.last_name}</p>
+												</div>
+											</div>
+											<div className={`px-2 py-1.5 rounded-xl text-[12px] font-black shrink-0 shadow-sm ${s.points >= 80 ? 'bg-green-100 text-green-700 border border-green-200' : s.points >= 50 ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+												{s.points} б.
+											</div>
+										</button>
+									))}
+								{studentsInClass.filter(s => `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+									<div className="col-span-full p-4 text-center text-slate-400 text-sm font-medium">Никто не найден</div>
 								)}
 							</div>
-						) : (
-							/* Выбранный ученик */
-							<div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-2xl p-4 shadow-inner animate-in zoom-in-95 duration-200">
+						</div>
+					)}
+
+					{selectedStudent && (
+						<div className="animate-in fade-in zoom-in-95 duration-300 relative z-20 mb-6">
+							<div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-2xl p-4 shadow-inner">
 								<div className="flex items-center gap-4">
 									<div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center font-black text-indigo-600 border border-indigo-100">
 										{selectedStudent.first_name.charAt(0)}
 									</div>
 									<div>
-										<p className="font-black text-slate-800 text-lg">{selectedStudent.first_name} {selectedStudent.last_name}</p>
+										<p className="font-black text-slate-800 text-lg leading-tight">{selectedStudent.first_name} {selectedStudent.last_name}</p>
 										<p className="text-sm font-bold text-indigo-600">Класс: {selectedStudent.class_name || '-'} • {selectedStudent.points} баллов</p>
 									</div>
 								</div>
-								<button onClick={handleReset} className="p-2 text-slate-400 hover:text-red-500 transition-colors bg-white rounded-xl shadow-sm border border-slate-100">
-									<XCircle size={20} />
+								<button onClick={() => { setSelectedStudent(null); setActiveGroup(null); setSelectedRule(null); }} className="p-2 sm:px-4 sm:py-2 text-slate-500 hover:text-red-500 hover:bg-red-50 bg-white rounded-xl shadow-sm border border-slate-200 transition-colors flex items-center gap-2 active:scale-95">
+									<span className="hidden sm:inline text-xs font-bold">Сменить</span>
+									<XCircle size={18} />
 								</button>
 							</div>
-						)}
-					</div>
+						</div>
+					)}
 
 					{/* ШАГ 2: Категория нарушения */}
 					<div className={`transition-all duration-500 ${selectedStudent ? 'opacity-100 max-h-[3000px]' : 'opacity-30 pointer-events-none max-h-[400px]'}`}>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
 	LayoutDashboard, BarChart2, Activity, Users,
-	Settings, LogOut, PanelLeftClose, PanelLeftOpen, RefreshCw
+	Settings, LogOut, PanelLeftClose, PanelLeftOpen, RefreshCw, GitCompare
 } from 'lucide-react';
 import logoUrl from '../../assets/logo.png';
 
@@ -119,6 +119,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 									<>
 										<NavItem expanded={expanded} to="/statistics" icon={<BarChart2 size={20} />} label="Статистика" onClick={handleNavClick} />
 										<NavItem expanded={expanded} to="/monitoring" icon={<Activity size={20} />} label="Мониторинг" badge="Live" onClick={handleNavClick} />
+										<NavItem expanded={expanded} to="/comparison" icon={<GitCompare size={20} />} label="Сравнение" onClick={handleNavClick} />
 									</>
 								)}
 

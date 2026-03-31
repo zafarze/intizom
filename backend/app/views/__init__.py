@@ -5,7 +5,7 @@ from .logs import ActionLogViewSet, AppNotificationViewSet
 from .years import AcademicYearViewSet, QuarterViewSet
 from .teachers import TeacherViewSet
 from .subjects import SubjectViewSet
-from .analytics import DashboardStatsView, StatisticsView, MonitoringView
+from .analytics import DashboardStatsView, StatisticsView, MonitoringView, ComparisonMetadataView, CompareEntitiesView
 from .settings import SetActiveYearView, ResetPointsView
 from .auth import CustomTokenObtainPairView
 from .timetable import BellScheduleViewSet

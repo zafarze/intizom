@@ -5,7 +5,7 @@ from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
 
 # 👇 ДОБАВЛЕН ИМПОРТ QuarterResult ДЛЯ СТАТИСТИКИ ОТЛИЧНИКОВ
-from app.models import Student, SchoolClass, ActionLog, Rule, QuarterResult
+from app.models import Student, SchoolClass, ActionLog, Rule, QuarterResult, Quarter
 
 class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -173,3 +173,108 @@ class MonitoringView(APIView):
             "classes": classes_data,
             "live_logs": logs_data
         })
+
+class ComparisonMetadataView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        quarters = list(Quarter.objects.values('id', 'name', 'is_active', 'academic_year__year').order_by('-id'))
+        
+        current_q = Quarter.get_current_quarter()
+        
+        # Format quarter name to include year
+        formatted_quarters = []
+        for q in quarters:
+            is_truly_active = (current_q and q['id'] == current_q.id)
+            formatted_quarters.append({
+                "id": q['id'],
+                "name": f"{q['name']} ({q['academic_year__year']})",
+                "is_active": is_truly_active
+            })
+            
+        classes = list(SchoolClass.objects.values('id', 'name').order_by('name'))
+        students = list(Student.objects.values('id', 'first_name', 'last_name', 'school_class__name').order_by('school_class__name', 'last_name'))
+        
+        return Response({
+            "quarters": formatted_quarters,
+            "classes": classes,
+            "students": [{"id": s['id'], "name": f"{s['last_name']} {s['first_name']}", "class_name": s['school_class__name'] or "Нет класса"} for s in students]
+        })
+
+class CompareEntitiesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        entity_type = request.query_params.get('type') # 'student' or 'class'
+        entity_id = request.query_params.get('id')
+        quarter_id = request.query_params.get('quarter_id')
+        
+        if not entity_id:
+            return Response({"error": "Missing entity id"}, status=400)
+            
+        # if quarter_id is empty, use current active quarter
+        if not quarter_id:
+            active_q = Quarter.get_current_quarter()
+            if active_q:
+                quarter_id = active_q.id
+
+        if not quarter_id:
+             return Response({"error": "Quarter not found"}, status=404)
+             
+        quarter = Quarter.objects.filter(id=quarter_id).first()
+        if not quarter:
+             return Response({"error": "Quarter not found"}, status=404)
+
+        current_q = Quarter.get_current_quarter()
+        is_queried_quarter_current = (current_q and quarter.id == current_q.id)
+
+        if entity_type == 'student':
+            student = Student.objects.filter(id=entity_id).first()
+            if not student:
+                 return Response({"error": "Student not found"}, status=404)
+            
+            # Get points: if active quarter, use current points. If past quarter, use QuarterResult.
+            if is_queried_quarter_current:
+                points = student.points
+            else:
+                qr = QuarterResult.objects.filter(student=student, quarter=quarter).first()
+                points = qr.final_points if qr else 100 # default 100 if no record
+
+            # Get actions
+            actions = ActionLog.objects.filter(student=student, quarter=quarter)
+            bonuses = actions.filter(rule__points_impact__gt=0).count()
+            violations = actions.filter(rule__points_impact__lt=0).count()
+            
+            return Response({
+                "name": f"{student.last_name} {student.first_name}",
+                "subtitle": student.school_class.name if student.school_class else "Нет класса",
+                "points": points,
+                "bonuses": bonuses,
+                "violations": violations
+            })
+
+        elif entity_type == 'class':
+            school_class = SchoolClass.objects.filter(id=entity_id).first()
+            if not school_class:
+                 return Response({"error": "Class not found"}, status=404)
+
+            students = school_class.students.all()
+            
+            if is_queried_quarter_current:
+                avg_points = students.aggregate(avg=Avg('points'))['avg'] or 100
+            else:
+                avg_points = QuarterResult.objects.filter(student__in=students, quarter=quarter).aggregate(avg=Avg('final_points'))['avg'] or 100
+
+            actions = ActionLog.objects.filter(student__in=students, quarter=quarter)
+            bonuses = actions.filter(rule__points_impact__gt=0).count()
+            violations = actions.filter(rule__points_impact__lt=0).count()
+
+            return Response({
+                "name": school_class.name,
+                "subtitle": f"{students.count()} учеников",
+                "points": round(avg_points, 1),
+                "bonuses": bonuses,
+                "violations": violations
+            })
+
+        return Response({"error": "Invalid type"}, status=400)

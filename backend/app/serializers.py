@@ -261,6 +261,7 @@ class ActionLogSerializer(serializers.ModelSerializer):
     student_detail = StudentSerializer(source='student', read_only=True)
     rule_detail = RuleSerializer(source='rule', read_only=True)
     teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
+    teacher_id = serializers.PrimaryKeyRelatedField(source='teacher', read_only=True)
 
     student_id = serializers.PrimaryKeyRelatedField(
         queryset=Student.objects.all(), source='student', write_only=True
@@ -273,7 +274,7 @@ class ActionLogSerializer(serializers.ModelSerializer):
         model = ActionLog
         fields = [
             'id', 'student_id', 'student_detail', 'rule_id', 
-            'rule_detail', 'teacher_name', 'created_at', 'description' # 👈 ДОБАВИЛИ description
+            'rule_detail', 'teacher_name', 'teacher_id', 'created_at', 'description'
         ]
 
 # ==========================================

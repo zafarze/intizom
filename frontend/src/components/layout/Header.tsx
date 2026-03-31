@@ -79,7 +79,9 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			const logs = logsRes.data?.results || logsRes.data || [];
 			const notifs = notifsRes.data?.results || notifsRes.data || [];
 
-			const mappedLogs = logs.map((l: any) => ({ ...l, itemType: 'log' }));
+			const filteredLogs = logs.filter((l: any) => l.teacher_id !== user?.id);
+
+			const mappedLogs = filteredLogs.map((l: any) => ({ ...l, itemType: 'log' }));
 			const mappedNotifs = notifs.map((n: any) => ({ ...n, itemType: 'sys' }));
 
 			const combined = [...mappedLogs, ...mappedNotifs].sort((a, b) => 
@@ -96,6 +98,17 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			
 			const unread = latestLogs.filter((item: any) => new Date(item.created_at).getTime() > lastSeenTime).length;
 			setUnreadCount(unread);
+
+			// PWA Апдейт иконки (для телефонов и ПК)
+			if ('setAppBadge' in navigator) {
+				if (unread > 0) {
+					// @ts-ignore
+					navigator.setAppBadge(unread).catch(console.error);
+				} else {
+					// @ts-ignore
+					navigator.clearAppBadge().catch(console.error);
+				}
+			}
 
 		} catch (err) {
 			console.error("Ошибка загрузки уведомлений", err);
@@ -114,6 +127,12 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			// Сохраняем текущее время как время прочтения
 			localStorage.setItem('last_seen_notif_time', new Date().toISOString());
 			setUnreadCount(0); // Убираем красную точку
+			
+			// PWA: Убираем бейдж с иконки на рабочем столе
+			if ('clearAppBadge' in navigator) {
+				// @ts-ignore
+				navigator.clearAppBadge().catch(console.error);
+			}
 		}
 	};
 

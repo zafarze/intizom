@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Users, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
-import { TableTemplate, ActionButtons } from './Shared';
+import { TableTemplate, ActionButtons, Modal } from './Shared';
 
-export default function SubjectsTab({ data, refresh }: { data: any[], refresh: () => void }) {
+export default function SubjectsTab({ data, teachers = [], refresh }: { data: any[], teachers?: any[], refresh: () => void }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [name, setName] = useState('');
+
+	// Состояние для модалки списка учителей
+	const [selectedSubjectTeachers, setSelectedSubjectTeachers] = useState<any[] | null>(null);
+	const [subjectNameForTeachers, setSubjectNameForTeachers] = useState<string>('');
 
 	const openModal = (item?: any) => {
 		setEditingId(item?.id || null);
@@ -46,21 +50,74 @@ export default function SubjectsTab({ data, refresh }: { data: any[], refresh: (
 				</button>
 			</div>
 
-			<TableTemplate headers={['ID', 'Название предмета', 'Действия']}>
-				{data.map(s => (
-					<tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-						<td className="py-4 px-4 text-xs font-mono text-slate-400">{s.id}</td>
-						<td className="py-4 px-4 font-bold text-lg text-indigo-700">{s.name}</td>
-						<td className="py-4 px-4">
-							<ActionButtons onEdit={() => openModal(s)} onDelete={() => handleDelete(s.id)} />
-						</td>
-					</tr>
-				))}
+			<TableTemplate headers={['№', 'Название предмета', 'Учителя', 'Действия']}>
+				{data.map((s, idx) => {
+					// Находим всех учителей, у которых в active_subject_ids есть s.id
+					const attachedTeachers = teachers.filter(t => t.active_subject_ids && t.active_subject_ids.includes(s.id));
+					return (
+						<tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+							<td className="py-4 px-4 font-bold text-xs text-slate-400 w-12">{idx + 1}</td>
+							<td className="py-4 px-4 font-bold text-lg text-indigo-700">{s.name}</td>
+							<td className="py-4 px-4 font-medium text-sm text-slate-600">
+								<button 
+									onClick={() => {
+										setSelectedSubjectTeachers(attachedTeachers);
+										setSubjectNameForTeachers(s.name);
+									}}
+									className="group flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 px-3 py-1.5 rounded-lg transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-indigo-100"
+								>
+									<Users size={14} className="group-hover:text-indigo-500" />
+									<span className="font-bold">{attachedTeachers.length}</span> чел.
+								</button>
+							</td>
+							<td className="py-4 px-4">
+								<ActionButtons onEdit={() => openModal(s)} onDelete={() => handleDelete(s.id)} />
+							</td>
+						</tr>
+					);
+				})}
 			</TableTemplate>
 
-			{isModalOpen && (
-				<div className="fixed inset-0 flex items-center justify-center p-4 bg-slate-900/60 z-50 animate-in fade-in duration-200">
-					<div className="bg-white p-6 rounded-3xl w-full max-w-sm animate-in zoom-in-95">
+			{/* МОДАЛКА СО СПИСКОМ УЧИТЕЛЕЙ ПО ПРЕДМЕТУ */}
+			<Modal isOpen={!!selectedSubjectTeachers} onClose={() => setSelectedSubjectTeachers(null)}>
+				<div className="bg-white p-6 rounded-[2rem] w-full max-w-sm shadow-2xl">
+					<div className="flex justify-between items-center mb-6">
+						<div>
+							<h3 className="text-xl font-black text-slate-800">Учителя</h3>
+							<p className="text-xs text-slate-500 font-medium mt-1">Предмет: <span className="text-indigo-600 font-bold">{subjectNameForTeachers}</span></p>
+						</div>
+						<button type="button" onClick={() => setSelectedSubjectTeachers(null)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all self-start"><X size={20} /></button>
+					</div>
+
+					<div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-2 space-y-2">
+						{selectedSubjectTeachers && selectedSubjectTeachers.length > 0 ? (
+							selectedSubjectTeachers.map(t => (
+								<div key={t.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-3 transition-colors hover:bg-indigo-50/50">
+									<div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+										{t.last_name?.[0] || ''}{t.first_name?.[0] || ''}
+									</div>
+									<div>
+										<p className="text-sm font-bold text-slate-800 leading-tight">{t.last_name} {t.first_name}</p>
+										<p className="text-[11px] font-medium text-slate-500">Логин: {t.username}</p>
+									</div>
+								</div>
+							))
+						) : (
+							<div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+								<p className="text-sm font-bold text-slate-500">Нет учителей</p>
+								<p className="text-[11px] font-medium text-slate-400 mt-1">К этому предмету еще не привязан ни один учитель</p>
+							</div>
+						)}
+					</div>
+
+					<div className="mt-6 pt-4 border-t border-slate-100">
+						<button onClick={() => setSelectedSubjectTeachers(null)} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all active:scale-95">Закрыть</button>
+					</div>
+				</div>
+			</Modal>
+
+			<Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+					<div className="bg-white p-6 rounded-3xl w-full max-w-sm">
 						<h3 className="font-black text-xl mb-4">{editingId ? 'Редактировать' : 'Добавить'} предмет</h3>
 						<form onSubmit={handleSubmit} className="space-y-4">
 							<input
@@ -76,8 +133,7 @@ export default function SubjectsTab({ data, refresh }: { data: any[], refresh: (
 							</div>
 						</form>
 					</div>
-				</div>
-			)}
+			</Modal>
 		</div>
 	);
 }

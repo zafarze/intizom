@@ -1,4 +1,6 @@
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, X } from 'lucide-react';
+import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export function TableTemplate({ headers, children }: { headers: (string | React.ReactNode)[], children: React.ReactNode }) {
 	return (
@@ -24,5 +26,34 @@ export function ActionButtons({ onEdit, onDelete, extraButton }: { onEdit: () =>
 			<button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><Edit size={16} /></button>
 			<button onClick={onDelete} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
 		</div>
+	);
+}
+
+export function Modal({ isOpen, onClose, children }: { isOpen: boolean, onClose: () => void, children: React.ReactNode }) {
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Escape' && isOpen) {
+				onClose();
+			}
+		};
+		if (isOpen) {
+			window.addEventListener('keydown', handleKeyDown);
+			document.body.style.overflow = 'hidden';
+		}
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+			document.body.style.overflow = 'auto';
+		};
+	}, [isOpen, onClose]);
+
+	if (!isOpen) return null;
+
+	return createPortal(
+		<div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onMouseDown={onClose}>
+			<div className="relative animate-in zoom-in-95 duration-200" onMouseDown={e => e.stopPropagation()} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+				{children}
+			</div>
+		</div>,
+		document.body
 	);
 }

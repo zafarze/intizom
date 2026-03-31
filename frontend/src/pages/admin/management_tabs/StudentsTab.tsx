@@ -3,7 +3,7 @@ import { Search, ChevronLeft, ChevronRight, Plus, FileUp, Filter, X, AlertCircle
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import api from '../../../api/axios';
-import { TableTemplate, ActionButtons } from './Shared';
+import { TableTemplate, ActionButtons, Modal } from './Shared';
 
 export default function StudentsTab({ data, classes, refresh }: { data: any[], classes: any[], refresh: () => void }) {
 	const [searchQuery, setSearchQuery] = useState('');
@@ -648,9 +648,8 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 			)}
 
 			{/* === МОДАЛКА ВЫБОРА КЛАССА ДЛЯ МАССОВОГО ПЕРЕВОДА === */}
-			{showBulkModal && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-					<div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-6">
+			<Modal isOpen={showBulkModal} onClose={() => setShowBulkModal(false)}>
+					<div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden p-6">
 						<h3 className="text-lg font-black text-slate-800 mb-4">Выберите новый класс</h3>
 						<select value={bulkClassId} onChange={(e) => setBulkClassId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-xl px-4 py-3 text-sm font-medium outline-none mb-6">
 							<option value="" disabled>Выберите класс из списка</option>
@@ -661,13 +660,11 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 							<button onClick={handleBulkUpdateClass} disabled={isSubmitting || !bulkClassId} className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl shadow-md transition-all">Перевести</button>
 						</div>
 					</div>
-				</div>
-			)}
+			</Modal>
 
 			{/* === МОДАЛКА ДОБАВЛЕНИЯ / РЕДАКТИРОВАНИЯ === */}
-			{isModalOpen && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-					<div className="bg-white p-6 rounded-[2rem] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+			<Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+					<div className="bg-white p-6 rounded-[2rem] w-full max-w-sm shadow-2xl">
 						<div className="flex justify-between items-center mb-6">
 							<h3 className="text-xl font-black text-slate-800">{editingId ? 'Редактировать' : 'Добавить'} ученика</h3>
 							<button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><X size={20} /></button>
@@ -701,13 +698,11 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 							</div>
 						</form>
 					</div>
-				</div>
-			)}
+			</Modal>
 
 			{/* === МОДАЛКА ИМПОРТА === */}
-			{isImportModalOpen && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-					<div className="bg-white p-6 rounded-[2rem] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+			<Modal isOpen={isImportModalOpen} onClose={() => { setIsImportModalOpen(false); setSelectedImportFile(null); }}>
+					<div className="bg-white p-6 rounded-[2rem] w-full max-w-md shadow-2xl">
 						<div className="flex justify-between items-center mb-6">
 							<h3 className="text-xl font-black text-slate-800">Импорт учеников</h3>
 							<button onClick={() => { setIsImportModalOpen(false); setSelectedImportFile(null); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><X size={20} /></button>
@@ -757,16 +752,14 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 							</div>
 						</div>
 					</div>
-				</div>
-			)}
+			</Modal>
 
 			{/* === МОДАЛКА: СГЕНЕРИРОВАННЫЕ ПАРОЛИ === */}
-			{generatedAccounts && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
-					<div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+			<Modal isOpen={!!generatedAccounts} onClose={() => setGeneratedAccounts(null)}>
+					<div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
 						<div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
 							<div>
-								<h3 className="text-xl font-black text-slate-800">Доступы учеников ({generatedAccounts.length})</h3>
+								<h3 className="text-xl font-black text-slate-800">Доступы учеников ({generatedAccounts?.length || 0})</h3>
 								<p className="text-sm text-slate-500 font-medium mt-1">Обязательно сохраните их, пароли больше нигде не отобразятся!</p>
 							</div>
 							<button onClick={() => setGeneratedAccounts(null)} className="p-2 text-slate-400 hover:text-red-500 bg-white shadow-sm rounded-xl transition-all"><X size={20} /></button>
@@ -784,7 +777,7 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 										</tr>
 									</thead>
 									<tbody>
-										{generatedAccounts.map((acc, idx) => (
+										{generatedAccounts?.map((acc: any, idx: number) => (
 											<tr key={idx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
 												<td className="p-4 font-bold text-slate-800">{acc.first_name} {acc.last_name}</td>
 												<td className="p-4 font-medium text-slate-500">{acc.class_name}</td>
@@ -813,28 +806,25 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 							</button>
 						</div>
 					</div>
-				</div>
-			)}
+			</Modal>
 			{/* === КАСТОМНЫЙ АЛЕРТ ПОДТВЕРЖДЕНИЯ === */}
-			{confirmDialog && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-					<div className="bg-white p-6 rounded-[2rem] w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 text-center">
+			<Modal isOpen={!!confirmDialog} onClose={() => setConfirmDialog(null)}>
+					<div className="bg-white p-6 rounded-[2rem] w-full max-w-sm shadow-2xl text-center">
 						<div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 scale-110">
 							<AlertCircle size={32} />
 						</div>
 						<h3 className="text-xl font-black text-slate-800 mb-2">Внимание</h3>
-						<p className="text-sm font-medium text-slate-500 mb-6 px-2">{confirmDialog.message}</p>
+						<p className="text-sm font-medium text-slate-500 mb-6 px-2">{confirmDialog?.message}</p>
 						<div className="flex gap-3">
 							<button onClick={() => setConfirmDialog(null)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all">Отмена</button>
-							<button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold shadow-md transition-all active:scale-95">Подтвердить</button>
+							<button onClick={() => { confirmDialog?.onConfirm(); setConfirmDialog(null); }} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold shadow-md transition-all active:scale-95">Подтвердить</button>
 						</div>
 					</div>
-				</div>
-			)}
+			</Modal>
 			
 			{/* МОДАЛКА ИСТОРИИ УЧЕНИКА */}
-			{isHistoryModalOpen && selectedStudentHistory && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+			<Modal isOpen={isHistoryModalOpen && !!selectedStudentHistory} onClose={() => setIsHistoryModalOpen(false)}>
+				{selectedStudentHistory && (
 					<div className="bg-white p-6 rounded-3xl w-full max-w-lg max-h-[80vh] flex flex-col relative shadow-2xl">
 						<button onClick={() => setIsHistoryModalOpen(false)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
 							<X size={20} />
@@ -893,8 +883,8 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 							<button onClick={() => setIsHistoryModalOpen(false)} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all active:scale-95">Закрыть</button>
 						</div>
 					</div>
-				</div>
-			)}
+				)}
+			</Modal>
 		</div>
 	);
 }

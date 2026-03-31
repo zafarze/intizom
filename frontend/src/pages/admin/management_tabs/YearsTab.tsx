@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, PowerOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
-import { TableTemplate, ActionButtons } from './Shared';
+import { TableTemplate, ActionButtons, Modal } from './Shared';
 
 export default function YearsTab({ data, refresh }: { data: any[], refresh: () => void }) {
 	// Состояния для Учебного Года
@@ -159,9 +159,8 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 			</div>
 
 			{/* === МОДАЛКА УЧЕБНОГО ГОДА === */}
-			{isYearModalOpen && (
-				<div className="fixed inset-0 flex items-center justify-center p-4 bg-slate-900/60 z-50 animate-in fade-in duration-200">
-					<div className="bg-white p-6 rounded-3xl w-full max-w-sm animate-in zoom-in-95">
+			<Modal isOpen={isYearModalOpen} onClose={() => setIsYearModalOpen(false)}>
+					<div className="bg-white p-6 rounded-3xl w-full max-w-sm">
 						<h3 className="font-black text-xl mb-4">{editingYearId ? 'Редактировать' : 'Добавить'} учебный год</h3>
 						<form onSubmit={handleYearSubmit} className="space-y-5">
 							<input required placeholder="Например: 2025-2026" value={year} onChange={e => setYear(e.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none rounded-xl px-4 py-3 font-medium" />
@@ -175,13 +174,11 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 							</div>
 						</form>
 					</div>
-				</div>
-			)}
+			</Modal>
 
 			{/* === МОДАЛКА ЧЕТВЕРТИ === */}
-			{isQuarterModalOpen && (
-				<div className="fixed inset-0 flex items-center justify-center p-4 bg-slate-900/60 z-50 animate-in fade-in duration-200">
-					<div className="bg-white p-6 rounded-3xl w-full max-w-sm animate-in zoom-in-95">
+			<Modal isOpen={isQuarterModalOpen} onClose={() => setIsQuarterModalOpen(false)}>
+					<div className="bg-white p-6 rounded-3xl w-full max-w-sm">
 						<h3 className="font-black text-xl mb-4">{editingQuarterId ? 'Редактировать' : 'Добавить'} четверть</h3>
 						<form onSubmit={handleQuarterSubmit} className="space-y-4">
 							<input required placeholder="Например: 1-ум чоряк" value={quarterName} onChange={e => setQuarterName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium outline-none" />
@@ -201,8 +198,7 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 							</div>
 						</form>
 					</div>
-				</div>
-			)}
+			</Modal>
 		</div>
 	);
 }

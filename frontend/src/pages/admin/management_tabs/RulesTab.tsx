@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import api from '../../../api/axios';
-import { TableTemplate, ActionButtons } from './Shared';
+import { TableTemplate, ActionButtons, Modal } from './Shared';
 
 export default function RulesTab({ data, refresh }: { data: any[], refresh: () => void }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,7 +29,9 @@ export default function RulesTab({ data, refresh }: { data: any[], refresh: () =
 					<RuleRow key={r.id} index={index + 1} r={r} updateInline={updateInline} openModal={openModal} handleDelete={handleDelete} />
 				))}
 			</TableTemplate>
-			{isModalOpen && (<div className="fixed inset-0 flex items-center justify-center p-4 bg-slate-900/60 z-50"><div className="bg-white p-6 rounded-3xl w-full max-w-sm"><h3 className="font-black text-xl mb-4">Правило</h3><form onSubmit={handleSubmit} className="space-y-4"><input required placeholder="Описание (напр. Опоздание)" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="w-full bg-slate-50 border rounded-xl px-4 py-3" /><select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full bg-slate-50 border rounded-xl px-4 py-3"><option value="A">Мелкие</option><option value="B">Средние</option><option value="C">Тяжкие</option><option value="D">Особо тяжкие</option><option value="BONUS">Бонус</option></select><input type="number" required placeholder="-5" value={formData.points_impact} onChange={e => setFormData({ ...formData, points_impact: Number(e.target.value) })} className="w-full bg-slate-50 border rounded-xl px-4 py-3" /><select value={formData.is_multiple ? 'true' : 'false'} onChange={e => setFormData({ ...formData, is_multiple: e.target.value === 'true' })} className="w-full bg-slate-50 border rounded-xl px-4 py-3"><option value="false">Одиночное (Single)</option><option value="true">Многократное (Multiple)</option></select><div className="flex gap-2"><button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold">Отмена</button><button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button></div></form></div></div>)}
+			<Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+				<div className="bg-white p-6 rounded-3xl w-full max-w-sm"><h3 className="font-black text-xl mb-4">Правило</h3><form onSubmit={handleSubmit} className="space-y-4"><input required placeholder="Описание (напр. Опоздание)" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="w-full bg-slate-50 border rounded-xl px-4 py-3" /><select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full bg-slate-50 border rounded-xl px-4 py-3"><option value="A">Мелкие</option><option value="B">Средние</option><option value="C">Тяжкие</option><option value="D">Особо тяжкие</option><option value="BONUS">Бонус</option></select><input type="number" required placeholder="-5" value={formData.points_impact} onChange={e => setFormData({ ...formData, points_impact: Number(e.target.value) })} className="w-full bg-slate-50 border rounded-xl px-4 py-3" /><select value={formData.is_multiple ? 'true' : 'false'} onChange={e => setFormData({ ...formData, is_multiple: e.target.value === 'true' })} className="w-full bg-slate-50 border rounded-xl px-4 py-3"><option value="false">Одиночное (Single)</option><option value="true">Многократное (Multiple)</option></select><div className="flex gap-2"><button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold">Отмена</button><button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button></div></form></div>
+			</Modal>
 		</div>
 	);
 }

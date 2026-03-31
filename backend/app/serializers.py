@@ -3,7 +3,7 @@ from django.db import transaction
 from django.contrib.auth.models import User
 from .models import (
     SchoolClass, Student, Rule, ActionLog, 
-    AcademicYear, Subject, Quarter, TeacherProfile, AppNotification
+    AcademicYear, Subject, Quarter, TeacherProfile, AppNotification, BellSchedule
 )
 
 # ==========================================
@@ -249,4 +249,12 @@ class ActionLogSerializer(serializers.ModelSerializer):
 class AppNotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppNotification
-        fields = ['id', 'title', 'message', 'created_at', 'recipient']
+        fields = ['id', 'title', 'message', 'created_at', 'recipient']
+
+# ==========================================
+# 7. РАСПИСАНИЕ ЗВОНКОВ (BellSchedule)
+# ==========================================
+class BellScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BellSchedule
+        fields = ['id', 'lesson_number', 'start_time', 'end_time']

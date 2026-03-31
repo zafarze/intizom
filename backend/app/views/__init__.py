@@ -7,4 +7,5 @@ from .teachers import TeacherViewSet
 from .subjects import SubjectViewSet
 from .analytics import DashboardStatsView, StatisticsView, MonitoringView
 from .settings import SetActiveYearView, ResetPointsView
-from .auth import CustomTokenObtainPairView # 👈 ДОБАВИЛИ НАШ КАСТОМНЫЙ ЛОГИН
+from .auth import CustomTokenObtainPairView
+from .timetable import BellScheduleViewSet

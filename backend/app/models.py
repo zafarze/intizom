@@ -204,4 +204,20 @@ class AppNotification(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.title} -> {self.recipient.username if self.recipient else 'Всем'}"
+        return f"{self.title} -> {self.recipient.username if self.recipient else 'Всем'}"
+
+# ==========================================
+# 7. РАСПИСАНИЕ ЗВОНКОВ (Time Table)
+# ==========================================
+class BellSchedule(models.Model):
+    lesson_number = models.PositiveIntegerField(unique=True, verbose_name="Номер урока")
+    start_time = models.TimeField(verbose_name="Начало урока")
+    end_time = models.TimeField(verbose_name="Конец урока")
+
+    class Meta:
+        verbose_name = "Звонок"
+        verbose_name_plural = "Расписание звонков"
+        ordering = ['lesson_number']
+
+    def __str__(self):
+        return f"Урок {self.lesson_number}: {self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')}"

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
-import { TableTemplate, ActionButtons } from './Shared';
+import { TableTemplate, ActionButtons, Modal } from './Shared';
 
 export default function ClassesTab({ data, students, refresh }: { data: any[], students: any[], refresh: () => void }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,7 +48,9 @@ export default function ClassesTab({ data, students, refresh }: { data: any[], s
 					);
 				})}
 			</TableTemplate>
-			{isModalOpen && (<div className="fixed inset-0 flex items-center justify-center p-4 bg-slate-900/60 z-50"><div className="bg-white p-6 rounded-3xl w-full max-w-sm"><h3 className="font-black text-xl mb-4">Класс</h3><form onSubmit={handleSubmit} className="space-y-4"><input required placeholder="Например: 10 А" value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 border rounded-xl px-4 py-3" /><div className="flex gap-2"><button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold">Отмена</button><button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button></div></form></div></div>)}
+			<Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+				<div className="bg-white p-6 rounded-3xl w-full max-w-sm"><h3 className="font-black text-xl mb-4">Класс</h3><form onSubmit={handleSubmit} className="space-y-4"><input required placeholder="Например: 10 А" value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 border rounded-xl px-4 py-3" /><div className="flex gap-2"><button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold">Отмена</button><button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button></div></form></div>
+			</Modal>
 		</div>
 	);
 }

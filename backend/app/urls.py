@@ -12,12 +12,13 @@ from .views import (
     TeacherViewSet, 
     SubjectViewSet, 
     QuarterViewSet,
+    BellScheduleViewSet,
     DashboardStatsView,
     StatisticsView,
     MonitoringView,
     SetActiveYearView,  
     ResetPointsView,
-    CustomTokenObtainPairView # 👈 ИМПОРТИРУЕМ
+    CustomTokenObtainPairView
 )
 
 router = DefaultRouter()
@@ -30,6 +31,7 @@ router.register(r'years', AcademicYearViewSet)
 router.register(r'teachers', TeacherViewSet)      
 router.register(r'subjects', SubjectViewSet)
 router.register(r'quarters', QuarterViewSet)
+router.register(r'timetable', BellScheduleViewSet)
 
 urlpatterns = [
     # 👇 ПОДКЛЮЧИЛИ КАСТОМНЫЙ ЛОГИН СЮДА

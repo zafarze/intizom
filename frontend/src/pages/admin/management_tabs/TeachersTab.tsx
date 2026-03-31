@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Search, Plus, Key } from 'lucide-react';
+import { Search, Plus, Key, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
-import { TableTemplate, ActionButtons } from './Shared';
+import { TableTemplate, ActionButtons, Modal } from './Shared';
 
 export default function TeachersTab({ data, classes, subjects, refresh }: { data: any[], classes: any[], subjects: any[], refresh: () => void }) {
 	const [searchQuery, setSearchQuery] = useState('');
@@ -45,11 +45,12 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 	const paginated = filtered.slice((currentPage - 1) * 10, currentPage * 10);
 
 	return (
-		<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm">
-			<div className="flex justify-between mb-6 border-b border-white pb-4">
-				<div className="relative w-64"><Search size={18} className="absolute left-3 top-2.5 text-slate-400" /><input type="search" placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-white/50 border border-white rounded-xl text-sm outline-none" /></div>
-				<button onClick={() => openModal()} className="flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md"><Plus size={16} /> Добавить</button>
-			</div>
+		<>
+			<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm">
+				<div className="flex justify-between mb-6 border-b border-white pb-4">
+					<div className="relative w-64"><Search size={18} className="absolute left-3 top-2.5 text-slate-400" /><input type="search" placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-white/50 border border-white rounded-xl text-sm outline-none" /></div>
+					<button onClick={() => openModal()} className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all active:scale-95"><Plus size={16} /> Добавить учителя</button>
+				</div>
 
 			<TableTemplate headers={['№', 'ФИО Учителя', 'Предметы', 'Кл. Рук.', 'Логин', 'Действия']}>
 				{paginated.map((t, idx) => (
@@ -64,14 +65,18 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 				))}
 			</TableTemplate>
 
-			{isModalOpen && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-					<div className="bg-white p-6 rounded-[2rem] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200">
-						<h3 className="text-xl font-black mb-4">{editingId ? 'Редактировать' : 'Добавить'} учителя</h3>
+			</div>
+
+			<Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+					<div className="bg-white p-6 rounded-[2rem] w-full max-w-lg shadow-2xl">
+						<div className="flex justify-between items-center mb-6">
+							<h3 className="text-xl font-black text-slate-800">{editingId ? 'Редактировать' : 'Добавить'} учителя</h3>
+							<button type="button" onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><X size={20} /></button>
+						</div>
 						<form onSubmit={handleSubmit} className="space-y-4">
 							<div className="grid grid-cols-2 gap-4">
-								<input placeholder="Имя" required value={formData.t_first_name} onChange={e => setFormData({ ...formData, t_first_name: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" />
-								<input placeholder="Фамилия" required value={formData.t_last_name} onChange={e => setFormData({ ...formData, t_last_name: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" />
+								<input placeholder="Имя" required value={formData.t_first_name} onChange={e => setFormData({ ...formData, t_first_name: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-medium" />
+								<input placeholder="Фамилия" required value={formData.t_last_name} onChange={e => setFormData({ ...formData, t_last_name: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-medium" />
 							</div>
 							
 							<div className="space-y-2">
@@ -98,9 +103,13 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 								</div>
 							</div>
 							
-							<div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 mt-2">
-								<input placeholder="Логин" required value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" />
-								<input type="password" placeholder={editingId ? 'Новый пароль (оставьте пустым)' : 'Пароль'} required={!editingId} value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" />
+							<div className="pt-2 mt-2 border-t border-slate-100">
+								<p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Данные для входа (Опционально)</p>
+								<div className="space-y-2">
+									<input placeholder="Логин" required value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-medium" />
+									<input type="password" placeholder={editingId ? 'Новый пароль (оставьте пустым)' : 'Пароль'} required={!editingId} value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-medium" />
+								</div>
+								<p className="text-[10px] text-slate-400 mt-2 leading-tight">Оставьте пустым, если не хотите менять пароль.</p>
 							</div>
 							
 							<div className="flex gap-3 mt-6 pt-2">
@@ -109,8 +118,7 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 							</div>
 						</form>
 					</div>
-				</div>
-			)}
-		</div>
+			</Modal>
+		</>
 	);
 }

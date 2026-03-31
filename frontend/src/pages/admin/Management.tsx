@@ -11,9 +11,16 @@ import YearsTab from './management_tabs/YearsTab';
 import TimeTableTab from './management_tabs/TimeTableTab';
 
 export default function Management() {
-	const [activeTab, setActiveTab] = useState('Ученики');
+	const [activeTab, setActiveTab] = useState(() => {
+		return localStorage.getItem('management_active_tab') || 'Ученики';
+	});
 	const [data, setData] = useState<any>({ students: [], rules: [], classes: [], years: [], teachers: [], subjects: [], timetable: [] });
 	const [isLoading, setIsLoading] = useState(true);
+
+	const handleTabChange = (tabName: string) => {
+		setActiveTab(tabName);
+		localStorage.setItem('management_active_tab', tabName);
+	};
 
 	const tabs = [
 		{ name: 'Учебный год', icon: <Calendar size={18} /> },
@@ -55,7 +62,7 @@ export default function Management() {
 		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500">
 			<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-2 shadow-sm flex overflow-x-auto hide-scrollbar">
 				{tabs.map((tab, idx) => (
-					<button key={idx} onClick={() => setActiveTab(tab.name)} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === tab.name ? 'bg-white shadow-sm text-indigo-600 border border-white/50' : 'text-slate-500 hover:text-slate-700 hover:bg-white/40'}`}>
+					<button key={idx} onClick={() => handleTabChange(tab.name)} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === tab.name ? 'bg-white shadow-sm text-indigo-600 border border-white/50' : 'text-slate-500 hover:text-slate-700 hover:bg-white/40'}`}>
 						{tab.icon} {tab.name}
 					</button>
 				))}

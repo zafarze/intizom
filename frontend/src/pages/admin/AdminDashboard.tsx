@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, TrendingUp, AlertOctagon, ShieldAlert, Download, Plus, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import StatCard from '../../components/ui/StatCard';
 import api from '../../api/axios';
 
@@ -25,6 +26,7 @@ interface ActionLog {
 }
 
 export default function AdminDashboard() {
+	const navigate = useNavigate();
 	// --- СОСТОЯНИЯ ---
 	const [stats, setStats] = useState<any>(null); // Храним статистику с бэкенда
 	const [logs, setLogs] = useState<ActionLog[]>([]); // Оставляем логи для таблицы
@@ -237,9 +239,42 @@ export default function AdminDashboard() {
 								? ` Обратите внимание, ${atRiskCount} учеников находятся в зоне риска исключения!`
 								: ' Ситуация стабильная, учеников в зоне риска нет.'}
 						</p>
+
+						{/* Мини-статистика */}
+						<div className="grid grid-cols-3 gap-2 mt-5">
+							<div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-xl p-3 text-center">
+								<p className="text-[22px] font-black text-white leading-none">{totalStudents}</p>
+								<p className="text-[10px] text-indigo-200 font-bold mt-1 leading-tight">Всего<br/>учеников</p>
+							</div>
+							<div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-xl p-3 text-center">
+								<p className="text-[22px] font-black text-white leading-none">{violationsCount}</p>
+								<p className="text-[10px] text-indigo-200 font-bold mt-1 leading-tight">Нарушений<br/>всего</p>
+							</div>
+							<div className={`${atRiskCount > 0 ? 'bg-red-500/30 border-red-300/30' : 'bg-white/15 border-white/20'} backdrop-blur-sm border rounded-xl p-3 text-center`}>
+								<p className="text-[22px] font-black text-white leading-none">{atRiskCount}</p>
+								<p className="text-[10px] text-indigo-200 font-bold mt-1 leading-tight">Зона<br/>риска</p>
+							</div>
+						</div>
+
+						{/* Полоса среднего балла */}
+						<div className="mt-4">
+							<div className="flex justify-between items-center mb-1.5">
+								<span className="text-[11px] text-indigo-200 font-bold">Уровень дисциплины</span>
+								<span className="text-[11px] text-white font-black">{averageScore}/100</span>
+							</div>
+							<div className="w-full bg-white/20 rounded-full h-1.5">
+								<div
+									className={`h-1.5 rounded-full transition-all duration-1000 ${Number(averageScore) >= 80 ? 'bg-green-400' : Number(averageScore) >= 60 ? 'bg-yellow-400' : 'bg-red-400'}`}
+									style={{ width: `${Math.min(Number(averageScore), 100)}%` }}
+								/>
+							</div>
+						</div>
 					</div>
 
-					<button className="relative z-10 mt-8 w-full bg-white text-indigo-600 font-bold py-3 rounded-xl shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">
+					<button
+						onClick={() => navigate('/statistics')}
+						className="relative z-10 mt-5 w-full bg-white text-indigo-600 font-bold py-3 rounded-xl shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
+					>
 						Смотреть итоги месяца
 					</button>
 				</div>

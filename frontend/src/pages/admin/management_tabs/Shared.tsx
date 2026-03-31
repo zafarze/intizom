@@ -1,4 +1,4 @@
-import { Edit, Trash2, X } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 

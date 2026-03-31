@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Search, Bell, ChevronDown, User, LogOut, Settings, Menu, Loader2, LayoutDashboard, BarChart2, Activity, Users, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api/axios';
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
@@ -25,6 +25,17 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	const [isLoadingNotifs, setIsLoadingNotifs] = useState(false);
 
 	const navigate = useNavigate();
+	const location = useLocation();
+
+	const getPageTitle = () => {
+		const path = location.pathname;
+		if (path.includes('/management')) return 'Управление школой';
+		if (path.includes('/statistics')) return 'Статистика школы';
+		if (path.includes('/monitoring')) return 'Мониторинг (Live)';
+		if (path.includes('/settings')) return 'Настройки системы';
+		if (path.includes('/admin') || path.includes('/teacher')) return 'Главная (Дашбоард)';
+		return 'Система Интизом';
+	};
 
 	const profileRef = useRef<HTMLDivElement>(null);
 	const searchRef = useRef<HTMLDivElement>(null);
@@ -58,20 +69,32 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	// 2. ЖИВЫЕ УВЕДОМЛЕНИЯ (API)
 	// ==========================================
 	const fetchNotifications = async () => {
-		if (user.role === 'student') return; // Ученикам пока не показываем общие логи
-
 		setIsLoadingNotifs(true);
 		try {
-			const res = await api.get('logs/');
-			const logs = res.data.results || res.data;
+			const [logsRes, notifsRes] = await Promise.all([
+				api.get('logs/').catch(() => ({ data: [] })),
+				api.get('notifications/').catch(() => ({ data: [] }))
+			]);
+			
+			const logs = logsRes.data?.results || logsRes.data || [];
+			const notifs = notifsRes.data?.results || notifsRes.data || [];
 
-			// Берем последние 10 событий
-			const latestLogs = logs.slice(0, 10);
+			const mappedLogs = logs.map((l: any) => ({ ...l, itemType: 'log' }));
+			const mappedNotifs = notifs.map((n: any) => ({ ...n, itemType: 'sys' }));
+
+			const combined = [...mappedLogs, ...mappedNotifs].sort((a, b) => 
+				new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+			);
+
+			// Берем последние 15 событий
+			const latestLogs = combined.slice(0, 15);
 			setNotifications(latestLogs);
 
-			// Считаем непрочитанные (ищем ID последнего прочитанного лога в памяти браузера)
-			const lastSeenId = parseInt(localStorage.getItem('last_seen_notif_id') || '0', 10);
-			const unread = latestLogs.filter((log: any) => log.id > lastSeenId).length;
+			// Считаем непрочитанные (ищем ВРЕМЯ последнего просмотра в памяти браузера)
+			const lastSeenTimeStr = localStorage.getItem('last_seen_notif_time');
+			const lastSeenTime = lastSeenTimeStr ? new Date(lastSeenTimeStr).getTime() : 0;
+			
+			const unread = latestLogs.filter((item: any) => new Date(item.created_at).getTime() > lastSeenTime).length;
 			setUnreadCount(unread);
 
 		} catch (err) {
@@ -88,8 +111,8 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
 	const markAllAsRead = () => {
 		if (notifications.length > 0) {
-			const maxId = Math.max(...notifications.map(n => n.id));
-			localStorage.setItem('last_seen_notif_id', maxId.toString()); // Запоминаем, что мы всё прочитали
+			// Сохраняем текущее время как время прочтения
+			localStorage.setItem('last_seen_notif_time', new Date().toISOString());
 			setUnreadCount(0); // Убираем красную точку
 		}
 	};
@@ -214,22 +237,31 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 				<div className="absolute bottom-[-50%] right-[5%] w-48 h-48 bg-indigo-300/40 rounded-full blur-[30px]"></div>
 			</div>
 
-			{/* ЛЕВАЯ ЧАСТЬ: Гамбургер + Строка поиска */}
+			{/* ЛЕВАЯ ЧАСТЬ: Гамбургер + ЗАГОЛОВОК (вместо поиска) */}
 			<div className="relative z-10 flex items-center gap-3">
 				<button onClick={onMenuClick} className="lg:hidden p-2 rounded-xl text-indigo-900/60 bg-white/30 backdrop-blur-md border border-white/50 shadow-sm hover:text-indigo-700 hover:bg-white/50 transition-all active:scale-95">
 					<Menu size={20} />
 				</button>
 
-				{/* ПОИСКОВИК ДЛЯ ПК */}
+				{/* ДИНАМИЧЕСКИЙ ЗАГОЛОВОК СТРАНИЦЫ */}
+				<div className="hidden lg:flex items-center">
+					<h1 className="text-2xl font-black text-slate-800 tracking-tight">{getPageTitle()}</h1>
+				</div>
+			</div>
+
+			{/* ПРАВАЯ ЧАСТЬ: Поиск, Иконки и профиль */}
+			<div className="relative z-10 flex items-center gap-2 sm:gap-3">
+
+				{/* ПОИСКОВИК ДЛЯ ПК (ПЕРЕНЕСЕН СЮДА) */}
 				{user.role !== 'student' && (
-					<div className="hidden lg:flex relative group items-center bg-white/30 backdrop-blur-md rounded-xl px-3 py-1.5 h-10 w-[400px] border border-white/50 shadow-sm focus-within:bg-white/60 focus-within:shadow-md focus-within:border-white transition-all duration-500 z-[80]">
+					<div className="hidden lg:flex relative group items-center bg-white/30 backdrop-blur-md rounded-xl px-3 py-1.5 h-10 w-[240px] xl:w-[320px] border border-white/50 shadow-sm focus-within:bg-white/60 focus-within:shadow-md focus-within:border-white transition-all duration-500 z-[80] mr-1">
 						<Search size={16} className="text-indigo-900/40 group-focus-within:text-indigo-600 transition-colors duration-300 shrink-0" />
 						<input
 							id="desktop-search"
 							type="text"
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							placeholder="Поиск разделов и учеников..."
+							placeholder="Поиск..."
 							className="bg-transparent border-none outline-none ml-2 text-[13px] w-full placeholder-indigo-900/40 text-slate-800 font-medium"
 						/>
 						<div className="flex items-center justify-center px-1.5 py-0.5 rounded-md bg-white/50 text-[9px] font-black text-indigo-900/50 border border-white/50 shadow-sm uppercase tracking-widest shrink-0">
@@ -238,7 +270,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
 						{/* ВЫПАДАЮЩИЙ СПИСОК РЕЗУЛЬТАТОВ (ГЛОБАЛЬНЫЙ) */}
 						{searchQuery && (
-							<div className="absolute top-[calc(100%+12px)] left-0 w-[450px] bg-white/95 backdrop-blur-3xl rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.15)] border border-white p-2 animate-in fade-in slide-in-from-top-2">
+							<div className="absolute top-[calc(100%+12px)] right-0 w-[400px] bg-white/95 backdrop-blur-3xl rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.15)] border border-white p-2 animate-in fade-in slide-in-from-top-2">
 								{isSearching ? (
 									<div className="p-6 flex flex-col items-center justify-center text-indigo-500">
 										<Loader2 className="animate-spin mb-2" size={24} />
@@ -289,10 +321,6 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 						)}
 					</div>
 				)}
-			</div>
-
-			{/* ПРАВАЯ ЧАСТЬ: Иконки и профиль */}
-			<div className="relative z-10 flex items-center gap-3">
 
 				{/* Иконка мобильного поиска */}
 				{user.role !== 'student' && (
@@ -332,19 +360,36 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 								{isLoadingNotifs ? (
 									<div className="p-6 flex justify-center text-indigo-400"><Loader2 className="animate-spin" size={24} /></div>
 								) : notifications.length > 0 ? (
-									notifications.map(log => {
-										const isUnread = log.id > parseInt(localStorage.getItem('last_seen_notif_id') || '0', 10);
-										const isPositive = log.rule_detail?.points_impact > 0;
+									notifications.map(item => {
+										const lastSeenTimeStr = localStorage.getItem('last_seen_notif_time');
+										const lastSeenTime = lastSeenTimeStr ? new Date(lastSeenTimeStr).getTime() : 0;
+										const isUnread = new Date(item.created_at).getTime() > lastSeenTime;
+										
+										if (item.itemType === 'sys') {
+											return (
+												<div key={`sys-${item.id}`} className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-slate-50'}`}>
+													<div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isUnread ? 'bg-indigo-500' : 'bg-transparent'}`}></div>
+													<div className="flex-1">
+														<p className={`text-[12px] leading-tight ${isUnread ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
+															<span className="text-indigo-600 font-bold">{item.title}</span>
+														</p>
+														<p className="text-[11px] text-slate-600 mt-1 leading-snug">{item.message}</p>
+														<p className="text-[9px] font-bold text-slate-400 mt-1.5">{formatTime(item.created_at)}</p>
+													</div>
+												</div>
+											);
+										}
 
+										const isPositive = item.rule_detail?.points_impact > 0;
 										return (
-											<div key={log.id} className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-slate-50'}`}>
+											<div key={`log-${item.id}`} className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-slate-50'}`}>
 												<div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isUnread ? 'bg-indigo-500' : 'bg-transparent'}`}></div>
 												<div className="flex-1">
 													<p className={`text-[12px] leading-tight ${isUnread ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
-														<span className="text-indigo-600 font-bold">{log.student_detail.first_name} {log.student_detail.last_name[0]}.</span> получил(а) <span className={isPositive ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>{isPositive ? '+' : ''}{log.rule_detail.points_impact}</span>
+														<span className="text-indigo-600 font-bold">{item.student_detail?.first_name} {item.student_detail?.last_name?.[0]}.</span> получил(а) <span className={isPositive ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>{isPositive ? '+' : ''}{item.rule_detail?.points_impact}</span>
 													</p>
-													<p className="text-[11px] text-slate-500 mt-1 truncate max-w-[200px]">{log.rule_detail.title}</p>
-													<p className="text-[9px] font-bold text-slate-400 mt-1.5">{formatTime(log.created_at)}</p>
+													<p className="text-[11px] text-slate-500 mt-1 truncate max-w-[200px]">{item.rule_detail?.title}</p>
+													<p className="text-[9px] font-bold text-slate-400 mt-1.5">{formatTime(item.created_at)}</p>
 												</div>
 											</div>
 										);
@@ -468,9 +513,17 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 							<X size={20} />
 						</button>
 						<h3 className="text-xl font-black text-slate-800 mb-1">{selectedStudentHistory.first_name} {selectedStudentHistory.last_name}</h3>
-						<p className="text-sm text-slate-500 font-medium mb-4">
-							Класс: {selectedStudentHistory.class_name} • Баллы: <span className={`font-bold ${selectedStudentHistory.points >= 80 ? 'text-green-600' : selectedStudentHistory.points >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>{selectedStudentHistory.points}</span>
-						</p>
+						<div className="text-sm text-slate-500 font-medium mb-4 flex items-center flex-wrap gap-2">
+							<span>Класс: <span className="font-bold text-slate-700">{selectedStudentHistory.class_name}</span></span>
+							<span className="text-slate-300">•</span>
+							<span>Баллы: <span className={`font-bold ${selectedStudentHistory.points >= 80 ? 'text-green-600' : selectedStudentHistory.points >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>{selectedStudentHistory.points}</span></span>
+							{selectedStudentHistory.status_info && (
+								<>
+									<span className="text-slate-300">•</span>
+									<span>Статус: <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${selectedStudentHistory.status_info.level === 'excellent' ? 'text-green-700 bg-green-50 border-green-200' : selectedStudentHistory.status_info.level === 'warning' ? 'text-yellow-700 bg-yellow-50 border-yellow-200' : 'text-red-700 bg-red-50 border-red-200'}`}>{selectedStudentHistory.status_info.text}</span></span>
+								</>
+							)}
+						</div>
 
 						<div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 mt-2">
 							<h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">История изменений</h4>

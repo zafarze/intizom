@@ -136,6 +136,7 @@ class Rule(models.Model):
     title = models.CharField(max_length=255, verbose_name="Қоидавайронкунӣ / Амали наҷиб")
     category = models.CharField(max_length=10, choices=Category.choices, verbose_name="Гурӯҳ")
     points_impact = models.IntegerField(verbose_name="Минус ё Плюс хол", help_text="Минус барои вайронкунӣ, Плюс барои бонус")
+    is_multiple = models.BooleanField(default=False, verbose_name="Многократное (Multiple)", help_text="Можно ли применять это правило несколько раз в день")
 
     class Meta:
         verbose_name = "Қоида"
@@ -186,3 +187,21 @@ class TeacherProfile(models.Model):
 
     def __str__(self):
         return f"Профиль: {self.user.username}"
+
+
+# ==========================================
+# 6. СИСТЕМНЫЕ УВЕДОМЛЕНИЯ (AppNotification)
+# ==========================================
+class AppNotification(models.Model):
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='app_notifications', null=True, blank=True, verbose_name="Получатель (если пусто - то всем)")
+    title = models.CharField(max_length=255, verbose_name="Заголовок")
+    message = models.TextField(verbose_name="Сообщение")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+
+    class Meta:
+        verbose_name = "Уведомление"
+        verbose_name_plural = "Уведомления"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} -> {self.recipient.username if self.recipient else 'Всем'}"

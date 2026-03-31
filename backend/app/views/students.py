@@ -11,7 +11,7 @@ from app.models import Student, SchoolClass, Quarter, QuarterResult
 from app.serializers import StudentSerializer
 
 # 👇 ИМПОРТИРУЕМ НАШ СЕРВИС ГЕНЕРАЦИИ АККАУНТОВ
-from app.services import create_user_for_student
+from app.services import create_user_for_student, generate_random_password
 
 
 class StudentViewSet(viewsets.ModelViewSet):
@@ -217,6 +217,45 @@ class StudentViewSet(viewsets.ModelViewSet):
             "detail": f"Успешно создано {len(generated_accounts)} новых аккаунтов.",
             "accounts": generated_accounts
         }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
+    def bulk_reset_passwords(self, request):
+        """
+        Массовый сброс паролей: генерирует новые пароли для выбранных учеников
+        и возвращает их для печати на фронтенде.
+        """
+        student_ids = request.data.get('student_ids', [])
+        if not student_ids:
+            return Response({"detail": "Список учеников пуст"}, status=status.HTTP_400_BAD_REQUEST)
+
+        students = Student.objects.filter(id__in=student_ids).select_related('school_class', 'user')
+        generated_accounts = []
+
+        with transaction.atomic():
+            for student in students:
+                # Если у ученика еще нет пользователя, создаем
+                if not student.user:
+                    username, password = create_user_for_student(student)
+                else:
+                    # Иначе просто сбрасываем пароль
+                    password = generate_random_password()
+                    student.user.set_password(password)
+                    student.user.save()
+                    username = student.user.username
+
+                generated_accounts.append({
+                    "id": student.id,
+                    "first_name": student.first_name,
+                    "last_name": student.last_name,
+                    "class_name": student.school_class.name if student.school_class else "-",
+                    "username": username,
+                    "password": password
+                })
+
+        return Response({
+            "detail": f"Успешно сброшены и сгенерированы новые пароли для {len(generated_accounts)} учеников.",
+            "accounts": generated_accounts
+        })
 
 # ========================================================
     # 4. ЛИЧНЫЙ КАБИНЕТ УЧЕНИКА

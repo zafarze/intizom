@@ -3,7 +3,7 @@ from django.db import transaction
 from django.contrib.auth.models import User
 from .models import (
     SchoolClass, Student, Rule, ActionLog, 
-    AcademicYear, Subject, Quarter, TeacherProfile
+    AcademicYear, Subject, Quarter, TeacherProfile, AppNotification
 )
 
 # ==========================================
@@ -107,7 +107,7 @@ class RuleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Rule
-        fields = ['id', 'title', 'category', 'category_display', 'points_impact']
+        fields = ['id', 'title', 'category', 'category_display', 'points_impact', 'is_multiple']
 
 # ==========================================
 # 4. УЧИТЕЛЯ (ПОЛЬЗОВАТЕЛИ) И ПРЕДМЕТЫ
@@ -232,3 +232,11 @@ class ActionLogSerializer(serializers.ModelSerializer):
             'id', 'student_id', 'student_detail', 'rule_id', 
             'rule_detail', 'teacher_name', 'created_at', 'description' # 👈 ДОБАВИЛИ description
         ]
+
+# ==========================================
+# 6. СИСТЕМНЫЕ УВЕДОМЛЕНИЯ (AppNotification)
+# ==========================================
+class AppNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppNotification
+        fields = ['id', 'title', 'message', 'created_at', 'recipient']

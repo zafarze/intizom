@@ -7,6 +7,7 @@ from .views import (
     StudentViewSet, 
     RuleViewSet, 
     ActionLogViewSet, 
+    AppNotificationViewSet,
     AcademicYearViewSet, 
     TeacherViewSet, 
     SubjectViewSet, 
@@ -24,6 +25,7 @@ router.register(r'classes', SchoolClassViewSet)
 router.register(r'students', StudentViewSet)
 router.register(r'rules', RuleViewSet)
 router.register(r'logs', ActionLogViewSet)
+router.register(r'notifications', AppNotificationViewSet, basename='notifications')
 router.register(r'years', AcademicYearViewSet)    
 router.register(r'teachers', TeacherViewSet)      
 router.register(r'subjects', SubjectViewSet)

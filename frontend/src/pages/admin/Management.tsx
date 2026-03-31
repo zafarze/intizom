@@ -45,11 +45,7 @@ export default function Management() {
 
 	return (
 		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500">
-			<div className="bg-white/40 backdrop-blur-md border border-white p-6 rounded-[2rem] shadow-sm">
-				<h1 className="text-2xl font-black text-slate-800">Управление школой</h1>
-				<p className="text-sm font-medium text-slate-500 mt-1">Все вкладки синхронизированы с Django API</p>
-			</div>
-
+			{/* Заголовок удален по запросу пользователя */}
 			<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-2 shadow-sm flex overflow-x-auto hide-scrollbar">
 				{tabs.map((tab, idx) => (
 					<button key={idx} onClick={() => setActiveTab(tab.name)} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${activeTab === tab.name ? 'bg-white shadow-sm text-indigo-600 border border-white/50' : 'text-slate-500 hover:text-slate-700 hover:bg-white/40'}`}>
@@ -65,7 +61,7 @@ export default function Management() {
 					{activeTab === 'Ученики' && <StudentsTab data={data.students} classes={data.classes} refresh={fetchData} />}
 					{activeTab === 'Учителя' && <TeachersTab data={data.teachers} classes={data.classes} subjects={data.subjects} refresh={fetchData} />}
 					{activeTab === 'Правила (СИН)' && <RulesTab data={data.rules} refresh={fetchData} />}
-					{activeTab === 'Классы' && <ClassesTab data={data.classes} refresh={fetchData} />}
+					{activeTab === 'Классы' && <ClassesTab data={data.classes} students={data.students} refresh={fetchData} />}
 					{activeTab === 'Предметы' && <SubjectsTab data={data.subjects} refresh={fetchData} />}
 					{activeTab === 'Учебный год' && <YearsTab data={data.years} refresh={fetchData} />}
 				</div>

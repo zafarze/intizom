@@ -22,6 +22,8 @@ class Quarter(models.Model):
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name="quarters", verbose_name="Соли таҳсил")
     name = models.CharField(max_length=50, verbose_name="Чоряк (Четверть)") # Например: "1-ум чоряк"
     is_active = models.BooleanField(default=False, verbose_name="Фаъол (Активный)")
+    start_date = models.DateField(null=True, blank=True, verbose_name="Начало четверти")
+    end_date = models.DateField(null=True, blank=True, verbose_name="Конец четверти")
 
     class Meta:
         verbose_name = "Чоряк"

@@ -18,6 +18,8 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 	const [quarterName, setQuarterName] = useState('');
 	const [quarterYearId, setQuarterYearId] = useState('');
 	const [isQuarterActive, setIsQuarterActive] = useState(false);
+	const [quarterStartDate, setQuarterStartDate] = useState('');
+	const [quarterEndDate, setQuarterEndDate] = useState('');
 
 	// Загружаем четверти
 	const fetchQuarters = async () => {
@@ -51,8 +53,12 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 
 	// --- ЛОГИКА ЧЕТВЕРТЕЙ ---
 	const openQuarterModal = (item?: any) => {
-		setEditingQuarterId(item?.id || null); setQuarterName(item?.name || '');
-		setQuarterYearId(item?.academic_year || ''); setIsQuarterActive(item?.is_active || false);
+		setEditingQuarterId(item?.id || null);
+		setQuarterName(item?.name || '');
+		setQuarterYearId(item?.academic_year || '');
+		setIsQuarterActive(item?.is_active || false);
+		setQuarterStartDate(item?.start_date || '');
+		setQuarterEndDate(item?.end_date || '');
 		setIsQuarterModalOpen(true);
 	};
 	const handleQuarterDelete = async (id: number) => {
@@ -62,11 +68,18 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 	};
 	const handleQuarterSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		const payload = { name: quarterName, academic_year: quarterYearId, is_active: isQuarterActive };
+		// Если учебный год выбран вручную — передаём его, иначе — не передаём (бэкенд угадает по датам)
+		const payload: any = {
+			name: quarterName,
+			is_active: isQuarterActive,
+			start_date: quarterStartDate || null,
+			end_date: quarterEndDate || null,
+		};
+		if (quarterYearId) payload.academic_year = quarterYearId;
 		try {
 			editingQuarterId ? await api.patch(`quarters/${editingQuarterId}/`, payload) : await api.post(`quarters/`, payload);
 			setIsQuarterModalOpen(false); fetchQuarters(); toast.success('Сохранено');
-		} catch (err: any) { toast.error(err.response?.data?.detail || 'Ошибка'); }
+		} catch (err: any) { toast.error(err.response?.data?.detail || JSON.stringify(err.response?.data) || 'Ошибка'); }
 	};
 
 	// --- КИЛЛЕР-ФИЧА: ЗАКРЫТИЕ ЧЕТВЕРТИ ---
@@ -85,6 +98,43 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 		}
 	};
 
+	// ==========================================
+	// УМНЫЙ СТАТУС — определяется по дате
+	// Формат года: "2025-2026"
+	// Учебный год: сентябрь(стартовый год) – июнь(конечный год)
+	// ==========================================
+	const getYearStatus = (yearStr: string, isActive: boolean) => {
+		const parts = yearStr?.match(/(\d{4})-(\d{4})/);
+		if (!parts) return { label: isActive ? 'Активный' : 'Неактивный', color: 'bg-slate-50 text-slate-500 border-slate-200' };
+
+		const startYear = parseInt(parts[1]);
+		const endYear = parseInt(parts[2]);
+		const now = new Date();
+
+		// Учебный год: 1 сентября startYear — 30 июня endYear
+		const yearStart = new Date(startYear, 8, 1);   // сентябрь = месяц 8
+		const yearEnd   = new Date(endYear, 5, 30);    // июнь = месяц 5
+
+		if (now > yearEnd) {
+			// Год уже закончился — всегда Завершен
+			return { label: 'Завершен', color: 'bg-slate-50 text-slate-500 border-slate-200' };
+		} else if (now >= yearStart && now <= yearEnd) {
+			// Сейчас внутри учебного года
+			if (isActive) {
+				return { label: 'Активный', color: 'bg-green-50 text-green-700 border-green-200' };
+			} else {
+				return { label: 'Неактивный', color: 'bg-slate-50 text-slate-500 border-slate-200' };
+			}
+		} else {
+			// Год ещё не начался (now < yearStart)
+			if (isActive) {
+				return { label: 'Ожидает', color: 'bg-blue-50 text-blue-600 border-blue-200' };
+			} else {
+				return { label: 'Запланирован', color: 'bg-slate-50 text-slate-400 border-slate-200' };
+			}
+		}
+	};
+
 	return (
 		<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-in fade-in duration-300">
 
@@ -97,24 +147,28 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 					</button>
 				</div>
 				<div className="overflow-x-auto">
-					<TableTemplate headers={['ID', 'Учебный год', 'Статус', 'Действия']}>
-						{data.map(y => (
-							<tr key={y.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-								<td className="py-4 px-4 text-xs font-mono text-slate-400">{y.id}</td>
-								<td className="py-4 px-4 font-bold text-lg text-slate-800 whitespace-nowrap">{y.year}</td>
-								<td className="py-4 px-4">
-									<span className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border ${y.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-										{y.is_active ? 'Активный' : 'Завершен'}
-									</span>
-								</td>
-								<td className="py-4 px-4">
-									<ActionButtons onEdit={() => openYearModal(y)} onDelete={() => handleYearDelete(y.id)} />
-								</td>
-							</tr>
-						))}
+					<TableTemplate headers={['№', 'Учебный год', 'Статус', 'Действия']}>
+						{data.map((y, idx) => {
+							const status = getYearStatus(y.year, y.is_active);
+							return (
+								<tr key={y.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+									<td className="py-4 px-4 text-xs font-bold text-slate-400">{idx + 1}</td>
+									<td className="py-4 px-4 font-bold text-lg text-slate-800 whitespace-nowrap">{y.year}</td>
+									<td className="py-4 px-4">
+										<span className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border ${status.color}`}>
+											{status.label}
+										</span>
+									</td>
+									<td className="py-4 px-4">
+										<ActionButtons onEdit={() => openYearModal(y)} onDelete={() => handleYearDelete(y.id)} />
+									</td>
+								</tr>
+							);
+						})}
 					</TableTemplate>
 				</div>
 			</div>
+
 
 			{/* БЛОК 2: ЧЕТВЕРТИ */}
 			<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm w-full">
@@ -129,11 +183,17 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 				</div>
 
 				<div className="overflow-x-auto">
-					<TableTemplate headers={['ID', 'Четверть', 'Учебный год', 'Статус', 'Действия']}>
-						{quarters.map(q => (
+					<TableTemplate headers={['№', 'Четверть', 'Период', 'Учебный год', 'Статус', 'Действия']}>
+						{quarters.map((q, idx) => (
 							<tr key={q.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-								<td className="py-4 px-4 text-xs font-mono text-slate-400">{q.id}</td>
+								<td className="py-4 px-4 text-xs font-bold text-slate-400">{idx + 1}</td>
 								<td className="py-4 px-4 font-bold text-slate-800 whitespace-nowrap">{q.name}</td>
+								<td className="py-4 px-4 text-xs font-medium text-slate-500 whitespace-nowrap">
+									{q.start_date && q.end_date
+										? `${new Date(q.start_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short'})} – ${new Date(q.end_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',year:'numeric'})}`
+										: <span className="text-slate-300">—</span>
+									}
+								</td>
 								<td className="py-4 px-4 text-sm font-medium text-slate-600 whitespace-nowrap">{q.academic_year_name}</td>
 								<td className="py-4 px-4">
 									<span className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border ${q.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
@@ -144,9 +204,8 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 									<ActionButtons
 										onEdit={() => openQuarterModal(q)}
 										onDelete={() => handleQuarterDelete(q.id)}
-										// ДОБАВЛЯЕМ КНОПКУ ЗАКРЫТИЯ ТОЛЬКО ЕСЛИ ЧЕТВЕРТЬ АКТИВНА
 										extraButton={q.is_active && (
-											<button onClick={() => handleCloseQuarter(q.id, q.name)} className="flex items-center gap-1.5 px-3 py-1.5 mr-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-[11px] font-bold transition-colors" title="Завершить четверть и сбросить баллы">
+											<button onClick={() => handleCloseQuarter(q.id, q.name)} className="flex items-center gap-1.5 px-3 py-1.5 mr-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-[11px] font-bold transition-colors">
 												<PowerOff size={14} /> Завершить
 											</button>
 										)}
@@ -179,14 +238,39 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 			{/* === МОДАЛКА ЧЕТВЕРТИ === */}
 			<Modal isOpen={isQuarterModalOpen} onClose={() => setIsQuarterModalOpen(false)}>
 					<div className="bg-white p-6 rounded-3xl w-full max-w-sm">
-						<h3 className="font-black text-xl mb-4">{editingQuarterId ? 'Редактировать' : 'Добавить'} четверть</h3>
+						<h3 className="font-black text-xl mb-1">{editingQuarterId ? 'Редактировать' : 'Добавить'} четверть</h3>
+						<p className="text-xs text-slate-500 font-medium mb-4">Учебный год определится автоматически по датам</p>
 						<form onSubmit={handleQuarterSubmit} className="space-y-4">
-							<input required placeholder="Например: 1-ум чоряк" value={quarterName} onChange={e => setQuarterName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium outline-none" />
+							<div>
+								<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Название</label>
+								<input required placeholder="Например: 1-ум чоряк" value={quarterName} onChange={e => setQuarterName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />
+							</div>
 
-							<select required value={quarterYearId} onChange={e => setQuarterYearId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none">
-								<option value="" disabled>Выберите учебный год</option>
-								{data.map(y => <option key={y.id} value={y.id}>{y.year}</option>)}
-							</select>
+							<div className="grid grid-cols-2 gap-3">
+								<div>
+									<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Начало</label>
+									<input type="date" value={quarterStartDate} onChange={e => setQuarterStartDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />
+								</div>
+								<div>
+									<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Конец</label>
+									<input type="date" value={quarterEndDate} onChange={e => setQuarterEndDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />
+								</div>
+							</div>
+
+							{/* Автоопределение учебного года — превью */}
+							{quarterStartDate && (() => {
+								const d = new Date(quarterStartDate);
+								const m = d.getMonth() + 1;
+								const y = d.getFullYear();
+								const sy = m >= 9 ? y : y - 1;
+								return (
+									<div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5 flex items-center gap-2">
+										<span className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider">Учебный год:</span>
+										<span className="text-sm font-black text-indigo-700">{sy}-{sy + 1}</span>
+										<span className="text-[10px] text-indigo-400 ml-1">(автоматически)</span>
+									</div>
+								);
+							})()}
 
 							<label className="flex items-center gap-3 cursor-pointer p-3 border border-slate-100 rounded-xl hover:bg-slate-50">
 								<input type="checkbox" checked={isQuarterActive} onChange={e => setIsQuarterActive(e.target.checked)} className="w-5 h-5 text-indigo-600 rounded-md" />

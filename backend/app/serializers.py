@@ -20,7 +20,40 @@ class QuarterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quarter
-        fields = ['id', 'academic_year', 'academic_year_name', 'name', 'is_active']
+        fields = ['id', 'academic_year', 'academic_year_name', 'name', 'is_active', 'start_date', 'end_date']
+        extra_kwargs = {
+            'academic_year': {'required': False, 'allow_null': True},
+        }
+
+    def validate(self, data):
+        """
+        Умное автоопределение учебного года по датам четверти.
+        Логика: если start_date попадает в период сент–дек ГОДА_X,
+        то ищем год формата ГОДА_X-ГОДА_X+1.
+        """
+        start_date = data.get('start_date') or getattr(self.instance, 'start_date', None)
+        academic_year = data.get('academic_year') or getattr(self.instance, 'academic_year', None)
+
+        if start_date and not academic_year:
+            from .models import AcademicYear
+            import re
+            # Определяем, к какому учебному году относится дата
+            # Сентябрь-декабрь: начало следующего
+            m, y = start_date.month, start_date.year
+            if m >= 9:
+                year_str_start, year_str_end = y, y + 1
+            else:
+                year_str_start, year_str_end = y - 1, y
+
+            pattern = f"{year_str_start}-{year_str_end}"
+            matched = AcademicYear.objects.filter(year=pattern).first()
+            if matched:
+                data['academic_year'] = matched
+            else:
+                raise serializers.ValidationError(
+                    f"Учебный год '{pattern}' не найден. Сначала создайте его."
+                )
+        return data
 
 # ==========================================
 # 1. КЛАССЫ

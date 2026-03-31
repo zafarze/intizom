@@ -9,14 +9,14 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 	const [currentPage] = useState(1);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
-	const [formData, setFormData] = useState({ username: '', password: '', t_first_name: '', t_last_name: '', subject_ids: [] as number[], led_class_id: '' });
+	const [formData, setFormData] = useState({ username: '', password: '', t_first_name: '', t_last_name: '', subject_ids: [] as number[], led_class_ids: [] as number[] });
 
 	const openModal = (item?: any) => {
 		setEditingId(item ? item.id : null);
 		setFormData(item ? {
 			username: item.username, password: '', t_first_name: item.first_name, t_last_name: item.last_name,
-			subject_ids: item.active_subject_ids || [], led_class_id: classes.find((c: any) => c.name === item.led_class_name)?.id || ''
-		} : { username: '', password: '', t_first_name: '', t_last_name: '', subject_ids: [], led_class_id: '' });
+			subject_ids: item.active_subject_ids || [], led_class_ids: item.active_class_ids || []
+		} : { username: '', password: '', t_first_name: '', t_last_name: '', subject_ids: [], led_class_ids: [] });
 		setIsModalOpen(true);
 	};
 
@@ -32,7 +32,7 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		const payload: any = { username: formData.username, first_name: formData.t_first_name, last_name: formData.t_last_name, subject_ids: formData.subject_ids, led_class_id: formData.led_class_id || null };
+		const payload: any = { username: formData.username, first_name: formData.t_first_name, last_name: formData.t_last_name, subject_ids: formData.subject_ids, classes_to_lead: formData.led_class_ids };
 		if (formData.password) payload.password = formData.password;
 		try {
 			if (editingId) await api.patch(`teachers/${editingId}/`, payload);
@@ -65,7 +65,51 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 			</TableTemplate>
 
 			{isModalOpen && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"><div className="bg-white p-6 rounded-[2rem] w-full max-w-lg"><h3 className="text-xl font-black mb-4">{editingId ? 'Редактировать' : 'Добавить'} учителя</h3><form onSubmit={handleSubmit} className="space-y-4"><div className="grid grid-cols-2 gap-4"><input placeholder="Имя" required value={formData.t_first_name} onChange={e => setFormData({ ...formData, t_first_name: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" /><input placeholder="Фамилия" required value={formData.t_last_name} onChange={e => setFormData({ ...formData, t_last_name: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" /></div><div className="space-y-2"><label className="text-[11px] font-bold text-slate-400">ПРЕДМЕТЫ</label><div className="flex flex-wrap gap-2">{subjects.map((sub: any) => (<label key={sub.id} className={`px-3 py-2 rounded-xl text-[13px] border cursor-pointer ${formData.subject_ids.includes(sub.id) ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200'} `}><input type="checkbox" className="hidden" checked={formData.subject_ids.includes(sub.id)} onChange={e => setFormData({ ...formData, subject_ids: e.target.checked ? [...formData.subject_ids, sub.id] : formData.subject_ids.filter(id => id !== sub.id) })} />{sub.name}</label>))}</div></div><select value={formData.led_class_id} onChange={e => setFormData({ ...formData, led_class_id: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm"><option value="">— Без класса —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select><div className="grid grid-cols-2 gap-4"><input placeholder="Логин" required value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" /><input type="password" placeholder={editingId ? 'Новый пароль (пусто = не менять)' : 'Пароль'} required={!editingId} value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" /></div><div className="flex gap-3 mt-6"><button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold">Отмена</button><button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button></div></form></div></div>
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+					<div className="bg-white p-6 rounded-[2rem] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200">
+						<h3 className="text-xl font-black mb-4">{editingId ? 'Редактировать' : 'Добавить'} учителя</h3>
+						<form onSubmit={handleSubmit} className="space-y-4">
+							<div className="grid grid-cols-2 gap-4">
+								<input placeholder="Имя" required value={formData.t_first_name} onChange={e => setFormData({ ...formData, t_first_name: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" />
+								<input placeholder="Фамилия" required value={formData.t_last_name} onChange={e => setFormData({ ...formData, t_last_name: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" />
+							</div>
+							
+							<div className="space-y-2">
+								<label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ПРЕДМЕТЫ</label>
+								<div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto custom-scrollbar p-1">
+									{subjects.map((sub: any) => (
+										<label key={sub.id} className={`px-3 py-2 rounded-xl text-[13px] font-bold border cursor-pointer transition-all ${formData.subject_ids.includes(sub.id) ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm scale-105' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'} `}>
+											<input type="checkbox" className="hidden" checked={formData.subject_ids.includes(sub.id)} onChange={e => setFormData({ ...formData, subject_ids: e.target.checked ? [...formData.subject_ids, sub.id] : formData.subject_ids.filter(id => id !== sub.id) })} />
+											{sub.name}
+										</label>
+									))}
+								</div>
+							</div>
+							
+							<div className="space-y-2 border-t border-slate-100 pt-4 mt-2">
+								<label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">КЛАССНОЕ РУКОВОДСТВО</label>
+								<div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto custom-scrollbar p-1">
+									{classes.map((c: any) => (
+										<label key={c.id} className={`px-3 py-2 rounded-xl text-[13px] font-bold border cursor-pointer transition-all ${formData.led_class_ids.includes(c.id) ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-sm scale-105' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'} `}>
+											<input type="checkbox" className="hidden" checked={formData.led_class_ids.includes(c.id)} onChange={e => setFormData({ ...formData, led_class_ids: e.target.checked ? [...formData.led_class_ids, c.id] : formData.led_class_ids.filter(id => id !== c.id) })} />
+											{c.name}
+										</label>
+									))}
+								</div>
+							</div>
+							
+							<div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 mt-2">
+								<input placeholder="Логин" required value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" />
+								<input type="password" placeholder={editingId ? 'Новый пароль (оставьте пустым)' : 'Пароль'} required={!editingId} value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all" />
+							</div>
+							
+							<div className="flex gap-3 mt-6 pt-2">
+								<button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all">Отмена</button>
+								<button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md transition-all">Сохранить</button>
+							</div>
+						</form>
+					</div>
+				</div>
 			)}
 		</div>
 	);

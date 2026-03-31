@@ -130,25 +130,33 @@ class TeacherSerializer(serializers.ModelSerializer):
     )
     
     # Железобетонная валидация: DRF сам проверит, существует ли такой класс
-    led_class_id = serializers.PrimaryKeyRelatedField(
+    led_class_ids = serializers.PrimaryKeyRelatedField(
         queryset=SchoolClass.objects.all(), 
+        many=True, 
         write_only=True, 
         required=False, 
-        allow_null=True, 
-        source='class_to_lead'
+        source='classes_to_lead'
     )
     
     # Для чтения (отправляем данные на фронт)
     taught_subjects = serializers.SerializerMethodField(read_only=True)
     active_subject_ids = serializers.SerializerMethodField(read_only=True)
-    led_class_name = serializers.CharField(source='led_classes.first.name', read_only=True)
+    led_class_name = serializers.SerializerMethodField(read_only=True)
+    active_class_ids = serializers.SerializerMethodField(read_only=True)
+
+    def get_led_class_name(self, obj):
+        classes = obj.led_classes.all()
+        return ", ".join([c.name for c in classes]) if classes.exists() else ""
+
+    def get_active_class_ids(self, obj):
+        return list(obj.led_classes.values_list('id', flat=True))
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'first_name', 'last_name', 'password', 
-            'subject_ids', 'led_class_id', 'taught_subjects', 
-            'active_subject_ids', 'led_class_name'
+            'subject_ids', 'led_class_ids', 'taught_subjects', 
+            'active_subject_ids', 'led_class_name', 'active_class_ids'
         ]
         extra_kwargs = {
             'username': {'required': True} # Защита от IntegrityError на уровне БД
@@ -167,7 +175,7 @@ class TeacherSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         subjects = validated_data.pop('subjects_to_set', [])
-        school_class = validated_data.pop('class_to_lead', None)
+        classes_to_lead = validated_data.pop('classes_to_lead', [])
 
         user = User.objects.create_user(**validated_data)
         user.is_staff = True 
@@ -178,16 +186,17 @@ class TeacherSerializer(serializers.ModelSerializer):
         if subjects:
             profile.subjects.set(subjects)
 
-        if school_class:
-            school_class.class_teacher = user
-            school_class.save(update_fields=['class_teacher'])
+        if classes_to_lead:
+            for sc in classes_to_lead:
+                sc.class_teacher = user
+                sc.save(update_fields=['class_teacher'])
 
         return user
 
     @transaction.atomic
     def update(self, instance, validated_data):
         subjects = validated_data.pop('subjects_to_set', None)
-        school_class = validated_data.pop('class_to_lead', None)
+        classes_to_lead = validated_data.pop('classes_to_lead', None)
         password = validated_data.pop('password', None)
 
         for attr, value in validated_data.items():
@@ -203,11 +212,12 @@ class TeacherSerializer(serializers.ModelSerializer):
             profile.subjects.set(subjects)
 
         # Безопасное обновление класса: проверяем, прислал ли вообще фронт это поле
-        if 'class_to_lead' in self.initial_data:
+        if 'classes_to_lead' in self.initial_data:
             SchoolClass.objects.filter(class_teacher=instance).update(class_teacher=None)
-            if school_class:
-                school_class.class_teacher = instance
-                school_class.save(update_fields=['class_teacher'])
+            if classes_to_lead:
+                for sc in classes_to_lead:
+                    sc.class_teacher = instance
+                    sc.save(update_fields=['class_teacher'])
 
         return instance
 

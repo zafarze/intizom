@@ -32,7 +32,7 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		const payload: any = { username: formData.username, first_name: formData.t_first_name, last_name: formData.t_last_name, subject_ids: formData.subject_ids, classes_to_lead: formData.led_class_ids };
+		const payload: any = { username: formData.username, first_name: formData.t_first_name, last_name: formData.t_last_name, subject_ids: formData.subject_ids, led_class_ids: formData.led_class_ids };
 		if (formData.password) payload.password = formData.password;
 		try {
 			if (editingId) await api.patch(`teachers/${editingId}/`, payload);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, PowerOff } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons, Modal } from './Shared';
@@ -82,21 +82,6 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 		} catch (err: any) { toast.error(err.response?.data?.detail || JSON.stringify(err.response?.data) || 'Ошибка'); }
 	};
 
-	// --- КИЛЛЕР-ФИЧА: ЗАКРЫТИЕ ЧЕТВЕРТИ ---
-	const handleCloseQuarter = async (quarterId: number, quarterName: string) => {
-		const confirmMsg = `ВНИМАНИЕ! Вы собираетесь завершить "${quarterName}".\n\nСистема:\n1. Выдаст статус "Намунавӣ" отличникам и сохранит их в архив.\n2. СБРОСИТ баллы всех учеников школы обратно на 100.\n\nПродолжить?`;
-		if (!window.confirm(confirmMsg)) return;
-
-		const toastId = toast.loading('Обработка баллов учеников...');
-		try {
-			const res = await api.post('students/close_quarter/', { quarter_id: quarterId });
-			toast.success(res.data.detail, { id: toastId, duration: 5000 });
-			fetchQuarters(); // Обновляем статусы четвертей
-			refresh(); // Обновляем учеников (если нужно)
-		} catch (err) {
-			toast.error('Ошибка при закрытии четверти', { id: toastId });
-		}
-	};
 
 	// ==========================================
 	// УМНЫЙ СТАТУС — определяется по дате
@@ -183,8 +168,8 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 				</div>
 
 				<div className="overflow-x-auto">
-					<TableTemplate headers={['№', 'Четверть', 'Период', 'Учебный год', 'Статус', 'Действия']}>
-						{quarters.map((q, idx) => (
+					<TableTemplate headers={['№', 'Четверть', 'Период', 'Статус', 'Действия']}>
+						{[...quarters].sort((a, b) => new Date(b.start_date || 0).getTime() - new Date(a.start_date || 0).getTime()).map((q, idx) => (
 							<tr key={q.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
 								<td className="py-4 px-4 text-xs font-bold text-slate-400">{idx + 1}</td>
 								<td className="py-4 px-4 font-bold text-slate-800 whitespace-nowrap">{q.name}</td>
@@ -194,21 +179,24 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 										: <span className="text-slate-300">—</span>
 									}
 								</td>
-								<td className="py-4 px-4 text-sm font-medium text-slate-600 whitespace-nowrap">{q.academic_year_name}</td>
 								<td className="py-4 px-4">
-									<span className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border ${q.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-										{q.is_active ? 'Текущая' : 'Архив'}
-									</span>
+									{(() => {
+										const now = new Date();
+										if (q.start_date && q.end_date) {
+											const s = new Date(q.start_date);
+											const e = new Date(q.end_date);
+											if (now < s) return <span className="px-3 py-1.5 rounded-lg text-[11px] font-bold border bg-blue-50 text-blue-600 border-blue-200">Ожидает</span>;
+											if (now >= s && now <= e) return <span className="px-3 py-1.5 rounded-lg text-[11px] font-bold border bg-green-50 text-green-700 border-green-200">Текущая</span>;
+											if (now > e) return <span className="px-3 py-1.5 rounded-lg text-[11px] font-bold border bg-slate-50 text-slate-500 border-slate-200">Завершена</span>;
+										}
+										// Если дат нет — опираемся на is_active
+										return <span className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border ${q.is_active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>{q.is_active ? 'Текущая' : 'Архив'}</span>;
+									})()}
 								</td>
 								<td className="py-4 px-4">
 									<ActionButtons
 										onEdit={() => openQuarterModal(q)}
 										onDelete={() => handleQuarterDelete(q.id)}
-										extraButton={q.is_active && (
-											<button onClick={() => handleCloseQuarter(q.id, q.name)} className="flex items-center gap-1.5 px-3 py-1.5 mr-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-[11px] font-bold transition-colors">
-												<PowerOff size={14} /> Завершить
-											</button>
-										)}
 									/>
 								</td>
 							</tr>

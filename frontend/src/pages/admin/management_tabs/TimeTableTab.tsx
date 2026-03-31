@@ -101,50 +101,101 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 					<p className="text-sm font-medium text-slate-400 mt-1">Нажмите "Добавить урок" чтобы начать</p>
 				</div>
 			) : (
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-					{data.map((entry) => (
-						<div
-							key={entry.id}
-							className="group relative bg-white/80 border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all"
-						>
-							{/* Номер урока */}
-							<div className="flex items-center justify-between mb-4">
-								<div className="flex items-center gap-2.5">
-									<div className="w-9 h-9 rounded-xl bg-indigo-500 text-white flex items-center justify-center font-black text-base shadow-sm">
-										{entry.lesson_number}
-									</div>
-									<div>
-										<p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Урок</p>
-										<p className="text-xs font-bold text-indigo-600">
-											{duration(fmt(entry.start_time), fmt(entry.end_time))}
-										</p>
-									</div>
-								</div>
-								<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-									<ActionButtons onEdit={() => openModal(entry)} onDelete={() => handleDelete(entry.id)} />
-								</div>
-							</div>
+				<div className="flex flex-col gap-0">
+					{[...data].sort((a, b) => a.lesson_number - b.lesson_number).map((entry, idx, sorted) => {
+						// Считаем перемену перед этим уроком (от конца предыдущего до начала текущего)
+						const prev = idx > 0 ? sorted[idx - 1] : null;
+						let breakMins = 0;
+						if (prev) {
+							const [eh, em] = prev.end_time.slice(0, 5).split(':').map(Number);
+							const [sh, sm] = entry.start_time.slice(0, 5).split(':').map(Number);
+							breakMins = (sh * 60 + sm) - (eh * 60 + em);
+						}
 
-							{/* Время */}
-							<div className="flex items-center gap-3">
-								<div className="flex-1 bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
-									<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Начало</p>
-									<p className="text-xl font-black text-slate-800">{fmt(entry.start_time)}</p>
-								</div>
-								<div className="text-slate-300">
-									<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-										<path d="M5 12h14M12 5l7 7-7 7"/>
-									</svg>
-								</div>
-								<div className="flex-1 bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
-									<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Конец</p>
-									<p className="text-xl font-black text-slate-800">{fmt(entry.end_time)}</p>
+						return (
+							<div key={entry.id}>
+								{/* Индикатор перемены / обеда */}
+								{prev && breakMins > 0 && (
+									breakMins >= 60 ? (
+										// 🍽 ОБЕД — перерыв 60+ минут
+										<div className="my-3 mx-1 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl px-5 py-4 flex items-center gap-4">
+											<div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0 text-xl">
+												🍽
+											</div>
+											<div className="flex-1">
+												<p className="text-sm font-black text-orange-700">Обеденный перерыв</p>
+												<p className="text-xs text-orange-500 font-medium mt-0.5">
+													{prev.end_time.slice(0, 5)} – {entry.start_time.slice(0, 5)} · {breakMins} мин
+												</p>
+											</div>
+											<div className="text-right shrink-0">
+												<p className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Длительность</p>
+												<p className="text-lg font-black text-orange-600">
+													{breakMins >= 60 ? `${Math.floor(breakMins / 60)} ч ${breakMins % 60 > 0 ? `${breakMins % 60} мин` : ''}`.trim() : `${breakMins} мин`}
+												</p>
+											</div>
+										</div>
+									) : (
+										// 🔔 Обычная перемена
+										<div className="flex items-center gap-3 px-2 py-2">
+											<div className="flex-1 h-px bg-green-100" />
+											<div className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 rounded-full px-3 py-1 shrink-0">
+												<Bell size={11} className="text-green-500" />
+												<span className="text-[11px] font-black">Перемена {breakMins} мин</span>
+												<span className="text-[10px] text-green-500 font-medium">
+													{prev.end_time.slice(0, 5)} – {entry.start_time.slice(0, 5)}
+												</span>
+											</div>
+											<div className="flex-1 h-px bg-green-100" />
+										</div>
+									)
+								)}
+
+
+								{/* Карточка урока */}
+								<div className="group relative bg-white/80 border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all">
+									<div className="flex items-center gap-4">
+										{/* Номер */}
+										<div className="w-11 h-11 rounded-xl bg-indigo-500 text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0">
+											{entry.lesson_number}
+										</div>
+
+										{/* Урок / длительность */}
+										<div className="shrink-0">
+											<p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">УРОК</p>
+											<p className="text-xs font-bold text-indigo-600">{duration(fmt(entry.start_time), fmt(entry.end_time))}</p>
+										</div>
+
+										{/* Разделитель */}
+										<div className="flex-1" />
+
+										{/* Время */}
+										<div className="flex items-center gap-3">
+											<div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-center min-w-[72px]">
+												<p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Начало</p>
+												<p className="text-lg font-black text-slate-800">{fmt(entry.start_time)}</p>
+											</div>
+											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round">
+												<path d="M5 12h14M12 5l7 7-7 7"/>
+											</svg>
+											<div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-center min-w-[72px]">
+												<p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Конец</p>
+												<p className="text-lg font-black text-slate-800">{fmt(entry.end_time)}</p>
+											</div>
+										</div>
+
+										{/* Кнопки */}
+										<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+											<ActionButtons onEdit={() => openModal(entry)} onDelete={() => handleDelete(entry.id)} />
+										</div>
+									</div>
 								</div>
 							</div>
-						</div>
-					))}
+						);
+					})}
 				</div>
 			)}
+
 
 			{/* Модальное окно */}
 			<Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>

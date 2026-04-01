@@ -214,7 +214,7 @@ function ClassesComparison({ classes, quarters, activeTab, setActiveTab }: { cla
                 )}
             </div>
 
-            <div className="w-full xl:w-80 shrink-0 sticky top-6 order-1 xl:order-2 space-y-6">
+            <div className="w-full xl:w-80 shrink-0 xl:sticky top-6 order-1 xl:order-2 space-y-6">
                 <div className="bg-white/60 p-6 rounded-[2rem] border border-white/60 shadow-sm backdrop-blur-md">
                     <h3 className="text-xl font-black text-slate-800 tracking-tight mb-6">Настройки</h3>
                     
@@ -377,8 +377,8 @@ function StudentsComparison({ classes, students, quarters, activeTab, setActiveT
                                                     {/* Декоративный блик */}
                                                     <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none"></div>
 
-                                                    <div className="flex justify-between items-start mb-6">
-                                                        <div>
+                                                    <div className="flex flex-col min-[400px]:flex-row justify-between items-start gap-4 mb-6">
+                                                        <div className="flex-1">
                                                             <span className="inline-block px-3 py-1 bg-gradient-to-r from-slate-800 to-slate-700 text-white text-xs font-black rounded-lg mb-2 tracking-wider uppercase shadow-md">
                                                                 {data.quarter.name}
                                                             </span>
@@ -386,25 +386,25 @@ function StudentsComparison({ classes, students, quarters, activeTab, setActiveT
                                                                 {data.quarter.is_active ? <span className="flex items-center gap-1 text-green-600"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>Текущая</span> : <span className="text-slate-400">Архив</span>}
                                                             </div>
                                                         </div>
-                                                        <div className="text-right">
-                                                            <div className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-br from-indigo-600 to-purple-800">{data.points}</div>
+                                                        <div className="text-right shrink-0">
+                                                            <div className="text-3xl min-[400px]:text-4xl font-black bg-clip-text text-transparent bg-gradient-to-br from-indigo-600 to-purple-800">{data.points}</div>
                                                             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">баллов</div>
                                                         </div>
                                                     </div>
 
                                                     {/* Stats */}
-                                                    <div className="flex gap-3">
-                                                        <div className="flex-1 bg-red-50/80 p-3 rounded-2xl flex items-center justify-between border border-red-100 hover:bg-red-100 transition-colors">
-                                                            <div className="flex items-center gap-2 font-black text-red-600 text-xs uppercase tracking-wider">
+                                                    <div className="flex flex-col min-[450px]:flex-row gap-2">
+                                                        <div className="flex-1 bg-red-50/80 p-2 min-[400px]:p-3 rounded-2xl flex items-center justify-between border border-red-100 hover:bg-red-100 transition-colors">
+                                                            <div className="flex items-center gap-1.5 font-black text-red-600 text-[10px] min-[400px]:text-xs uppercase tracking-wider">
                                                                 <Activity size={14} /> Нарушения
                                                             </div>
-                                                            <span className="font-black text-red-700 text-lg">{data.violations}</span>
+                                                            <span className="font-black text-red-700 text-base min-[400px]:text-lg">{data.violations}</span>
                                                         </div>
-                                                        <div className="flex-1 bg-emerald-50/80 p-3 rounded-2xl flex items-center justify-between border border-emerald-100 hover:bg-emerald-100 transition-colors">
-                                                            <div className="flex items-center gap-2 font-black text-emerald-600 text-xs uppercase tracking-wider">
+                                                        <div className="flex-1 bg-emerald-50/80 p-2 min-[400px]:p-3 rounded-2xl flex items-center justify-between border border-emerald-100 hover:bg-emerald-100 transition-colors">
+                                                            <div className="flex items-center gap-1.5 font-black text-emerald-600 text-[10px] min-[400px]:text-xs uppercase tracking-wider">
                                                                 <Medal size={14} /> Бонусы
                                                             </div>
-                                                            <span className="font-black text-emerald-700 text-lg">{data.bonuses}</span>
+                                                            <span className="font-black text-emerald-700 text-base min-[400px]:text-lg">{data.bonuses}</span>
                                                         </div>
                                                     </div>
 
@@ -447,7 +447,7 @@ function StudentsComparison({ classes, students, quarters, activeTab, setActiveT
                 )}
             </div>
 
-            <div className="w-full xl:w-80 shrink-0 sticky top-6 order-1 xl:order-2 space-y-6">
+            <div className="w-full xl:w-80 shrink-0 xl:sticky top-6 order-1 xl:order-2 space-y-6">
                 <div className="bg-white/60 p-6 rounded-[2rem] border border-white/60 shadow-sm backdrop-blur-md">
                     <h3 className="text-xl font-black text-slate-800 tracking-tight mb-6">Настройки</h3>
                     

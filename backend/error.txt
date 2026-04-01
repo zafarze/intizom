@@ -1,0 +1,6 @@
+[31;1mSystemCheckError: System check identified some issues:
+[0m
+ERRORS:
+[31;1m<class 'app.admin.SchoolClassAdmin'>: (admin.E108) The value of 'list_display[1]' refers to 'class_teacher', which is not a callable or attribute of 'SchoolClassAdmin', or an attribute, method, or field on 'app.SchoolClass'.[0m
+
+System check identified 1 issue (0 silenced).

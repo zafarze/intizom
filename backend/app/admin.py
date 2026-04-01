@@ -3,9 +3,15 @@ from .models import SchoolClass, Student, Rule, ActionLog
 
 @admin.register(SchoolClass)
 class SchoolClassAdmin(admin.ModelAdmin):
-    list_display = ('name', 'class_teacher')
+    list_display = ('name', 'get_class_teachers')
     search_fields = ('name',)
-    list_select_related = ('class_teacher',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related('class_teachers')
+
+    @admin.display(description='Классные руководители')
+    def get_class_teachers(self, obj):
+        return ", ".join([user.get_full_name() or user.username for user in obj.class_teachers.all()])
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):

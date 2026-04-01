@@ -15,7 +15,8 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 		setEditingId(item ? item.id : null);
 		setFormData(item ? {
 			username: item.username, password: '', t_first_name: item.first_name, t_last_name: item.last_name,
-			subject_ids: item.active_subject_ids || [], led_class_ids: item.active_class_ids || []
+			subject_ids: item.active_subject_ids || [],
+			led_class_ids: item.active_class_ids || []
 		} : { username: '', password: '', t_first_name: '', t_last_name: '', subject_ids: [], led_class_ids: [] });
 		setIsModalOpen(true);
 	};
@@ -90,8 +91,8 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 									))}
 								</div>
 							</div>
-							
-							<div className="space-y-2 border-t border-slate-100 pt-4 mt-2">
+
+							<div className="space-y-2">
 								<label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">КЛАССНОЕ РУКОВОДСТВО</label>
 								<div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto custom-scrollbar p-1">
 									{classes.map((c: any) => (
@@ -102,7 +103,7 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 									))}
 								</div>
 							</div>
-							
+
 							<div className="pt-2 mt-2 border-t border-slate-100">
 								<p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Данные для входа (Опционально)</p>
 								<div className="space-y-2">

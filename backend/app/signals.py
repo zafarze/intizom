@@ -20,9 +20,11 @@ def notify_new_rule(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Student)
 def notify_new_student(sender, instance, created, **kwargs):
-    if created and instance.school_class and instance.school_class.class_teacher:
-        AppNotification.objects.create(
-            title="Новый ученик в вашем классе",
-            message=f"Новый ученик {instance.first_name} {instance.last_name} добавлен в ваш класс ({instance.school_class.name}).",
-            recipient=instance.school_class.class_teacher
-        )
+    if created and instance.school_class:
+        class_teachers = instance.school_class.class_teachers.all()
+        for teacher in class_teachers:
+            AppNotification.objects.create(
+                title="Новый ученик в вашем классе",
+                message=f"Новый ученик {instance.first_name} {instance.last_name} добавлен в ваш класс ({instance.school_class.name}).",
+                recipient=teacher
+            )

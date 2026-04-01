@@ -43,6 +43,7 @@ export default function TeacherDashboard() {
 	const [rulesGrouped, setRulesGrouped] = useState<Record<string, Rule[]>>({});
 	const [recentLogs, setRecentLogs] = useState<ActionLog[]>([]); // 👈 Добавили состояние для истории
 	const [bells, setBells] = useState<any[]>([]); // Состояние расписания
+	const [classes, setClasses] = useState<any[]>([]); // 👈 Состояние классов школы
 
 	const [searchQuery, setSearchQuery] = useState('');
 	const [selectedClass, setSelectedClass] = useState<string | null>(null);
@@ -73,21 +74,24 @@ export default function TeacherDashboard() {
 	const fetchData = useCallback(async () => {
 		try {
 			// Добавили запрос к logs/ для истории учителя
-			const [studentsRes, rulesRes, logsRes, bellsRes] = await Promise.all([
+			const [studentsRes, rulesRes, logsRes, bellsRes, classesRes] = await Promise.all([
 				api.get('students/'),
 				api.get('rules/'),
 				api.get('logs/'),
-				api.get('timetable/')
+				api.get('timetable/'),
+				api.get('classes/')
 			]);
 
 			const studentsData = studentsRes.data.results || studentsRes.data;
 			const rulesData = rulesRes.data.results || rulesRes.data;
 			const logsData = logsRes.data.results || logsRes.data;
 			const bellsData = bellsRes.data.results || bellsRes.data;
+			const classesData = classesRes.data.results || classesRes.data;
 
 			setStudents(studentsData);
 			setRecentLogs(logsData);
 			setBells(bellsData);
+			setClasses(classesData);
 
 			const grouped = rulesData.reduce((acc: any, rule: Rule) => {
 				if (!acc[rule.category]) acc[rule.category] = [];
@@ -108,6 +112,14 @@ export default function TeacherDashboard() {
 	}, [fetchData]);
 
 	const uniqueClasses = Array.from(new Set(students.map(s => s.class_name))).filter(Boolean).sort();
+	
+	// Находим классное руководство (может быть несколько для одного учителя)
+	const homeroomClasses = classes.filter(c => c.class_teacher_ids?.includes(user.id));
+	const homeroomClassNames = homeroomClasses.map(c => c.name);
+	
+	const myClasses = uniqueClasses.filter(c => homeroomClassNames.includes(c));
+	const otherClasses = uniqueClasses.filter(c => !homeroomClassNames.includes(c));
+
 	const studentsInClass = selectedClass ? students.filter(s => s.class_name === selectedClass) : [];
 
 	const handleReset = () => {
@@ -294,8 +306,38 @@ export default function TeacherDashboard() {
 					{!selectedClass && !selectedStudent && (
 						<div className="animate-in fade-in zoom-in-95 duration-300 relative z-20 mb-6">
 							<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block ml-1">1. Выберите класс</label>
+							
+							{myClasses.length > 0 && (
+								<div className="mb-6 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50">
+									<label className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-3 block ml-1 flex items-center gap-1">
+										<span>⭐️</span> ВАШ КЛАСС
+									</label>
+									<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+										{myClasses.map(cls => (
+											<button
+												key={`my-${cls}`}
+												onClick={() => setSelectedClass(cls)}
+												className="w-full relative overflow-hidden group py-4 px-4 bg-white hover:bg-indigo-600 rounded-2xl shadow-sm border-2 border-indigo-400 transition-all active:scale-95 text-slate-700 hover:text-white flex flex-col items-center justify-center gap-1 shadow-indigo-100"
+											>
+												<div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 to-purple-500/0 group-hover:from-indigo-600 group-hover:to-purple-700 transition-all opacity-0 group-hover:opacity-100 z-0"></div>
+												<span className="text-xl font-black z-10 transition-transform group-hover:scale-110 duration-300 relative">
+													{cls}
+												</span>
+												<span className="text-[10px] font-bold z-10 opacity-70 relative">
+													{students.filter(s => s.class_name === cls).length} чел.
+												</span>
+											</button>
+										))}
+									</div>
+								</div>
+							)}
+
+							{myClasses.length > 0 && otherClasses.length > 0 && (
+								<label className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1 mt-4">Остальные классы школы</label>
+							)}
+
 							<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-								{uniqueClasses.length > 0 ? uniqueClasses.map(cls => (
+								{otherClasses.length > 0 ? otherClasses.map(cls => (
 									<button
 										key={cls}
 										onClick={() => { setSelectedClass(cls); setSearchQuery(''); }}

@@ -59,9 +59,20 @@ class QuarterSerializer(serializers.ModelSerializer):
 # 1. КЛАССЫ
 # ==========================================
 class SchoolClassSerializer(serializers.ModelSerializer):
+    class_teacher_names = serializers.SerializerMethodField()
+    class_teacher_ids = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(is_staff=True),
+        source='class_teachers',
+        many=True,
+        required=False,
+    )
+
     class Meta:
         model = SchoolClass
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'class_teacher_ids', 'class_teacher_names']
+
+    def get_class_teacher_names(self, obj):
+        return [f"{u.first_name} {u.last_name}".strip() or u.username for u in obj.class_teachers.all()]
 
 # ==========================================
 # 2. УЧЕНИКИ
@@ -221,8 +232,7 @@ class TeacherSerializer(serializers.ModelSerializer):
 
         if classes_to_lead:
             for sc in classes_to_lead:
-                sc.class_teacher = user
-                sc.save(update_fields=['class_teacher'])
+                sc.class_teachers.add(user)
 
         return user
 
@@ -245,12 +255,12 @@ class TeacherSerializer(serializers.ModelSerializer):
             profile.subjects.set(subjects)
 
         # Безопасное обновление класса: проверяем, прислал ли вообще фронт это поле
-        if 'classes_to_lead' in self.initial_data:
-            SchoolClass.objects.filter(class_teacher=instance).update(class_teacher=None)
+        if 'led_class_ids' in self.initial_data:
+            for sc in instance.led_classes.all():
+                sc.class_teachers.remove(instance)
             if classes_to_lead:
                 for sc in classes_to_lead:
-                    sc.class_teacher = instance
-                    sc.save(update_fields=['class_teacher'])
+                    sc.class_teachers.add(instance)
 
         return instance
 

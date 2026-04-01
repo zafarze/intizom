@@ -78,7 +78,7 @@ export default function Management() {
 					{activeTab === 'Ученики' && <StudentsTab data={data.students} classes={data.classes} refresh={fetchData} />}
 					{activeTab === 'Учителя' && <TeachersTab data={data.teachers} classes={data.classes} subjects={data.subjects} refresh={fetchData} />}
 					{activeTab === 'Правила (СИН)' && <RulesTab data={data.rules} refresh={fetchData} />}
-					{activeTab === 'Классы' && <ClassesTab data={data.classes} students={data.students} refresh={fetchData} />}
+					{activeTab === 'Классы' && <ClassesTab data={data.classes} students={data.students} teachers={data.teachers} refresh={fetchData} />}
 					{activeTab === 'Предметы' && <SubjectsTab data={data.subjects} teachers={data.teachers} refresh={fetchData} />}
 					{activeTab === 'Учебный год' && <YearsTab data={data.years} refresh={fetchData} />}
 					{activeTab === 'Расписание' && <TimeTableTab data={data.timetable} refresh={fetchData} />}

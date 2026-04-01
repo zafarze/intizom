@@ -48,9 +48,9 @@ class Quarter(models.Model):
 # ==========================================
 class SchoolClass(models.Model):
     name = models.CharField(max_length=10, unique=True, verbose_name="Номи синф (Название класса)")
-    class_teacher = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, 
-        related_name="led_classes", verbose_name="Роҳбари синф"
+    class_teachers = models.ManyToManyField(
+        User, blank=True,
+        related_name="led_classes", verbose_name="Роҳбарони синф"
     )
 
     class Meta:

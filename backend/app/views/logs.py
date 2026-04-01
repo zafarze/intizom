@@ -34,7 +34,7 @@ class ActionLogViewSet(viewsets.ModelViewSet):
             
         if user.is_staff: # Учитель
             # Показывать логи, где он сам поставил оценки, ИЛИ логи учеников его класса (где он классный руководитель)
-            return qs.filter(Q(teacher=user) | Q(student__school_class__class_teacher=user)).distinct()
+            return qs.filter(Q(teacher=user) | Q(student__school_class__class_teachers=user)).distinct()
             
         # Ученик: видит только свои логи
         return qs.filter(student__user=user)

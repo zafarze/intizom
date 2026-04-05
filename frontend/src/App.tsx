@@ -11,7 +11,7 @@ import Monitoring from './pages/admin/Monitoring';
 import Comparison from './pages/admin/Comparison';
 import Management from './pages/admin/Management';
 import Settings from './pages/admin/Settings';
-import { ChatWidget } from './components/chat/ChatWidget';
+
 
 // 1. Умный компонент-перенаправитель для корня (/)
 const RoleBasedRedirect = () => {
@@ -64,7 +64,6 @@ export default function App() {
           }
         }}
       />
-      <ChatWidget />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 

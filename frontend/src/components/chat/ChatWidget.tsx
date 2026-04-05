@@ -570,8 +570,9 @@ export const ChatWidget: React.FC = () => {
                       ))
                     )}
                     {aiLoading && (
-                      <div className="message-bubble message-in">
+                      <div className="message-bubble message-in" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6B7280', fontStyle: 'italic' }}>
                         <Loader size={16} className="loader-pulse" />
+                        <span>ИИ печатает...</span>
                       </div>
                     )}
                     <div ref={aiEndRef} />
@@ -638,7 +639,7 @@ export const ChatWidget: React.FC = () => {
               )}
             </div>
           ) : !isDesktopMode ? (
-            <div>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               {/* Messages */}
               <div className="chat-messages">
                 {pinnedMessage && (

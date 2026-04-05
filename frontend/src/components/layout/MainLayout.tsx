@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import { syncOfflineData } from '../../api/syncQueue'; // 👈 Импорт функции синхронизации
 import toast from 'react-hot-toast'; // 👈 Импорт уведомлений
+import { ChatWidget } from '../chat/ChatWidget';
 
 export default function MainLayout() {
 	const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -132,7 +133,7 @@ export default function MainLayout() {
 		/* УБРАЛИ сплошной цвет фона (bg-[#F8FAFC]).
 		   Теперь фон прозрачный, и сквозь него видно нашу анимацию из index.css */
 		<div className="flex h-screen bg-transparent font-sans text-slate-800 selection:bg-indigo-500/30">
-
+			<ChatWidget />
 			<Sidebar
 				isMobileOpen={isMobileOpen}
 				setIsMobileOpen={setIsMobileOpen}

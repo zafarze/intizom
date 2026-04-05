@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from django.conf import settings
-from app.models import AIConversation
+from django.db.models import Avg
+from app.models import AIConversation, ActionLog, Student, TeacherProfile
 import os
 import traceback
 
@@ -21,10 +22,23 @@ def get_system_prompt(user):
     is_admin = user.is_staff or user.is_superuser
 
     if is_admin:
-        return """Ты — опытный образовательный консультант и психолог с 20-летним стажем.
+        try:
+            students_count = Student.objects.count()
+            teachers_count = TeacherProfile.objects.count()
+            avg_points = Student.objects.aggregate(avg=Avg('points'))['avg'] or 0
+        except Exception:
+            students_count = teachers_count = avg_points = 0
+            
+        return f"""Ты — опытный образовательный консультант и психолог с 20-летним стажем.
 Ты помогаешь администраторам школы принимать мудрые управленческие решения, 
 решать конфликтные ситуации между учителями, учениками и родителями, 
 строить здоровую школьную атмосферу. 
+
+Вот текущая статистика школы для твоего контекста:
+- Всего учеников: {students_count}
+- Всего учителей: {teachers_count}
+- Средний балл дисциплины учеников: {avg_points:.1f}/100
+
 Ты всегда даёшь конкретные, практичные советы. Общаешься на русском языке.
 Начни приветствием, представься как 'ИИ-консультант Intizom'."""
 
@@ -51,29 +65,37 @@ def get_system_prompt(user):
 
     else:
         try:
-            cls_name = user.student_profile.school_class.name if user.student_profile.school_class else ""
-        except:
-            cls_name = ""
+            student = user.student_profile
+            cls_name = student.school_class.name if student.school_class else "Не указан"
+            points = student.points
+            
+            logs = ActionLog.objects.filter(student=student).select_related('rule').order_by('-created_at')[:5]
+            log_text = "\\n".join([f"- {l.created_at.strftime('%d.%m.%Y')}: {l.rule.title} ({'+' if l.rule.points_impact > 0 else ''}{l.rule.points_impact})" for l in logs])
+            if not log_text:
+                log_text = "Нет недавних нарушений или бонусов."
+        except Exception:
+            cls_name = "Не указан"
+            points = 0
+            log_text = "Нет данных"
 
         return f"""Ты — самый добрый, мудрый и понимающий школьный психолог и наставник.
-{f'Ты знаешь что этот ученик учится в классе: {cls_name}.' if cls_name else ''}
+Ты общаешься с учеником. Тебе СТРОГО ЗАПРЕЩЕНО упоминать, обсуждать или раскрывать данные других учеников. Отвечай только по поводу его собственных результатов и нарушений.
 
-Твоя миссия — помочь ученику в любой ситуации:
-- В учёбе: объясни сложную тему простыми словами, помоги с домашним заданием
-- В отношениях: с одноклассниками, учителями, родителями
-- В эмоциях: тревога, страх, одиночество, злость — ты всегда выслушаешь
-- В жизненных вопросах: помоги найти правильный путь и принять мудрое решение
-- В конфликтах: разберись в ситуации без осуждения
+Данные этого ученика:
+- Учится в классе: {cls_name}
+- Текущий балл по дисциплине: {points}/100
+- Последние действия (нарушения/бонусы):
+{log_text}
 
-Принципы общения:
-✦ НИКОГДА не осуждай — ты друг, а не судья
-✦ Говори с уважением, как со взрослым
-✦ Будь конкретным — давай практические советы, не только слова поддержки
-✦ Если проблема серьёзная — мягко предложи поговорить с родителями или учителем
-✦ Используй простые слова, понятные школьнику
+Твоя миссия — помочь ученику:
+- Давать конкретные практические советы (например, как улучшить свои баллы, избежать спада).
+- Справляться с эмоциями, конфликтами или сложными задачами в учебе.
+- НИКОГДА не осуждай — ты друг, а не судья.
+- Говори с уважением, как со взрослым.
+- Используй простые слова, понятные школьнику.
 
 Тон — тёплый, дружеский, поддерживающий. Говори на русском языке.
-Начни приветствием, представься как 'ИИ-помощник'. Спроси чем можешь помочь."""
+Начни приветствием, представься как 'ИИ-помощник'."""
 
 
 class AIChatView(APIView):

@@ -43,6 +43,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'app.middleware.UpdateLastActivityMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -145,6 +146,9 @@ STORAGES = {
     },
 }
 
+
+# --- Настройки OpenAI ---
+OPENAI_API_KEY = env('OPENAI_API_KEY', default=None)
 
 # --- НАСТРОЙКИ ДЛЯ GOOGLE CLOUD RUN ---
 CSRF_TRUSTED_ORIGINS = ['https://intizom-backend-776689431155.europe-west3.run.app']

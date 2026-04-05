@@ -371,14 +371,14 @@ function StudentsComparison({ classes, students, quarters, activeTab, setActiveT
                                         <div key={idx} className={`flex flex-row items-center gap-6 w-full ${idx % 2 === 0 ? 'md:flex-row-reverse' : ''}`}>
                                             
                                             {/* Карточка */}
-                                            <div className="w-full md:w-1/2 flex justify-start md:px-8">
+                                            <div className="w-full md:w-1/2 flex justify-start pl-20 pr-4 md:px-12">
                                                 <div className="w-full max-w-[360px] bg-white border-2 border-white p-6 rounded-3xl shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 relative group">
                                                     
                                                     {/* Декоративный блик */}
                                                     <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none"></div>
 
-                                                    <div className="flex flex-col min-[400px]:flex-row justify-between items-start gap-4 mb-6">
-                                                        <div className="flex-1">
+                                                    <div className="flex flex-col min-[480px]:flex-row justify-between items-start gap-4 mb-6">
+                                                        <div className="order-2 min-[480px]:order-1 flex-1">
                                                             <span className="inline-block px-3 py-1 bg-gradient-to-r from-slate-800 to-slate-700 text-white text-xs font-black rounded-lg mb-2 tracking-wider uppercase shadow-md">
                                                                 {data.quarter.name}
                                                             </span>
@@ -386,8 +386,8 @@ function StudentsComparison({ classes, students, quarters, activeTab, setActiveT
                                                                 {data.quarter.is_active ? <span className="flex items-center gap-1 text-green-600"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>Текущая</span> : <span className="text-slate-400">Архив</span>}
                                                             </div>
                                                         </div>
-                                                        <div className="text-right shrink-0">
-                                                            <div className="text-3xl min-[400px]:text-4xl font-black bg-clip-text text-transparent bg-gradient-to-br from-indigo-600 to-purple-800">{data.points}</div>
+                                                        <div className="order-1 min-[480px]:order-2 text-left min-[480px]:text-right shrink-0 bg-indigo-50/50 px-4 py-2 rounded-2xl border border-indigo-100/50">
+                                                            <div className="text-3xl min-[480px]:text-4xl font-black bg-clip-text text-transparent bg-gradient-to-br from-indigo-600 to-purple-800 leading-none">{data.points}</div>
                                                             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">баллов</div>
                                                         </div>
                                                     </div>

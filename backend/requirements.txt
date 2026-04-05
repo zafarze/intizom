@@ -8,4 +8,5 @@ gunicorn==21.2.0
 whitenoise==6.6.0
 django-environ
 django-filter
-whitenoise
+openai>=1.0.0
+google-genai>=1.0.0

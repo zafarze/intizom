@@ -20,7 +20,14 @@ from .views import (
     CompareEntitiesView,
     SetActiveYearView,  
     ResetPointsView,
-    CustomTokenObtainPairView
+    CustomTokenObtainPairView,
+    ChatContactsView,
+    ChatMessagesView,
+    ChatMessageDetailView,
+    ChatHistoryDeleteView,
+    ChatPinMessageView,
+    ChatReadView,
+    AIChatView,
 )
 
 router = DefaultRouter()
@@ -49,6 +56,17 @@ urlpatterns = [
     # НОВЫЕ ЭНДПОИНТЫ ДЛЯ НАСТРОЕК
     path('settings/set-year/<int:year_id>/', SetActiveYearView.as_view(), name='set-year'),
     path('settings/reset-points/', ResetPointsView.as_view(), name='reset-points'),
+
+    # Chat
+    path('chat/contacts/', ChatContactsView.as_view(), name='chat_contacts'),
+    path('chat/messages/<int:user_id>/', ChatMessagesView.as_view(), name='chat_messages'),
+    path('chat/message/<int:message_id>/', ChatMessageDetailView.as_view(), name='chat_message_detail'),
+    path('chat/pin/<int:message_id>/', ChatPinMessageView.as_view(), name='chat_pin_message'),
+    path('chat/history/<int:user_id>/', ChatHistoryDeleteView.as_view(), name='chat_history_delete'),
+    path('chat/read/<int:user_id>/', ChatReadView.as_view(), name='chat_read'),
+
+    # AI Chat
+    path('ai/chat/', AIChatView.as_view(), name='ai_chat'),
     
     # 2. Затем подключаем все стандартные роуты (CRUD), сгенерированные роутером
     path('', include(router.urls)),

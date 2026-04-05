@@ -233,4 +233,64 @@ class BellSchedule(models.Model):
         ordering = ['lesson_number']
 
     def __str__(self):
-        return f"Урок {self.lesson_number}: {self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')}"
+        return f"Урок {self.lesson_number}: {self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')}"
+
+# ==========================================
+# 8. ЧАТ И СООБЩЕНИЯ (Chat)
+# ==========================================
+class UserActivity(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='activity', verbose_name="Пользователь")
+    last_seen = models.DateTimeField(auto_now=True, verbose_name="Последняя активность")
+
+    class Meta:
+        verbose_name = "Активность пользователя"
+        verbose_name_plural = "Активность пользователей"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.last_seen.strftime('%d.%m.%Y %H:%M')}"
+
+class Message(models.Model):
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages', verbose_name="Отправитель")
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages', verbose_name="Получатель")
+    content = models.TextField(verbose_name="Сообщение")
+    is_read = models.BooleanField(default=False, verbose_name="Прочитано")
+    is_edited = models.BooleanField(default=False, verbose_name="Изменено")
+    is_pinned = models.BooleanField(default=False, verbose_name="Закреплено")
+    reply_to = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='replies', verbose_name="Ответ на")
+    forwarded_from = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='forwarded_messages', verbose_name="Переслано от")
+    visible_to_sender = models.BooleanField(default=True, verbose_name="Видно отправителю")
+    visible_to_recipient = models.BooleanField(default=True, verbose_name="Видно получателю")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата отправки")
+    read_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата прочтения")
+
+    class Meta:
+        verbose_name = "Сообщение"
+        verbose_name_plural = "Сообщения"
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"От {self.sender.username} к {self.recipient.username} ({self.created_at.strftime('%d.%m.%Y %H:%M')})"
+
+
+# ==========================================
+# AI CHAT
+# ==========================================
+class AIConversation(models.Model):
+    ROLE_CHOICES = [
+        ('user', 'Пользователь'),
+        ('assistant', 'ИИ'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ai_conversations', verbose_name="Пользователь")
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, verbose_name="Роль")
+    content = models.TextField(verbose_name="Сообщение")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата")
+
+    class Meta:
+        verbose_name = "AI Диалог"
+        verbose_name_plural = "AI Диалоги"
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.user.username} [{self.role}] - {self.created_at.strftime('%d.%m.%Y %H:%M')}"
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageCircle, X, Send, ArrowLeft, Check, CheckCheck, User, MessageSquare, Trash2, Edit2, MoreVertical, CheckCircle2, Reply, Pin, Copy, Forward, CheckSquare, Maximize2, Minimize2, Bot, Sparkles, Loader, RotateCcw, Mic, StopCircle } from 'lucide-react';
+import { MessageCircle, X, Send, ArrowLeft, Check, CheckCheck, User, MessageSquare, Trash2, Edit2, MoreVertical, CheckCircle2, Reply, Pin, Copy, Forward, CheckSquare, Maximize2, Minimize2, Bot, Sparkles, Loader, RotateCcw, Mic, StopCircle, Paperclip } from 'lucide-react';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import './chat.css';
@@ -31,6 +31,7 @@ interface Message {
   recipient_id: number;
   content: string;
   audio_file?: string | null;
+  image_file?: string | null;
   is_read: boolean;
   is_edited?: boolean;
   can_edit?: boolean;
@@ -78,6 +79,7 @@ export const ChatWidget: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [activeTab, setActiveTab] = useState<'chats' | 'teachers' | 'students' | 'ai'>('chats');
 
   // AI Chat state
@@ -96,6 +98,12 @@ export const ChatWidget: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Image attachment state
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
   // Quick suggestions
   const SUGGESTIONS = [
@@ -290,8 +298,9 @@ export const ChatWidget: React.FC = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeContact) return;
+    if ((!inputText.trim() && !selectedImage) || !activeContact || isSending) return;
 
+    setIsSending(true);
     try {
       const tempText = inputText;
 
@@ -304,17 +313,63 @@ export const ChatWidget: React.FC = () => {
         const formData = new FormData();
         formData.append('content', tempText);
         if (replyingMessage) formData.append('reply_to_id', String(replyingMessage.id));
+        if (selectedImage) formData.append('image_file', selectedImage);
         const res = await api.post(`/chat/messages/${activeContact.id}/`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         setMessages(prev => [...prev, res.data]);
         setInputText('');
         setReplyingMessage(null);
+        removeSelectedImage();
         fetchContacts();
       }
     } catch (error) {
       console.error('Failed to send/edit message', error);
+      toast.error('Ошибка при отправке сообщения');
+    } finally {
+      setIsSending(false);
     }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("Файл слишком большой (макс. 10МБ)");
+        return;
+      }
+      setSelectedImage(file);
+      setPreviewImage(URL.createObjectURL(file));
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image/') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          if (file.size > 10 * 1024 * 1024) {
+            toast.error("Файл слишком большой (макс. 10МБ)");
+            return;
+          }
+          setSelectedImage(file);
+          setPreviewImage(URL.createObjectURL(file));
+          if (imageInputRef.current) imageInputRef.current.value = '';
+          e.preventDefault(); // Prevent pasting file path into text input if any
+        }
+        break;
+      }
+    }
+  };
+
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    if (previewImage) URL.revokeObjectURL(previewImage);
+    setPreviewImage(null);
   };
 
   const sendVoiceMessage = async (audioBlob: Blob) => {
@@ -787,7 +842,12 @@ export const ChatWidget: React.FC = () => {
                               <p>{msg.reply_to_content}</p>
                             </div>
                           )}
-                          {msg.audio_file ? (
+                          {msg.image_file ? (
+                            <div className="chat-image-container">
+                              <img src={getMediaUrl(msg.image_file)} alt="attachment" className="chat-message-image" onClick={() => setFullScreenImage(getMediaUrl(msg.image_file))} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="chat-file-deleted"><X size={16}/> Файл удалён</div>'; }} />
+                              {msg.content && <span className="image-caption">{msg.content}</span>}
+                            </div>
+                          ) : msg.audio_file ? (
                             <div className="voice-message-player">
                               <Mic size={14} className="voice-icon" />
                               <audio controls src={getMediaUrl(msg.audio_file)} className="voice-audio" />
@@ -851,6 +911,21 @@ export const ChatWidget: React.FC = () => {
               )}
               {!isSelectMode && (
                 <div className="chat-input-wrapper">
+                  {previewImage && (
+                    <div className="image-preview-container">
+                      <img src={previewImage} alt="Preview" className="image-preview" />
+                      <button type="button" className="image-preview-remove" onClick={removeSelectedImage}>
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={imageInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleImageSelect}
+                  />
                   {filteredSuggestions().length > 0 && (
                     <div className="suggestions-bar">
                       {filteredSuggestions().map((s, i) => (
@@ -866,12 +941,15 @@ export const ChatWidget: React.FC = () => {
                     </div>
                   ) : (
                     <form className={`chat-input-area ${(editingMessageId || replyingMessage) ? 'attached-mode' : ''}`} onSubmit={handleSendMessage}>
-                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={e => setInputText(e.target.value)} />
-                      {!inputText.trim() ? (
-                        <button type="button" className="chat-mic-btn" onClick={startRecording}><Mic size={20} /></button>
+                      <button type="button" className="chat-attach-btn" onClick={() => imageInputRef.current?.click()}>
+                        <Paperclip size={20} />
+                      </button>
+                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={e => setInputText(e.target.value)} onPaste={handlePaste} />
+                      {(!inputText.trim() && !selectedImage) ? (
+                        <button type="button" className="chat-mic-btn" onClick={startRecording} disabled={isSending}><Mic size={20} /></button>
                       ) : (
-                        <button type="submit" className={`chat-send-btn ${editingMessageId ? 'edit-btn' : ''}`}>
-                          {editingMessageId ? <CheckCircle2 size={18} /> : <Send size={18} />}
+                        <button type="submit" className={`chat-send-btn ${editingMessageId ? 'edit-btn' : ''}`} disabled={isSending}>
+                          {isSending ? <Loader size={18} className="loader-pulse" /> : editingMessageId ? <CheckCircle2 size={18} /> : <Send size={18} />}
                         </button>
                       )}
                     </form>
@@ -932,7 +1010,12 @@ export const ChatWidget: React.FC = () => {
                         <div className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}>
                           {msg.forwarded_from_name && <div className="message-forwarded"><Forward size={12} /> Переслано от: {msg.forwarded_from_name}</div>}
                           {msg.reply_to_content && <div className="message-quoted"><div className="quoted-bar"></div><p>{msg.reply_to_content}</p></div>}
-                          {msg.audio_file ? (
+                          {msg.image_file ? (
+                            <div className="chat-image-container">
+                              <img src={getMediaUrl(msg.image_file)} alt="attachment" className="chat-message-image" onClick={() => setFullScreenImage(getMediaUrl(msg.image_file))} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="chat-file-deleted"><X size={16} style="display:inline;vertical-align:middle;margin-right:4px;"/> Файл удалён</div>'; }} />
+                              {msg.content && <span className="image-caption">{msg.content}</span>}
+                            </div>
+                          ) : msg.audio_file ? (
                             <div className="voice-message-player">
                               <Mic size={14} className="voice-icon" />
                               <audio controls src={getMediaUrl(msg.audio_file)} className="voice-audio" />
@@ -986,6 +1069,21 @@ export const ChatWidget: React.FC = () => {
               )}
               {!isSelectMode && (
                 <div className="chat-input-wrapper">
+                  {previewImage && (
+                    <div className="image-preview-container">
+                      <img src={previewImage} alt="Preview" className="image-preview" />
+                      <button type="button" className="image-preview-remove" onClick={removeSelectedImage}>
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={imageInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleImageSelect}
+                  />
                   {filteredSuggestions().length > 0 && (
                     <div className="suggestions-bar">
                       {filteredSuggestions().map((s, i) => (
@@ -1001,12 +1099,15 @@ export const ChatWidget: React.FC = () => {
                     </div>
                   ) : (
                     <form className={`chat-input-area ${(editingMessageId || replyingMessage) ? 'attached-mode' : ''}`} onSubmit={handleSendMessage}>
-                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={e => setInputText(e.target.value)} />
-                      {!inputText.trim() ? (
-                        <button type="button" className="chat-mic-btn" onClick={startRecording}><Mic size={20} /></button>
+                      <button type="button" className="chat-attach-btn" onClick={() => imageInputRef.current?.click()}>
+                        <Paperclip size={20} />
+                      </button>
+                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={e => setInputText(e.target.value)} onPaste={handlePaste} />
+                      {(!inputText.trim() && !selectedImage) ? (
+                        <button type="button" className="chat-mic-btn" onClick={startRecording} disabled={isSending}><Mic size={20} /></button>
                       ) : (
-                        <button type="submit" className={`chat-send-btn ${editingMessageId ? 'edit-btn' : ''}`}>
-                          {editingMessageId ? <CheckCircle2 size={18} /> : <Send size={18} />}
+                        <button type="submit" className={`chat-send-btn ${editingMessageId ? 'edit-btn' : ''}`} disabled={isSending}>
+                          {isSending ? <Loader size={18} className="loader-pulse" /> : editingMessageId ? <CheckCircle2 size={18} /> : <Send size={18} />}
                         </button>
                       )}
                     </form>
@@ -1077,6 +1178,15 @@ export const ChatWidget: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Fullscreen Image Modal */}
+      {fullScreenImage && (
+        <div className="chat-fullscreen-modal" onClick={() => setFullScreenImage(null)}>
+          <button className="chat-fullscreen-close" onClick={() => setFullScreenImage(null)}>
+            <X size={24} />
+          </button>
+          <img src={fullScreenImage} alt="Fullscreen" className="chat-fullscreen-img" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>

@@ -259,6 +259,7 @@ class Message(models.Model):
     reply_to = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='replies', verbose_name="Ответ на")
     forwarded_from = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='forwarded_messages', verbose_name="Переслано от")
     audio_file = models.FileField(upload_to='chat_audio/', null=True, blank=True, verbose_name="Голосовое сообщение")
+    image_file = models.ImageField(upload_to='chat_images/', null=True, blank=True, verbose_name="Фото")
     visible_to_sender = models.BooleanField(default=True, verbose_name="Видно отправителю")
     visible_to_recipient = models.BooleanField(default=True, verbose_name="Видно получателю")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата отправки")

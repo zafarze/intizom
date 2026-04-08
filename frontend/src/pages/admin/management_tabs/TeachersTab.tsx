@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Search, Plus, Key, X } from 'lucide-react';
+import { Search, Plus, Key, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons, Modal } from './Shared';
 
 export default function TeachersTab({ data, classes, subjects, refresh }: { data: any[], classes: any[], subjects: any[], refresh: () => void }) {
 	const [searchQuery, setSearchQuery] = useState('');
-	const [currentPage] = useState(1);
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 100;
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [formData, setFormData] = useState({ username: '', password: '', t_first_name: '', t_last_name: '', subject_ids: [] as number[], led_class_ids: [] as number[] });
@@ -43,13 +44,14 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 	};
 
 	const filtered = searchQuery ? data.filter(t => t.first_name.toLowerCase().includes(searchQuery.toLowerCase()) || t.last_name.toLowerCase().includes(searchQuery.toLowerCase())) : data;
-	const paginated = filtered.slice((currentPage - 1) * 10, currentPage * 10);
+	const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+	const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
 	return (
 		<>
 			<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm">
 				<div className="flex justify-between mb-6 border-b border-white pb-4">
-					<div className="relative w-64"><Search size={18} className="absolute left-3 top-2.5 text-slate-400" /><input type="search" placeholder="Поиск..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-white/50 border border-white rounded-xl text-sm outline-none" /></div>
+					<div className="relative w-64"><Search size={18} className="absolute left-3 top-2.5 text-slate-400" /><input type="search" placeholder="Поиск..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2 bg-white/50 border border-white rounded-xl text-sm outline-none" /></div>
 					<button onClick={() => openModal()} className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all active:scale-95"><Plus size={16} /> Добавить учителя</button>
 				</div>
 
@@ -66,6 +68,15 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 				))}
 			</TableTemplate>
 
+				{totalPages > 1 && (
+					<div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
+						<span className="text-[13px] font-bold text-slate-400">Стр. {currentPage} из {totalPages}</span>
+						<div className="flex gap-2">
+							<button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 transition-all"><ChevronLeft size={18} /></button>
+							<button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 transition-all"><ChevronRight size={18} /></button>
+						</div>
+					</div>
+				)}
 			</div>
 
 			<Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>

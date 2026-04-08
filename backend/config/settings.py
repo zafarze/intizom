@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',  # ДОБАВИТЬ ЭТО (для черного списка токенов)
     'corsheaders',
     'django_filters',
+    'storages',
     'app',
 ]
 
@@ -153,4 +154,37 @@ OPENAI_API_KEY = env('OPENAI_API_KEY', default=None)
 # --- НАСТРОЙКИ ДЛЯ GOOGLE CLOUD RUN ---
 CSRF_TRUSTED_ORIGINS = ['https://intizom-backend-776689431155.europe-west3.run.app']
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-STORAGES = {'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'}, 'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage'}}
+
+# --- МЕДИА ФАЙЛЫ (голосовые, фото) ---
+GS_BUCKET_NAME = env('GS_BUCKET_NAME', default=None)
+
+if GS_BUCKET_NAME:
+    # ПРОДАКШН: Google Cloud Storage
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.gcloud.GoogleCloudStorage',
+            'OPTIONS': {
+                'bucket_name': GS_BUCKET_NAME,
+                'default_acl': None,
+                'querystring_auth': True,
+                'expiration': 60 * 60 * 24 * 7,  # Signed URLs на 7 дней
+            },
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+        },
+    }
+    MEDIA_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/'
+else:
+    # ЛОКАЛЬНАЯ РАЗРАБОТКА: обычная файловая система
+    STORAGES = {
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+        },
+    }
+    MEDIA_URL = '/media/'
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

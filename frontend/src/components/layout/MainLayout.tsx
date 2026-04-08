@@ -160,7 +160,7 @@ export default function MainLayout() {
 					/>
 				</div>
 
-				<main ref={mainRef} className="flex-1 overflow-y-auto p-4 lg:p-8 relative z-0 transition-transform duration-300" style={{ transform: pullProgress > 0 && !isRefreshing ? `translateY(${pullProgress * 0.5}px)` : 'none' }}>
+				<main ref={mainRef} className="flex-1 overflow-y-auto p-4 lg:p-8 pb-24 relative z-0 transition-transform duration-300" style={{ transform: pullProgress > 0 && !isRefreshing ? `translateY(${pullProgress * 0.5}px)` : 'none' }}>
 					<Outlet key={refreshKey} />
 				</main>
 			</div>

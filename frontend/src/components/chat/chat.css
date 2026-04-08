@@ -1,15 +1,15 @@
 .chat-widget-container {
   position: fixed;
-  bottom: 2rem;
-  right: 2rem;
+  bottom: 1.5rem;
+  right: 1.5rem;
   z-index: 9999;
   font-family: inherit;
 }
 
 /* Floating Action Button */
 .chat-fab {
-  width: 60px;
-  height: 60px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: linear-gradient(135deg, #7C3AED, #4F46E5);
   color: white;
@@ -53,8 +53,8 @@
 
 .chat-window {
   position: absolute;
-  bottom: -20px;
-  right: -10px;
+  bottom: 0px;
+  right: 0px;
   width: 360px;
   height: 540px;
   max-height: calc(100vh - 120px);
@@ -985,14 +985,13 @@
 
 /* Modals */
 .chat-modal-overlay {
-  position: absolute;
+  position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
-  border-radius: 24px;
+  z-index: 999999;
 }
 
 @media (max-width: 480px) {
@@ -1004,9 +1003,16 @@
 .chat-modal {
   background: white;
   padding: 24px;
-  border-radius: 16px;
-  width: 80%;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  border-radius: 24px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: modal-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modal-pop {
+  0% { transform: scale(0.9); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .chat-modal h3 {
@@ -1152,4 +1158,155 @@
     border: none;
     border-top: 1px solid rgba(255,255,255,0.7);
   }
+}
+
+/* ============================================
+   SUGGESTIONS BAR (Quick reply chips)
+   ============================================ */
+.chat-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: white;
+}
+
+.suggestions-bar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  animation: slide-up 0.15s ease-out;
+}
+
+.suggestions-bar::-webkit-scrollbar { display: none; }
+
+.suggestion-chip {
+  flex-shrink: 0;
+  background: rgba(124, 58, 237, 0.08);
+  color: #7C3AED;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.suggestion-chip:hover {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: #7C3AED;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
+}
+
+.suggestion-chip:active { transform: scale(0.96); }
+
+/* ============================================
+   MIC BUTTON
+   ============================================ */
+.chat-mic-btn {
+  background: transparent;
+  border: none;
+  color: #7C3AED;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.chat-mic-btn:hover {
+  background: rgba(124, 58, 237, 0.1);
+  transform: scale(1.1);
+}
+
+/* ============================================
+   RECORDING BAR
+   ============================================ */
+.recording-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: white;
+  border-top: 1px solid rgba(0,0,0,0.05);
+  animation: fade-in 0.2s ease-out;
+}
+
+.rec-cancel-btn {
+  background: #FEE2E2;
+  color: #EF4444;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.rec-cancel-btn:hover { background: #FECACA; }
+
+.recording-indicator {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #EF4444;
+}
+
+.rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #EF4444;
+  flex-shrink: 0;
+  animation: recording-pulse 1s infinite ease-in-out;
+}
+
+@keyframes recording-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+}
+
+/* ============================================
+   VOICE MESSAGE PLAYER
+   ============================================ */
+.voice-message-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+  padding: 2px 0;
+}
+
+.voice-message-player .voice-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.voice-audio {
+  flex: 1;
+  height: 32px;
+  border-radius: 20px;
+  outline: none;
+  min-width: 0;
+  accent-color: #7C3AED;
+}
+
+.message-out .voice-audio {
+  filter: brightness(8);
 }

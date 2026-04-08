@@ -87,6 +87,7 @@ class ChatMessagesView(APIView):
                 'is_read': m.is_read,
                 'is_edited': m.is_edited,
                 'is_pinned': m.is_pinned,
+                'audio_file': m.audio_file.url if m.audio_file else None,
                 'reply_to_id': m.reply_to_id,
                 'reply_to_content': m.reply_to.content if m.reply_to else None,
                 'forwarded_from_name': m.forwarded_from.username if m.forwarded_from else None,
@@ -104,7 +105,8 @@ class ChatMessagesView(APIView):
             return Response({"error": "User not found"}, status=404)
             
         content = request.data.get('content', '').strip()
-        if not content:
+        audio_file = request.FILES.get('audio_file')
+        if not content and not audio_file:
             return Response({"error": "Message is empty"}, status=400)
             
         reply_to_id = request.data.get('reply_to_id')
@@ -114,6 +116,7 @@ class ChatMessagesView(APIView):
             sender=request.user,
             recipient=other_user,
             content=content,
+            audio_file=audio_file,
             reply_to_id=reply_to_id,
             forwarded_from_id=forwarded_from_id
         )
@@ -126,6 +129,7 @@ class ChatMessagesView(APIView):
             'is_read': msg.is_read,
             'is_edited': msg.is_edited,
             'is_pinned': msg.is_pinned,
+            'audio_file': msg.audio_file.url if msg.audio_file else None,
             'reply_to_id': msg.reply_to_id,
             'reply_to_content': msg.reply_to.content if msg.reply_to else None,
             'forwarded_from_name': msg.forwarded_from.username if msg.forwarded_from else None,

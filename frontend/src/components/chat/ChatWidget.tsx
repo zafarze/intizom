@@ -1,7 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, ArrowLeft, Check, CheckCheck, User, MessageSquare, Trash2, Edit2, MoreVertical, CheckCircle2, Reply, Pin, Copy, Forward, CheckSquare, Maximize2, Minimize2, Bot, Sparkles, Loader, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { MessageCircle, X, Send, ArrowLeft, Check, CheckCheck, User, MessageSquare, Trash2, Edit2, MoreVertical, CheckCircle2, Reply, Pin, Copy, Forward, CheckSquare, Maximize2, Minimize2, Bot, Sparkles, Loader, RotateCcw, Mic, StopCircle } from 'lucide-react';
 import api from '../../api/axios';
+import toast from 'react-hot-toast';
 import './chat.css';
+
+// Build absolute URL for media files from VITE_API_URL
+const getMediaUrl = (path: string | null | undefined) => {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  const base = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/')
+    .replace(/\/api\/?$/, '');
+  return `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+};
 
 // Types
 interface Contact {
@@ -20,6 +30,7 @@ interface Message {
   sender_id: number;
   recipient_id: number;
   content: string;
+  audio_file?: string | null;
   is_read: boolean;
   is_edited?: boolean;
   can_edit?: boolean;
@@ -67,7 +78,7 @@ export const ChatWidget: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chats' | 'contacts' | 'ai'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'teachers' | 'students' | 'ai'>('chats');
 
   // AI Chat state
   interface AIMessage { role: 'user' | 'assistant'; content: string; created_at?: string; }
@@ -78,6 +89,27 @@ export const ChatWidget: React.FC = () => {
   const aiEndRef = useRef<HTMLDivElement>(null);
 
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Quick suggestions
+  const SUGGESTIONS = [
+    'Салом', 'Салом алейкум', 'Хорошо', 'Спасибо', 'Понятно', 'Ок', 'Отлично',
+    'Я скоро буду', 'Да', 'Нет', 'Хошош', 'Мейлен', 'Ташаккур', 'Бозор', 'Фаҳмидай',
+    'Бошлайди', 'Подождите', 'Сейчас', 'Приду позже', 'Знаю', 'Пожалуйста',
+    'Конечно', 'Разумею', 'Ничего', 'Щасли', 'Марҳамат'
+  ];
+
+  const filteredSuggestions = useCallback(() => {
+    if (!inputText.trim() || inputText.length < 1) return [];
+    const q = inputText.toLowerCase();
+    return SUGGESTIONS.filter(s => s.toLowerCase().startsWith(q) && s.toLowerCase() !== q).slice(0, 8);
+  }, [inputText]);
 
   const fetchAiHistory = async () => {
     try {
@@ -264,28 +296,85 @@ export const ChatWidget: React.FC = () => {
       const tempText = inputText;
 
       if (editingMessageId) {
-        // Edit mode
-        const res = await api.put(`/chat/message/${editingMessageId}/`, {
-          content: tempText
-        });
+        const res = await api.put(`/chat/message/${editingMessageId}/`, { content: tempText });
         setMessages(prev => prev.map(m => m.id === editingMessageId ? { ...m, content: res.data.content, is_edited: true } : m));
         setEditingMessageId(null);
         setInputText('');
       } else {
-        // Create mode
-        const res = await api.post(`/chat/messages/${activeContact.id}/`, {
-          content: tempText,
-          reply_to_id: replyingMessage ? replyingMessage.id : undefined
+        const formData = new FormData();
+        formData.append('content', tempText);
+        if (replyingMessage) formData.append('reply_to_id', String(replyingMessage.id));
+        const res = await api.post(`/chat/messages/${activeContact.id}/`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
         });
         setMessages(prev => [...prev, res.data]);
         setInputText('');
         setReplyingMessage(null);
-        fetchContacts(); // update contact list last message
+        fetchContacts();
       }
     } catch (error) {
       console.error('Failed to send/edit message', error);
     }
   };
+
+  const sendVoiceMessage = async (audioBlob: Blob) => {
+    if (!activeContact) return;
+    const formData = new FormData();
+    formData.append('content', '');
+    formData.append('audio_file', audioBlob, 'voice.webm');
+    try {
+      const res = await api.post(`/chat/messages/${activeContact.id}/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setMessages(prev => [...prev, res.data]);
+      fetchContacts();
+    } catch (error) {
+      console.error('Failed to send voice message', error);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mr = new MediaRecorder(stream);
+      mediaRecorderRef.current = mr;
+      mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        sendVoiceMessage(blob);
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mr.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      recordingTimerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000);
+    } catch {
+      toast.error('Нет доступа к микрофону. Разрешите доступ в настройках браузера.');
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    setRecordingSeconds(0);
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream?.getTracks().forEach(t => t.stop());
+    }
+    setIsRecording(false);
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    setRecordingSeconds(0);
+    audioChunksRef.current = [];
+  };
+
+  const formatRecordingTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 
   const handleEditMessage = (msg: Message) => {
     setEditingMessageId(msg.id);
@@ -330,8 +419,14 @@ export const ChatWidget: React.FC = () => {
         forwarded_from_id: forwardingMessage.sender_id
       });
       fetchContacts();
+      const targetContact = contacts.find(c => c.id === contact_id);
+      toast.success(`Сообщение переслано ${targetContact ? targetContact.name : ''}`);
+      if (activeContact && contact_id === activeContact.id) {
+        fetchMessages(activeContact.id);
+      }
     } catch (e) {
       console.error(e);
+      toast.error('Ошибка при пересылке');
     }
     setForwardModalOpen(false);
     setForwardingMessage(null);
@@ -430,6 +525,10 @@ export const ChatWidget: React.FC = () => {
     } else {
       if (activeTab === 'chats') {
         result = result.filter(c => c.last_message !== null);
+      } else if (activeTab === 'teachers') {
+        result = result.filter(c => c.role_subtitle === 'Учитель' || c.role_subtitle === 'Администратор' || c.role_subtitle === 'Сотрудник');
+      } else if (activeTab === 'students') {
+        result = result.filter(c => c.role_subtitle.startsWith('Ученик'));
       }
     }
 
@@ -540,10 +639,16 @@ export const ChatWidget: React.FC = () => {
                   Чаты
                 </button>
                 <button
-                  className={`chat-tab ${activeTab === 'contacts' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('contacts')}
+                  className={`chat-tab ${activeTab === 'teachers' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('teachers')}
                 >
-                  Контакты
+                  Учителя
+                </button>
+                <button
+                  className={`chat-tab ${activeTab === 'students' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('students')}
+                >
+                  Ученики
                 </button>
                 <button
                   className={`chat-tab ${activeTab === 'ai' ? 'active' : ''}`}
@@ -682,7 +787,14 @@ export const ChatWidget: React.FC = () => {
                               <p>{msg.reply_to_content}</p>
                             </div>
                           )}
-                          {msg.content}
+                          {msg.audio_file ? (
+                            <div className="voice-message-player">
+                              <Mic size={14} className="voice-icon" />
+                              <audio controls src={getMediaUrl(msg.audio_file)} className="voice-audio" />
+                            </div>
+                          ) : (
+                            <span>{msg.content}</span>
+                          )}
                           <div className="message-footer">
                             {msg.is_edited && <span className="message-edited">(изменено)</span>}
                             {formatTime(msg.created_at)}
@@ -738,12 +850,33 @@ export const ChatWidget: React.FC = () => {
                 </div>
               )}
               {!isSelectMode && (
-                <form className={`chat-input-area ${(editingMessageId || replyingMessage) ? 'attached-mode' : ''}`} onSubmit={handleSendMessage}>
-                  <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={e => setInputText(e.target.value)} />
-                  <button type="submit" className={`chat-send-btn ${editingMessageId ? 'edit-btn' : ''}`} disabled={!inputText.trim()}>
-                    {editingMessageId ? <CheckCircle2 size={18} /> : <Send size={18} />}
-                  </button>
-                </form>
+                <div className="chat-input-wrapper">
+                  {filteredSuggestions().length > 0 && (
+                    <div className="suggestions-bar">
+                      {filteredSuggestions().map((s, i) => (
+                        <button key={i} className="suggestion-chip" onClick={() => setInputText(s)} type="button">{s}</button>
+                      ))}
+                    </div>
+                  )}
+                  {isRecording ? (
+                    <div className="recording-bar">
+                      <button type="button" className="rec-cancel-btn" onClick={cancelRecording}><X size={18} /></button>
+                      <span className="recording-indicator"><span className="rec-dot" /> {formatRecordingTime(recordingSeconds)}</span>
+                      <button type="button" className="chat-send-btn" onClick={stopRecording}><StopCircle size={18} /></button>
+                    </div>
+                  ) : (
+                    <form className={`chat-input-area ${(editingMessageId || replyingMessage) ? 'attached-mode' : ''}`} onSubmit={handleSendMessage}>
+                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={e => setInputText(e.target.value)} />
+                      {!inputText.trim() ? (
+                        <button type="button" className="chat-mic-btn" onClick={startRecording}><Mic size={20} /></button>
+                      ) : (
+                        <button type="submit" className={`chat-send-btn ${editingMessageId ? 'edit-btn' : ''}`}>
+                          {editingMessageId ? <CheckCircle2 size={18} /> : <Send size={18} />}
+                        </button>
+                      )}
+                    </form>
+                  )}
+                </div>
               )}
             </div>
           ) : null}
@@ -799,7 +932,14 @@ export const ChatWidget: React.FC = () => {
                         <div className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}>
                           {msg.forwarded_from_name && <div className="message-forwarded"><Forward size={12} /> Переслано от: {msg.forwarded_from_name}</div>}
                           {msg.reply_to_content && <div className="message-quoted"><div className="quoted-bar"></div><p>{msg.reply_to_content}</p></div>}
-                          {msg.content}
+                          {msg.audio_file ? (
+                            <div className="voice-message-player">
+                              <Mic size={14} className="voice-icon" />
+                              <audio controls src={getMediaUrl(msg.audio_file)} className="voice-audio" />
+                            </div>
+                          ) : (
+                            <span>{msg.content}</span>
+                          )}
                           <div className="message-footer">
                             {msg.is_edited && <span className="message-edited">(изменено)</span>}
                             {formatTime(msg.created_at)}
@@ -845,12 +985,33 @@ export const ChatWidget: React.FC = () => {
                 </div>
               )}
               {!isSelectMode && (
-                <form className={`chat-input-area ${(editingMessageId || replyingMessage) ? 'attached-mode' : ''}`} onSubmit={handleSendMessage}>
-                  <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={e => setInputText(e.target.value)} />
-                  <button type="submit" className={`chat-send-btn ${editingMessageId ? 'edit-btn' : ''}`} disabled={!inputText.trim()}>
-                    {editingMessageId ? <CheckCircle2 size={18} /> : <Send size={18} />}
-                  </button>
-                </form>
+                <div className="chat-input-wrapper">
+                  {filteredSuggestions().length > 0 && (
+                    <div className="suggestions-bar">
+                      {filteredSuggestions().map((s, i) => (
+                        <button key={i} className="suggestion-chip" onClick={() => setInputText(s)} type="button">{s}</button>
+                      ))}
+                    </div>
+                  )}
+                  {isRecording ? (
+                    <div className="recording-bar">
+                      <button type="button" className="rec-cancel-btn" onClick={cancelRecording}><X size={18} /></button>
+                      <span className="recording-indicator"><span className="rec-dot" /> {formatRecordingTime(recordingSeconds)}</span>
+                      <button type="button" className="chat-send-btn" onClick={stopRecording}><StopCircle size={18} /></button>
+                    </div>
+                  ) : (
+                    <form className={`chat-input-area ${(editingMessageId || replyingMessage) ? 'attached-mode' : ''}`} onSubmit={handleSendMessage}>
+                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={e => setInputText(e.target.value)} />
+                      {!inputText.trim() ? (
+                        <button type="button" className="chat-mic-btn" onClick={startRecording}><Mic size={20} /></button>
+                      ) : (
+                        <button type="submit" className={`chat-send-btn ${editingMessageId ? 'edit-btn' : ''}`}>
+                          {editingMessageId ? <CheckCircle2 size={18} /> : <Send size={18} />}
+                        </button>
+                      )}
+                    </form>
+                  )}
+                </div>
               )}
             </div>
           )}

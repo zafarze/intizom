@@ -26,6 +26,7 @@ interface ActionLog {
 	student_detail: Student;
 	rule_detail: Rule;
 	created_at: string;
+	teacher_id: number;
 }
 
 // Метаданные для UI (цвета и иконки для категорий)
@@ -112,11 +113,11 @@ export default function TeacherDashboard() {
 	}, [fetchData]);
 
 	const uniqueClasses = Array.from(new Set(students.map(s => s.class_name))).filter(Boolean).sort();
-	
+
 	// Находим классное руководство (может быть несколько для одного учителя)
 	const homeroomClasses = classes.filter(c => c.class_teacher_ids?.includes(user.id));
 	const homeroomClassNames = homeroomClasses.map(c => c.name);
-	
+
 	const myClasses = uniqueClasses.filter(c => homeroomClassNames.includes(c));
 	const otherClasses = uniqueClasses.filter(c => !homeroomClassNames.includes(c));
 
@@ -222,6 +223,20 @@ export default function TeacherDashboard() {
 
 	const lessonInfo = getCurrentLessonInfo();
 
+	const getFilteredLogs = () => {
+		let logs = recentLogs;
+		if (selectedStudent) {
+			logs = logs.filter(log => log.student_detail.id === selectedStudent.id);
+		} else if (selectedClass) {
+			logs = logs.filter(log => log.student_detail.class_name === selectedClass);
+		} else {
+			logs = logs.filter(log => log.teacher_id === user.id);
+		}
+		return logs.slice(0, 10);
+	};
+
+	const displayedLogs = getFilteredLogs();
+
 	return (
 		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500">
 
@@ -306,7 +321,7 @@ export default function TeacherDashboard() {
 					{!selectedClass && !selectedStudent && (
 						<div className="animate-in fade-in zoom-in-95 duration-300 relative z-20 mb-6">
 							<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block ml-1">1. Выберите класс</label>
-							
+
 							{myClasses.length > 0 && (
 								<div className="mb-6 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50">
 									<label className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-3 block ml-1 flex items-center gap-1">
@@ -502,10 +517,12 @@ export default function TeacherDashboard() {
 
 				{/* БОКОВАЯ КОЛОНКА (ИСТОРИЯ УЧИТЕЛЯ - ОЖИВЛЕНА!) */}
 				<div className="hidden xl:flex bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm flex-col h-full overflow-hidden">
-					<h2 className="text-lg font-bold text-slate-800 mb-6 border-b border-white pb-4">Ваша недавняя история</h2>
+					<h2 className="text-lg font-bold text-slate-800 mb-6 border-b border-white pb-4">
+						{selectedStudent ? 'История ученика' : selectedClass ? `История класса ${selectedClass}` : 'Ваша недавняя история'}
+					</h2>
 					<div className="flex-1 overflow-y-auto pr-2 space-y-4 hide-scrollbar">
-						{recentLogs.length > 0 ? (
-							recentLogs.slice(0, 10).map(log => {
+						{displayedLogs.length > 0 ? (
+							displayedLogs.map(log => {
 								const isPositive = log.rule_detail.points_impact > 0;
 								return (
 									<div key={log.id} className={`p-4 rounded-2xl border ${isPositive ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100'}`}>
@@ -559,7 +576,9 @@ export default function TeacherDashboard() {
 								<div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
 									<History size={20} />
 								</div>
-								<h2 className="text-lg font-black text-slate-800">Ваша недавняя история</h2>
+								<h2 className="text-lg font-black text-slate-800">
+									{selectedStudent ? 'История ученика' : selectedClass ? `История класса ${selectedClass}` : 'Ваша недавняя история'}
+								</h2>
 							</div>
 							<button
 								onClick={() => setShowMobileHistory(false)}
@@ -570,8 +589,8 @@ export default function TeacherDashboard() {
 						</div>
 
 						<div className="flex-1 overflow-y-auto p-6 space-y-4 hide-scrollbar">
-							{recentLogs.length > 0 ? (
-								recentLogs.slice(0, 10).map(log => {
+							{displayedLogs.length > 0 ? (
+								displayedLogs.map(log => {
 									const isPositive = log.rule_detail.points_impact > 0;
 									return (
 										<div key={log.id} className={`p-4 rounded-2xl border ${isPositive ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100'}`}>

@@ -314,9 +314,7 @@ export const ChatWidget: React.FC = () => {
         formData.append('content', tempText);
         if (replyingMessage) formData.append('reply_to_id', String(replyingMessage.id));
         if (selectedImage) formData.append('image_file', selectedImage);
-        const res = await api.post(`/chat/messages/${activeContact.id}/`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const res = await api.post(`/chat/messages/${activeContact.id}/`, formData);
         setMessages(prev => [...prev, res.data]);
         setInputText('');
         setReplyingMessage(null);
@@ -378,9 +376,7 @@ export const ChatWidget: React.FC = () => {
     formData.append('content', '');
     formData.append('audio_file', audioBlob, 'voice.webm');
     try {
-      const res = await api.post(`/chat/messages/${activeContact.id}/`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await api.post(`/chat/messages/${activeContact.id}/`, formData);
       setMessages(prev => [...prev, res.data]);
       fetchContacts();
     } catch (error) {

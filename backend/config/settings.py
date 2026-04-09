@@ -137,16 +137,6 @@ STORAGES = {
     },
 }
 
-# Настройки статики для Django 5.1+
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
-    },
-}
-
 
 # --- Настройки OpenAI ---
 OPENAI_API_KEY = env('OPENAI_API_KEY', default=None)
@@ -166,8 +156,7 @@ if GS_BUCKET_NAME:
             'OPTIONS': {
                 'bucket_name': GS_BUCKET_NAME,
                 'default_acl': None,
-                'querystring_auth': True,
-                'expiration': 60 * 60 * 24 * 7,  # Signed URLs на 7 дней
+                'querystring_auth': False,
             },
         },
         'staticfiles': {

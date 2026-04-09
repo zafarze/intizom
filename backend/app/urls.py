@@ -29,6 +29,7 @@ from .views import (
     ChatReadView,
     AIChatView,
 )
+from .views.fcm import FCMTokenRegisterView
 
 router = DefaultRouter()
 router.register(r'classes', SchoolClassViewSet)
@@ -68,6 +69,9 @@ urlpatterns = [
     # AI Chat
     path('ai/chat/', AIChatView.as_view(), name='ai_chat'),
     
+    # FCM
+    path('fcm-token/', FCMTokenRegisterView.as_view(), name='fcm-token'),
+
     # 2. Затем подключаем все стандартные роуты (CRUD), сгенерированные роутером
     path('', include(router.urls)),
 ]

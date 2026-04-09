@@ -219,6 +219,18 @@ class AppNotification(models.Model):
     def __str__(self):
         return f"{self.title} -> {self.recipient.username if self.recipient else 'Всем'}"
 
+class FCMDevice(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fcm_devices')
+    token = models.CharField(max_length=255, unique=True, verbose_name="FCM Token")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "FCM Устройство"
+        verbose_name_plural = "FCM Устройства"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.token[:10]}..."
+
 # ==========================================
 # 7. РАСПИСАНИЕ ЗВОНКОВ (Time Table)
 # ==========================================
@@ -295,4 +307,3 @@ class AIConversation(models.Model):
 
     def __str__(self):
         return f"{self.user.username} [{self.role}] - {self.created_at.strftime('%d.%m.%Y %H:%M')}"
-

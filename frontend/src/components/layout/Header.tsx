@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, Bell, ChevronDown, User, LogOut, Settings, Menu, Loader2, LayoutDashboard, BarChart2, Activity, Users, X } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api/axios';
+import { requestFirebaseNotificationPermission, onMessageListener } from '../../firebase';
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -23,6 +24,8 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	const [notifications, setNotifications] = useState<any[]>([]);
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [isLoadingNotifs, setIsLoadingNotifs] = useState(false);
+	const [selectedNotification, setSelectedNotification] = useState<any>(null);
+	const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -75,7 +78,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 				api.get('logs/').catch(() => ({ data: [] })),
 				api.get('notifications/').catch(() => ({ data: [] }))
 			]);
-			
+
 			const logs = logsRes.data?.results || logsRes.data || [];
 			const notifs = notifsRes.data?.results || notifsRes.data || [];
 
@@ -84,7 +87,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			const mappedLogs = filteredLogs.map((l: any) => ({ ...l, itemType: 'log' }));
 			const mappedNotifs = notifs.map((n: any) => ({ ...n, itemType: 'sys' }));
 
-			const combined = [...mappedLogs, ...mappedNotifs].sort((a, b) => 
+			const combined = [...mappedLogs, ...mappedNotifs].sort((a, b) =>
 				new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
 			);
 
@@ -95,18 +98,40 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			// Считаем непрочитанные (ищем ВРЕМЯ последнего просмотра в памяти браузера)
 			const lastSeenTimeStr = localStorage.getItem('last_seen_notif_time');
 			const lastSeenTime = lastSeenTimeStr ? new Date(lastSeenTimeStr).getTime() : 0;
-			
+
 			const unread = latestLogs.filter((item: any) => new Date(item.created_at).getTime() > lastSeenTime).length;
 			setUnreadCount(unread);
 
 			// PWA Апдейт иконки (для телефонов и ПК)
 			if ('setAppBadge' in navigator) {
 				if (unread > 0) {
-					// @ts-ignore
-					navigator.setAppBadge(unread).catch(console.error);
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(navigator as any).setAppBadge(unread).catch(console.error);
 				} else {
-					// @ts-ignore
-					navigator.clearAppBadge().catch(console.error);
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(navigator as any).clearAppBadge().catch(console.error);
+				}
+			}
+
+			// Browser Push Notifications
+			if (unread > 0 && Notification.permission === 'granted') {
+				const lastPushedTimeStr = localStorage.getItem('last_pushed_notif_time');
+				const lastPushedTime = lastPushedTimeStr ? new Date(lastPushedTimeStr).getTime() : 0;
+
+				const newToPush = latestLogs.filter((item: any) => new Date(item.created_at).getTime() > lastPushedTime);
+
+				if (newToPush.length > 0) {
+					newToPush.forEach((item: any) => {
+						const title = item.itemType === 'sys' ? item.title : 'Изменение баллов';
+						const body = item.itemType === 'sys' ? item.message : `${item.student_detail?.first_name} ${item.student_detail?.last_name} (${item.rule_detail?.points_impact > 0 ? '+' : ''}${item.rule_detail?.points_impact})`;
+
+						new Notification(title, {
+							body: body,
+							icon: '/vite.svg'
+						});
+					});
+
+					localStorage.setItem('last_pushed_notif_time', newToPush[0].created_at);
 				}
 			}
 
@@ -120,6 +145,29 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	// Загружаем уведомления при монтировании шапки
 	useEffect(() => {
 		fetchNotifications();
+
+		// Запрашиваем разрешение на Push-уведомления (Firebase FCM)
+		if ('Notification' in window) {
+			requestFirebaseNotificationPermission();
+		}
+
+		// Слушаем Firebase-пуши в активном окне
+		onMessageListener().then((payload: any) => {
+			console.log("Firebase Foreground Notification received: ", payload);
+			// При получении пуша сразу обновляем список уведомлений
+			fetchNotifications();
+			// Можно также показать браузерный Push:
+			if (Notification.permission === 'granted') {
+				new Notification(payload.notification?.title || "Новое уведомление", {
+					body: payload.notification?.body || "",
+					icon: '/vite.svg'
+				});
+			}
+		}).catch(err => console.log('failed: ', err));
+
+		// Периодическое обновление (каждые 30 секунд) для живых уведомлений
+		const interval = setInterval(fetchNotifications, 30000);
+		return () => clearInterval(interval);
 	}, []);
 
 	const markAllAsRead = () => {
@@ -127,11 +175,11 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			// Сохраняем текущее время как время прочтения
 			localStorage.setItem('last_seen_notif_time', new Date().toISOString());
 			setUnreadCount(0); // Убираем красную точку
-			
+
 			// PWA: Убираем бейдж с иконки на рабочем столе
 			if ('clearAppBadge' in navigator) {
-				// @ts-ignore
-				navigator.clearAppBadge().catch(console.error);
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				(navigator as any).clearAppBadge().catch(console.error);
 			}
 		}
 	};
@@ -383,16 +431,24 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 										const lastSeenTimeStr = localStorage.getItem('last_seen_notif_time');
 										const lastSeenTime = lastSeenTimeStr ? new Date(lastSeenTimeStr).getTime() : 0;
 										const isUnread = new Date(item.created_at).getTime() > lastSeenTime;
-										
+
 										if (item.itemType === 'sys') {
 											return (
-												<div key={`sys-${item.id}`} className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-slate-50'}`}>
+												<div
+													key={`sys-${item.id}`}
+													onClick={() => {
+														setSelectedNotification(item);
+														setIsNotificationModalOpen(true);
+														setIsNotifOpen(false);
+													}}
+													className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-slate-50'}`}
+												>
 													<div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isUnread ? 'bg-indigo-500' : 'bg-transparent'}`}></div>
 													<div className="flex-1">
 														<p className={`text-[12px] leading-tight ${isUnread ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
 															<span className="text-indigo-600 font-bold">{item.title}</span>
 														</p>
-														<p className="text-[11px] text-slate-600 mt-1 leading-snug">{item.message}</p>
+														<p className="text-[11px] text-slate-600 mt-1 leading-snug truncate max-w-[200px]">{item.message}</p>
 														<p className="text-[9px] font-bold text-slate-400 mt-1.5">{formatTime(item.created_at)}</p>
 													</div>
 												</div>
@@ -401,7 +457,15 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
 										const isPositive = item.rule_detail?.points_impact > 0;
 										return (
-											<div key={`log-${item.id}`} className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-slate-50'}`}>
+											<div
+												key={`log-${item.id}`}
+												onClick={() => {
+													setSelectedNotification(item);
+													setIsNotificationModalOpen(true);
+													setIsNotifOpen(false);
+												}}
+												className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-slate-50'}`}
+											>
 												<div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isUnread ? 'bg-indigo-500' : 'bg-transparent'}`}></div>
 												<div className="flex-1">
 													<p className={`text-[12px] leading-tight ${isUnread ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
@@ -588,6 +652,62 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
 						<div className="mt-5 pt-4 border-t border-slate-100">
 							<button onClick={() => setIsHistoryModalOpen(false)} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all active:scale-95">Закрыть</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* МОДАЛКА УВЕДОМЛЕНИЯ */}
+			{isNotificationModalOpen && selectedNotification && (
+				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+					<div className="bg-white p-6 rounded-3xl w-full max-w-md flex flex-col relative shadow-2xl">
+						<button onClick={() => setIsNotificationModalOpen(false)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+							<X size={20} />
+						</button>
+
+						{selectedNotification.itemType === 'sys' ? (
+							<>
+								<div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-4">
+									<Bell size={24} />
+								</div>
+								<h3 className="text-xl font-black text-slate-800 mb-2">{selectedNotification.title}</h3>
+								<p className="text-sm text-slate-600 mb-6 whitespace-pre-wrap">{selectedNotification.message}</p>
+								<p className="text-xs font-bold text-slate-400">{formatTime(selectedNotification.created_at)}</p>
+							</>
+						) : (
+							<>
+								<div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 font-black text-xl ${selectedNotification.rule_detail?.points_impact > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+									{selectedNotification.rule_detail?.points_impact > 0 ? '+' : ''}{selectedNotification.rule_detail?.points_impact}
+								</div>
+								<h3 className="text-xl font-black text-slate-800 mb-2">Изменение баллов</h3>
+
+								<div className="space-y-3 mb-6 mt-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+									<div>
+										<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Ученик</p>
+										<p className="text-sm font-bold text-slate-800">{selectedNotification.student_detail?.first_name} {selectedNotification.student_detail?.last_name}</p>
+									</div>
+									<div>
+										<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Правило / Нарушение</p>
+										<p className="text-sm font-medium text-slate-700">{selectedNotification.rule_detail?.title}</p>
+									</div>
+									{selectedNotification.description && (
+										<div>
+											<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Комментарий</p>
+											<p className="text-sm text-slate-600 whitespace-pre-wrap">{selectedNotification.description}</p>
+										</div>
+									)}
+									<div>
+										<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Учитель</p>
+										<p className="text-sm text-slate-600">{selectedNotification.teacher_name}</p>
+									</div>
+								</div>
+
+								<p className="text-xs font-bold text-slate-400">{formatTime(selectedNotification.created_at)}</p>
+							</>
+						)}
+
+						<div className="mt-6 pt-4 border-t border-slate-100">
+							<button onClick={() => setIsNotificationModalOpen(false)} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all active:scale-95">Закрыть</button>
 						</div>
 					</div>
 				</div>

@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { registerSW } from 'virtual:pwa-register';
 import './index.css';
+import './i18n';
 import App from './App.tsx';
 
 // Register service worker and handle auto-update

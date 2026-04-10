@@ -7,6 +7,44 @@ from django.utils import timezone
 # 👇 ДОБАВЛЕН ИМПОРТ QuarterResult ДЛЯ СТАТИСТИКИ ОТЛИЧНИКОВ
 from app.models import Student, SchoolClass, ActionLog, Rule, QuarterResult, Quarter
 
+class MyClassMatrixView(APIView):
+    """
+    Панель классного руководителя.
+    Возвращает классы, в которых текущий учитель является классным руководителем (class_teachers),
+    а также список учеников в этих классах с их текущими баллами.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        # Получаем классы, где этот юзер - классный руководитель
+        led_classes = SchoolClass.objects.filter(class_teachers=user).prefetch_related('students')
+        
+        if not led_classes.exists():
+            return Response([])
+
+        data = []
+        for school_class in led_classes:
+            students = school_class.students.all().order_by('last_name', 'first_name')
+            
+            students_data = []
+            for s in students:
+                students_data.append({
+                    "id": s.id,
+                    "first_name": s.first_name,
+                    "last_name": s.last_name,
+                    "points": s.points,
+                })
+            
+            data.append({
+                "class_id": school_class.id,
+                "class_name": school_class.name,
+                "students": students_data
+            })
+            
+        return Response(data)
+
 class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -124,11 +162,61 @@ class StatisticsView(APIView):
             for s in top_quarter_students
         ]
 
+        # 5. ТРЕНД ПОВЕДЕНИЯ ПО МЕСЯЦАМ (За последние 6 месяцев)
+        from dateutil.relativedelta import relativedelta
+        import calendar
+
+        trend_data = []
+        # Вычисляем за последние 6 месяцев
+        for i in range(5, -1, -1):
+            target_date = now - relativedelta(months=i)
+            month_start = target_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            # month end
+            _, last_day = calendar.monthrange(target_date.year, target_date.month)
+            month_end = target_date.replace(day=last_day, hour=23, minute=59, second=59)
+
+            logs_in_month = ActionLog.objects.filter(created_at__gte=month_start, created_at__lte=month_end)
+            
+            # Сумма плюсов
+            bonuses_sum = logs_in_month.filter(rule__points_impact__gt=0).aggregate(Sum('rule__points_impact'))['rule__points_impact__sum'] or 0
+            
+            # Сумма минусов (в абсолютном значении)
+            violations_sum = logs_in_month.filter(rule__points_impact__lt=0).aggregate(Sum('rule__points_impact'))['rule__points_impact__sum'] or 0
+            violations_sum = abs(violations_sum)
+
+            month_names = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
+            month_str = month_names[target_date.month - 1]
+
+            trend_data.append({
+                "month": month_str,
+                "bonuses": bonuses_sum,
+                "violations": violations_sum
+            })
+
+        # 6. ТОП-10 ЛУЧШИХ И ТОП-10 ХУДШИХ УЧЕНИКОВ
+        best_students_qs = Student.objects.select_related('school_class').order_by('-points')[:10]
+        worst_students_qs = Student.objects.select_related('school_class').order_by('points')[:10]
+
+        def format_student(s):
+            return {
+                "id": s.id,
+                "first_name": s.first_name,
+                "last_name": s.last_name,
+                "points": s.points,
+                "class_name": s.school_class.name if s.school_class else "Нет класса"
+            }
+
+        top_10_best = [format_student(s) for s in best_students_qs]
+        top_10_worst = [format_student(s) for s in worst_students_qs]
+
         return Response({
             'violations': violations_data,
             'risk_levels': risk_data,
             'monthly_bonuses': total_bonuses,
-            'super_students': super_students # 👈 Возвращаем массив отличников на фронтенд
+            'super_students': super_students,
+            'trend_data': trend_data,
+            'top_10_best': top_10_best,
+            'top_10_worst': top_10_worst
         })
 
 class MonitoringView(APIView):

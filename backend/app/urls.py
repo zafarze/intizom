@@ -28,6 +28,8 @@ from .views import (
     ChatPinMessageView,
     ChatReadView,
     AIChatView,
+    AITranslateView,
+    MyClassMatrixView,
 )
 from .views.fcm import FCMTokenRegisterView
 
@@ -58,6 +60,9 @@ urlpatterns = [
     path('settings/set-year/<int:year_id>/', SetActiveYearView.as_view(), name='set-year'),
     path('settings/reset-points/', ResetPointsView.as_view(), name='reset-points'),
 
+    # Панель классного руководителя
+    path('teacher/my-class/', MyClassMatrixView.as_view(), name='teacher-my-class'),
+
     # Chat
     path('chat/contacts/', ChatContactsView.as_view(), name='chat_contacts'),
     path('chat/messages/<int:user_id>/', ChatMessagesView.as_view(), name='chat_messages'),
@@ -68,6 +73,7 @@ urlpatterns = [
 
     # AI Chat
     path('ai/chat/', AIChatView.as_view(), name='ai_chat'),
+    path('ai/translate/', AITranslateView.as_view(), name='ai_translate'),
     
     # FCM
     path('fcm-token/', FCMTokenRegisterView.as_view(), name='fcm-token'),

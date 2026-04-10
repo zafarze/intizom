@@ -994,6 +994,22 @@
   z-index: 999999;
 }
 
+.chat-date-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 16px 0 8px;
+}
+
+.chat-date-separator span {
+  background: rgba(0, 0, 0, 0.05);
+  color: #6B7280;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
 @media (max-width: 480px) {
   .chat-modal-overlay {
     border-radius: 32px 32px 0 0;

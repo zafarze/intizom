@@ -171,3 +171,66 @@ class AIChatView(APIView):
         """Clear conversation history."""
         AIConversation.objects.filter(user=request.user).delete()
         return Response({'status': 'ok'})
+
+import json
+
+class AITranslateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not GEMINI_AVAILABLE:
+            return Response(
+                {'error': 'google-genai пакет не установлен. Выполни: pip install google-genai'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
+        api_key = os.environ.get('OPENAI_API_KEY') or getattr(settings, 'OPENAI_API_KEY', None)
+        if not api_key:
+            return Response(
+                {'error': 'OPENAI_API_KEY (Google API Key) не настроен в .env файле'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
+        text = request.data.get('text', '').strip()
+        source_lang = request.data.get('source_lang', 'ru')
+        
+        if not text:
+            return Response({'error': 'Текст пуст'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        langs = {'ru': 'русский', 'tg': 'таджикский', 'en': 'английский'}
+        
+        prompt = f"""
+Переведи следующий текст (правило поведения в школе) с {langs.get(source_lang, 'исходного языка')} на остальные языки из списка: русский, таджикский, английский.
+Текст: "{text}"
+Ответь СТРОГО в формате JSON без markdown:
+{{
+    "ru": "перевод на русский",
+    "tg": "перевод на таджикский",
+    "en": "перевод на английский"
+}}
+"""
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt
+            )
+            
+            ai_reply = response.text.strip()
+            if ai_reply.startswith('```json'):
+                ai_reply = ai_reply[7:]
+            if ai_reply.startswith('```'):
+                ai_reply = ai_reply[3:]
+            if ai_reply.endswith('```'):
+                ai_reply = ai_reply[:-3]
+                
+            result = json.loads(ai_reply.strip())
+            
+            # Keep original text for the source lang
+            result[source_lang] = text
+                
+            return Response(result)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

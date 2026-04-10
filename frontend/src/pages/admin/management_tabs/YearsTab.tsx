@@ -12,11 +12,15 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 	const [isYearActive, setIsYearActive] = useState(false);
 
 	// Состояния для Четвертей
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const [quarters, setQuarters] = useState<any[]>([]);
 	const [isQuarterModalOpen, setIsQuarterModalOpen] = useState(false);
 	const [editingQuarterId, setEditingQuarterId] = useState<number | null>(null);
-	const [quarterName, setQuarterName] = useState('');
+	const [quarterNameRu, setQuarterNameRu] = useState('');
+	const [quarterNameTg, setQuarterNameTg] = useState('');
+	const [quarterNameEn, setQuarterNameEn] = useState('');
 	const [quarterYearId, setQuarterYearId] = useState('');
+	const [activeQuarterLang, setActiveQuarterLang] = useState<'ru' | 'tg' | 'en'>('ru');
 	const [isQuarterActive, setIsQuarterActive] = useState(false);
 	const [quarterStartDate, setQuarterStartDate] = useState('');
 	const [quarterEndDate, setQuarterEndDate] = useState('');
@@ -52,14 +56,18 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 	};
 
 	// --- ЛОГИКА ЧЕТВЕРТЕЙ ---
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const openQuarterModal = (item?: any) => {
 		setEditingQuarterId(item?.id || null);
-		setQuarterName(item?.name || '');
+		setQuarterNameRu(item?.name_ru || '');
+		setQuarterNameTg(item?.name_tg || '');
+		setQuarterNameEn(item?.name_en || '');
 		setQuarterYearId(item?.academic_year || '');
 		setIsQuarterActive(item?.is_active || false);
 		setQuarterStartDate(item?.start_date || '');
 		setQuarterEndDate(item?.end_date || '');
 		setIsQuarterModalOpen(true);
+		setActiveQuarterLang('ru');
 	};
 	const handleQuarterDelete = async (id: number) => {
 		if (!window.confirm('Удалить эту четверть?')) return;
@@ -69,8 +77,11 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 	const handleQuarterSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		// Если учебный год выбран вручную — передаём его, иначе — не передаём (бэкенд угадает по датам)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const payload: any = {
-			name: quarterName,
+			name_ru: quarterNameRu,
+			name_tg: quarterNameTg,
+			name_en: quarterNameEn,
 			is_active: isQuarterActive,
 			start_date: quarterStartDate || null,
 			end_date: quarterEndDate || null,
@@ -98,7 +109,7 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 
 		// Учебный год: 1 сентября startYear — 30 июня endYear
 		const yearStart = new Date(startYear, 8, 1);   // сентябрь = месяц 8
-		const yearEnd   = new Date(endYear, 5, 30);    // июнь = месяц 5
+		const yearEnd = new Date(endYear, 5, 30);    // июнь = месяц 5
 
 		if (now > yearEnd) {
 			// Год уже закончился — всегда Завершен
@@ -175,7 +186,7 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 								<td className="py-4 px-4 font-bold text-slate-800 whitespace-nowrap">{q.name}</td>
 								<td className="py-4 px-4 text-xs font-medium text-slate-500 whitespace-nowrap">
 									{q.start_date && q.end_date
-										? `${new Date(q.start_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short'})} – ${new Date(q.end_date).toLocaleDateString('ru-RU', {day:'numeric',month:'short',year:'numeric'})}`
+										? `${new Date(q.start_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} – ${new Date(q.end_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}`
 										: <span className="text-slate-300">—</span>
 									}
 								</td>
@@ -207,69 +218,78 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 
 			{/* === МОДАЛКА УЧЕБНОГО ГОДА === */}
 			<Modal isOpen={isYearModalOpen} onClose={() => setIsYearModalOpen(false)}>
-					<div className="bg-white p-6 rounded-3xl w-full max-w-sm">
-						<h3 className="font-black text-xl mb-4">{editingYearId ? 'Редактировать' : 'Добавить'} учебный год</h3>
-						<form onSubmit={handleYearSubmit} className="space-y-5">
-							<input required placeholder="Например: 2025-2026" value={year} onChange={e => setYear(e.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none rounded-xl px-4 py-3 font-medium" />
-							<label className="flex items-center gap-3 cursor-pointer p-3 border border-slate-100 rounded-xl hover:bg-slate-50">
-								<input type="checkbox" checked={isYearActive} onChange={e => setIsYearActive(e.target.checked)} className="w-5 h-5 text-indigo-600 rounded-md" />
-								<span className="text-sm font-bold text-slate-700">Сделать этот год активным</span>
-							</label>
-							<div className="flex gap-3 pt-2">
-								<button type="button" onClick={() => setIsYearModalOpen(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold text-slate-700">Отмена</button>
-								<button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button>
-							</div>
-						</form>
-					</div>
+				<div className="bg-white p-6 rounded-3xl w-full max-w-sm">
+					<h3 className="font-black text-xl mb-4">{editingYearId ? 'Редактировать' : 'Добавить'} учебный год</h3>
+					<form onSubmit={handleYearSubmit} className="space-y-5">
+						<input required placeholder="Например: 2025-2026" value={year} onChange={e => setYear(e.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none rounded-xl px-4 py-3 font-medium" />
+						<label className="flex items-center gap-3 cursor-pointer p-3 border border-slate-100 rounded-xl hover:bg-slate-50">
+							<input type="checkbox" checked={isYearActive} onChange={e => setIsYearActive(e.target.checked)} className="w-5 h-5 text-indigo-600 rounded-md" />
+							<span className="text-sm font-bold text-slate-700">Сделать этот год активным</span>
+						</label>
+						<div className="flex gap-3 pt-2">
+							<button type="button" onClick={() => setIsYearModalOpen(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold text-slate-700">Отмена</button>
+							<button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button>
+						</div>
+					</form>
+				</div>
 			</Modal>
 
 			{/* === МОДАЛКА ЧЕТВЕРТИ === */}
 			<Modal isOpen={isQuarterModalOpen} onClose={() => setIsQuarterModalOpen(false)}>
-					<div className="bg-white p-6 rounded-3xl w-full max-w-sm">
-						<h3 className="font-black text-xl mb-1">{editingQuarterId ? 'Редактировать' : 'Добавить'} четверть</h3>
-						<p className="text-xs text-slate-500 font-medium mb-4">Учебный год определится автоматически по датам</p>
-						<form onSubmit={handleQuarterSubmit} className="space-y-4">
+				<div className="bg-white p-6 rounded-3xl w-full max-w-sm">
+					<h3 className="font-black text-xl mb-1">{editingQuarterId ? 'Редактировать' : 'Добавить'} четверть</h3>
+					<p className="text-xs text-slate-500 font-medium mb-4">Учебный год определится автоматически по датам</p>
+					<form onSubmit={handleQuarterSubmit} className="space-y-4">
+						<div>
+							<div className="flex justify-between items-center mb-2">
+								<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Название</label>
+								<div className="flex gap-1 bg-slate-100 p-0.5 rounded-lg">
+									<button type="button" onClick={() => setActiveQuarterLang('ru')} className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${activeQuarterLang === 'ru' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>RU</button>
+									<button type="button" onClick={() => setActiveQuarterLang('tg')} className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${activeQuarterLang === 'tg' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>TG</button>
+									<button type="button" onClick={() => setActiveQuarterLang('en')} className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${activeQuarterLang === 'en' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>EN</button>
+								</div>
+							</div>
+							{activeQuarterLang === 'ru' && <input required placeholder="Например: 1-я четверть" value={quarterNameRu} onChange={e => setQuarterNameRu(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />}
+							{activeQuarterLang === 'tg' && <input placeholder="Например: 1-ум чоряк" value={quarterNameTg} onChange={e => setQuarterNameTg(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />}
+							{activeQuarterLang === 'en' && <input placeholder="Например: 1st Quarter" value={quarterNameEn} onChange={e => setQuarterNameEn(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />}
+						</div>
+
+						<div className="grid grid-cols-2 gap-3">
 							<div>
-								<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Название</label>
-								<input required placeholder="Например: 1-ум чоряк" value={quarterName} onChange={e => setQuarterName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />
+								<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Начало</label>
+								<input type="date" value={quarterStartDate} onChange={e => setQuarterStartDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />
 							</div>
+							<div>
+								<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Конец</label>
+								<input type="date" value={quarterEndDate} onChange={e => setQuarterEndDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />
+							</div>
+						</div>
 
-							<div className="grid grid-cols-2 gap-3">
-								<div>
-									<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Начало</label>
-									<input type="date" value={quarterStartDate} onChange={e => setQuarterStartDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />
+						{/* Автоопределение учебного года — превью */}
+						{quarterStartDate && (() => {
+							const d = new Date(quarterStartDate);
+							const m = d.getMonth() + 1;
+							const y = d.getFullYear();
+							const sy = m >= 9 ? y : y - 1;
+							return (
+								<div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5 flex items-center gap-2">
+									<span className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider">Учебный год:</span>
+									<span className="text-sm font-black text-indigo-700">{sy}-{sy + 1}</span>
+									<span className="text-[10px] text-indigo-400 ml-1">(автоматически)</span>
 								</div>
-								<div>
-									<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Конец</label>
-									<input type="date" value={quarterEndDate} onChange={e => setQuarterEndDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-medium outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all" />
-								</div>
-							</div>
+							);
+						})()}
 
-							{/* Автоопределение учебного года — превью */}
-							{quarterStartDate && (() => {
-								const d = new Date(quarterStartDate);
-								const m = d.getMonth() + 1;
-								const y = d.getFullYear();
-								const sy = m >= 9 ? y : y - 1;
-								return (
-									<div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5 flex items-center gap-2">
-										<span className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider">Учебный год:</span>
-										<span className="text-sm font-black text-indigo-700">{sy}-{sy + 1}</span>
-										<span className="text-[10px] text-indigo-400 ml-1">(автоматически)</span>
-									</div>
-								);
-							})()}
-
-							<label className="flex items-center gap-3 cursor-pointer p-3 border border-slate-100 rounded-xl hover:bg-slate-50">
-								<input type="checkbox" checked={isQuarterActive} onChange={e => setIsQuarterActive(e.target.checked)} className="w-5 h-5 text-indigo-600 rounded-md" />
-								<span className="text-sm font-bold text-slate-700">Текущая (Активная) четверть</span>
-							</label>
-							<div className="flex gap-3 pt-2">
-								<button type="button" onClick={() => setIsQuarterModalOpen(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold text-slate-700">Отмена</button>
-								<button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button>
-							</div>
-						</form>
-					</div>
+						<label className="flex items-center gap-3 cursor-pointer p-3 border border-slate-100 rounded-xl hover:bg-slate-50">
+							<input type="checkbox" checked={isQuarterActive} onChange={e => setIsQuarterActive(e.target.checked)} className="w-5 h-5 text-indigo-600 rounded-md" />
+							<span className="text-sm font-bold text-slate-700">Текущая (Активная) четверть</span>
+						</label>
+						<div className="flex gap-3 pt-2">
+							<button type="button" onClick={() => setIsQuarterModalOpen(false)} className="flex-1 bg-slate-100 py-3 rounded-xl font-bold text-slate-700">Отмена</button>
+							<button type="submit" className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Сохранить</button>
+						</div>
+					</form>
+				</div>
 			</Modal>
 		</div>
 	);

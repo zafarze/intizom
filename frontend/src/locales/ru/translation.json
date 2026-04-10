@@ -1,0 +1,65 @@
+{
+  "sidebar": {
+    "dashboard": "Дашборд",
+    "students": "Студенты",
+    "teachers": "Учителя",
+    "management": "Управление",
+    "statistics": "Статистика",
+    "monitoring": "Мониторинг",
+    "comparison": "Сравнение",
+    "settings": "Настройки",
+    "rules": "Правила",
+    "classes": "Классы",
+    "subjects": "Предметы",
+    "years": "Учебные годы",
+    "logout": "Выйти"
+  },
+  "header": {
+    "language": "Язык",
+    "notifications": "Уведомления",
+    "profile": "Профиль"
+  },
+  "dashboard": {
+    "slides": {
+      "welcome": {
+        "title": "Добро пожаловать!",
+        "desc": "Интеллектуальная система контроля. Следите за дисциплиной и управляйте школой."
+      },
+      "performance": {
+        "title": "Управление успеваемостью",
+        "desc": "Теперь вы можете выдавать оценки и контролировать успеваемость учеников наравне с учителями."
+      },
+      "future": {
+        "title": "Управляйте будущим",
+        "desc": "Создавайте комфортные условия для учебы и радуйтесь успехам детей вместе с нами!"
+      }
+    },
+    "system_online": "Система включена",
+    "report": "Отчет",
+    "grade_student": "Оценить ученика",
+    "total_students": "Всего учеников",
+    "in_database": "В базе данных",
+    "average_score": "Средний балл",
+    "live": "Live",
+    "across_school": "По всей школе",
+    "violations": "Нарушения",
+    "all_time": "За всё время",
+    "risk_exclusion": "Риск исключения",
+    "council_needed": "Нужен педсовет",
+    "points_under_25": "Баллы < 25",
+    "recent_violations": "Последние серьезные нарушения",
+    "view_all": "Смотреть все",
+    "table_student": "УЧЕНИК",
+    "table_class": "КЛАСС",
+    "table_violation": "НАРУШЕНИЕ",
+    "table_score": "БАЛЛ",
+    "discipline_dynamics": "Динамика дисциплины",
+    "discipline_desc": "Средний балл по школе сейчас составляет {score}. Обратите внимание, {riskCount} учеников находятся в зоне риска исключения!",
+    "discipline_level": "Уровень дисциплины",
+    "view_monthly_results": "Смотреть итоги месяца",
+    "total": "Всего",
+    "students_count": "учеников",
+    "violations_count": "нарушений",
+    "risk_zone": "Зона риска"
+  }
+}

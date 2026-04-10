@@ -4,6 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa';
 import tailwindcss from '@tailwindcss/vite'; // 👈 1. ДОБАВЬ ЭТОТ ИМПОРТ
 
 export default defineConfig({
+  server: {
+    port: 3000,
+    strictPort: false,
+  },
+  optimizeDeps: {
+    include: ['react-is', 'recharts']
+  },
   plugins: [
     react(),
     tailwindcss(), // 👈 2. ДОБАВЬ ВЫЗОВ ПЛАГИНА СЮДА

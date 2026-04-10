@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, ChevronDown, User, LogOut, Settings, Menu, Loader2, LayoutDashboard, BarChart2, Activity, Users, X } from 'lucide-react';
+import { Search, Bell, ChevronDown, User, LogOut, Settings, Menu, Loader2, LayoutDashboard, BarChart2, Activity, Users, X, Globe } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../../api/axios';
 import { requestFirebaseNotificationPermission, onMessageListener } from '../../firebase';
 
@@ -8,7 +9,9 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	const [isProfileOpen, setIsProfileOpen] = useState(false);
 	const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 	const [isNotifOpen, setIsNotifOpen] = useState(false);
-
+	const [isLangOpen, setIsLangOpen] = useState(false);
+	const { i18n } = useTranslation();
+	const langRef = useRef<HTMLDivElement>(null);
 	// --- СОСТОЯНИЯ ГЛОБАЛЬНОГО ПОИСКА ---
 	const [searchQuery, setSearchQuery] = useState('');
 	const [studentResults, setStudentResults] = useState<any[]>([]);
@@ -389,14 +392,26 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 					</div>
 				)}
 
-				{/* Иконка мобильного поиска */}
-				{user.role !== 'student' && (
-					<div className="relative lg:hidden" ref={searchRef}>
-						<button onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)} className={`p-2 rounded-xl backdrop-blur-md border transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 focus:outline-none ${isMobileSearchOpen ? 'bg-white/60 border-white shadow-md text-indigo-600' : 'bg-white/30 border-white/50 shadow-sm text-indigo-900/60 hover:text-indigo-700 hover:bg-white/50'}`}>
-							<Search size={18} />
-						</button>
-					</div>
-				)}
+				{/* Иконка мобильного поиска (Тут пусто, она перенесена в плавающий виджет вниз) */}
+
+				{/* ВЫБОР ЯЗЫКА (ТОЛЬКО ДЛЯ ПК) */}
+				<div className="relative hidden lg:block" ref={langRef}>
+					<button
+						onClick={() => setIsLangOpen(!isLangOpen)}
+						className={`p-2 rounded-xl backdrop-blur-md border transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 focus:outline-none flex items-center gap-1 ${isLangOpen ? 'bg-white/60 border-white shadow-md text-indigo-600' : 'bg-white/30 border-white/50 shadow-sm text-indigo-900/60 hover:text-indigo-700 hover:bg-white/50'}`}
+					>
+						<Globe size={18} />
+						<span className="text-[12px] font-bold uppercase hidden sm:block">{i18n.language}</span>
+					</button>
+
+					{isLangOpen && (
+						<div className="absolute right-0 top-[calc(100%+12px)] w-32 bg-white/95 backdrop-blur-3xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-100 p-1.5 z-[70] transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
+							<button onClick={() => { i18n.changeLanguage('ru'); setIsLangOpen(false); }} className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-colors ${i18n.language === 'ru' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'}`}>Русский</button>
+							<button onClick={() => { i18n.changeLanguage('tg'); setIsLangOpen(false); }} className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-colors ${i18n.language === 'tg' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'}`}>Тоҷикӣ</button>
+							<button onClick={() => { i18n.changeLanguage('en'); setIsLangOpen(false); }} className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-colors ${i18n.language === 'en' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'}`}>English</button>
+						</div>
+					)}
+				</div>
 
 				{/* ЖИВЫЕ УВЕДОМЛЕНИЯ */}
 				<div className="relative" ref={notifRef}>
@@ -517,6 +532,17 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 									</a>
 								)}
 							</div>
+							
+							{/* Инлайн кнопки выбора языка (ТОЛЬКО ДЛЯ МОБИЛОК) */}
+							<div className="mt-2 pt-2 border-t border-slate-100 block lg:hidden">
+								<p className="text-[10px] font-bold text-slate-400 px-3 uppercase tracking-widest mt-1 mb-2">Язык интерфейса</p>
+								<div className="flex gap-2 px-2 pb-1">
+									<button onClick={(e) => { e.stopPropagation(); i18n.changeLanguage('en'); setIsProfileOpen(false); }} className={`flex-1 py-2 rounded-xl text-center text-[12px] font-black tracking-wider transition-colors border ${i18n.language === 'en' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 transform scale-[1.02]' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}`}>EN</button>
+									<button onClick={(e) => { e.stopPropagation(); i18n.changeLanguage('tg'); setIsProfileOpen(false); }} className={`flex-1 py-2 rounded-xl text-center text-[12px] font-black tracking-wider transition-colors border ${i18n.language === 'tg' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 transform scale-[1.02]' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}`}>TJ</button>
+									<button onClick={(e) => { e.stopPropagation(); i18n.changeLanguage('ru'); setIsProfileOpen(false); }} className={`flex-1 py-2 rounded-xl text-center text-[12px] font-black tracking-wider transition-colors border ${i18n.language === 'ru' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 transform scale-[1.02]' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}`}>RU</button>
+								</div>
+							</div>
+
 							<div className="mt-2 pt-2 border-t border-slate-100">
 								<button onClick={handleLogout} className="w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] font-bold text-red-600 hover:bg-red-50 transition-all duration-200">
 									<LogOut size={16} className="text-red-400 group-hover:text-red-600 transition-colors" /> Выйти
@@ -710,6 +736,17 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 							<button onClick={() => setIsNotificationModalOpen(false)} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all active:scale-95">Закрыть</button>
 						</div>
 					</div>
+				</div>
+			)}
+			{/* ПЛАВАЮЩИЙ ВИДЖЕТ ПОИСКА ДЛЯ МОБИЛЬНЫХ (СПРАВА ВНИЗУ ПОД ХЕДЕРОМ) */}
+			{user.role !== 'student' && (
+				<div className="absolute -bottom-16 right-4 lg:hidden z-40" ref={searchRef}>
+					<button 
+						onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)} 
+						className={`flex items-center justify-center w-12 h-12 rounded-[1rem] backdrop-blur-xl border transition-all duration-300 shadow-[0_12px_25px_rgba(0,0,0,0.15)] focus:outline-none ${isMobileSearchOpen ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-400/40' : 'bg-white/90 text-indigo-600 border-white hover:bg-white'}`}
+					>
+						<Search size={22} className={isMobileSearchOpen ? 'scale-110' : ''} />
+					</button>
 				</div>
 			)}
 		</header>

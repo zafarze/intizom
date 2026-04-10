@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import SchoolClass, Student, Rule, ActionLog
+from modeltranslation.admin import TranslationAdmin
+from .models import SchoolClass, Student, Rule, ActionLog, Quarter, Subject
 
 @admin.register(SchoolClass)
 class SchoolClassAdmin(admin.ModelAdmin):
@@ -27,10 +28,19 @@ class StudentAdmin(admin.ModelAdmin):
         return obj.status_info['text']
 
 @admin.register(Rule)
-class RuleAdmin(admin.ModelAdmin):
+class RuleAdmin(TranslationAdmin):
     list_display = ('title', 'category', 'points_impact')
     list_filter = ('category',)
     search_fields = ('title',)
+
+@admin.register(Quarter)
+class QuarterAdmin(TranslationAdmin):
+    list_display = ('name', 'academic_year', 'is_active')
+
+@admin.register(Subject)
+class SubjectAdmin(TranslationAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
 
 @admin.register(ActionLog)
 class ActionLogAdmin(admin.ModelAdmin):

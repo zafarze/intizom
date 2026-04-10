@@ -2,19 +2,44 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
-from django.db.models import Q
+from django.db.models import Q, OuterRef, Subquery, Count, F
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from app.models import Message, UserActivity
+from django.core.paginator import Paginator
 
 class ChatContactsView(APIView):
     """API для получения списка контактов в чате"""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        users = User.objects.exclude(id=request.user.id).select_related('student_profile', 'teacher_profile', 'activity')
+        user = request.user
+        
+        # Subqueries for the latest message and unread count
+        latest_message_subquery = Message.objects.filter(
+            Q(sender=user, recipient=OuterRef('pk'), visible_to_sender=True) | 
+            Q(sender=OuterRef('pk'), recipient=user, visible_to_recipient=True)
+        ).order_by('-created_at')
+
+        unread_count_subquery = Message.objects.filter(
+            sender=OuterRef('pk'), recipient=user, is_read=False, visible_to_recipient=True
+        ).values('sender').annotate(c=Count('*')).values('c')
+
+        users = User.objects.exclude(id=user.id).select_related(
+            'student_profile', 'student_profile__school_class', 'teacher_profile', 'activity'
+        ).annotate(
+            latest_msg_content=Subquery(latest_message_subquery.values('content')[:1]),
+            latest_msg_date=Subquery(latest_message_subquery.values('created_at')[:1]),
+            unread_msgs=Coalesce(Subquery(unread_count_subquery), 0)
+        ).order_by(F('latest_msg_date').desc(nulls_last=True), 'first_name')
+        
+        # Pagination
+        page_number = request.GET.get('page', 1)
+        paginator = Paginator(users, 50)  # 50 contacts per page
+        page_obj = paginator.get_page(page_number)
         
         contacts = []
-        for u in users:
+        for u in page_obj:
             try:
                 if hasattr(u, 'student_profile'):
                     name = f"{u.student_profile.first_name} {u.student_profile.last_name}"
@@ -37,15 +62,6 @@ class ChatContactsView(APIView):
             last_seen = None
             if hasattr(u, 'activity') and u.activity:
                 last_seen = u.activity.last_seen.isoformat()
-                
-            last_msg = Message.objects.filter(
-                Q(sender=request.user, recipient=u, visible_to_sender=True) | 
-                Q(sender=u, recipient=request.user, visible_to_recipient=True)
-            ).order_by('-created_at').first()
-            
-            unread_count = Message.objects.filter(
-                sender=u, recipient=request.user, is_read=False, visible_to_recipient=True
-            ).count()
             
             contacts.append({
                 'id': u.id,
@@ -53,13 +69,18 @@ class ChatContactsView(APIView):
                 'is_admin': is_admin,
                 'role_subtitle': role_subtitle,
                 'last_seen': last_seen,
-                'last_message': last_msg.content if last_msg else None,
-                'last_message_date': last_msg.created_at.isoformat() if last_msg else None,
-                'unread_count': unread_count
+                'last_message': getattr(u, 'latest_msg_content', None),
+                'last_message_date': getattr(u, 'latest_msg_date', None).isoformat() if getattr(u, 'latest_msg_date', None) else None,
+                'unread_count': getattr(u, 'unread_msgs', 0)
             })
             
-        contacts.sort(key=lambda c: c['last_message_date'] or "1970-01-01T00:00:00", reverse=True)
-        return Response(contacts)
+        return Response({
+            "results": contacts,
+            "has_next": page_obj.has_next(),
+            "has_previous": page_obj.has_previous(),
+            "total_pages": paginator.num_pages,
+            "current_page": page_obj.number
+        })
 
 
 class ChatMessagesView(APIView):
@@ -75,10 +96,15 @@ class ChatMessagesView(APIView):
         messages = Message.objects.filter(
             Q(sender=request.user, recipient=other_user, visible_to_sender=True) |
             Q(sender=other_user, recipient=request.user, visible_to_recipient=True)
-        ).select_related('reply_to', 'forwarded_from').order_by('created_at')
+        ).select_related('reply_to', 'forwarded_from').order_by('-created_at') # Order DESC for pagination
+        
+        # Pagination
+        page_number = request.GET.get('page', 1)
+        paginator = Paginator(messages, 50) # 50 messages per page
+        page_obj = paginator.get_page(page_number)
         
         result = []
-        for m in messages:
+        for m in reversed(list(page_obj)): # Reverse back to ASC for frontend display
             result.append({
                 'id': m.id,
                 'sender_id': m.sender.id,
@@ -89,6 +115,8 @@ class ChatMessagesView(APIView):
                 'is_pinned': m.is_pinned,
                 'audio_file': m.audio_file.url if m.audio_file else None,
                 'image_file': m.image_file.url if m.image_file else None,
+                'document_file': m.document_file.url if m.document_file else None,
+                'document_name': m.document_name,
                 'reply_to_id': m.reply_to_id,
                 'reply_to_content': m.reply_to.content if m.reply_to else None,
                 'forwarded_from_name': m.forwarded_from.username if m.forwarded_from else None,
@@ -97,7 +125,14 @@ class ChatMessagesView(APIView):
                 'can_edit': m.sender == request.user,
                 'can_delete_for_all': m.sender == request.user
             })
-        return Response(result)
+            
+        return Response({
+            "results": result,
+            "has_next": page_obj.has_next(),
+            "has_previous": page_obj.has_previous(),
+            "total_pages": paginator.num_pages,
+            "current_page": page_obj.number
+        })
 
     def post(self, request, user_id):
         try:
@@ -108,8 +143,10 @@ class ChatMessagesView(APIView):
         content = request.data.get('content', '').strip()
         audio_file = request.FILES.get('audio_file')
         image_file = request.FILES.get('image_file')
+        document_file = request.FILES.get('document_file')
+        document_name = request.data.get('document_name')
         
-        if not content and not audio_file and not image_file:
+        if not content and not audio_file and not image_file and not document_file:
             return Response({"error": "Message is empty"}, status=400)
             
         reply_to_id = request.data.get('reply_to_id')
@@ -121,11 +158,13 @@ class ChatMessagesView(APIView):
             content=content,
             audio_file=audio_file,
             image_file=image_file,
+            document_file=document_file,
+            document_name=document_name or (document_file.name if document_file else None),
             reply_to_id=reply_to_id,
             forwarded_from_id=forwarded_from_id
         )
         
-        return Response({
+        response_data = {
             'id': msg.id,
             'sender_id': msg.sender.id,
             'recipient_id': msg.recipient.id,
@@ -135,6 +174,8 @@ class ChatMessagesView(APIView):
             'is_pinned': msg.is_pinned,
             'audio_file': msg.audio_file.url if msg.audio_file else None,
             'image_file': msg.image_file.url if msg.image_file else None,
+            'document_file': msg.document_file.url if msg.document_file else None,
+            'document_name': msg.document_name,
             'reply_to_id': msg.reply_to_id,
             'reply_to_content': msg.reply_to.content if msg.reply_to else None,
             'forwarded_from_name': msg.forwarded_from.username if msg.forwarded_from else None,
@@ -142,7 +183,22 @@ class ChatMessagesView(APIView):
             'read_at': None,
             'can_edit': True,
             'can_delete_for_all': True
-        })
+        }
+        
+        # Send WebSocket event to recipient
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_{msg.recipient.id}",
+            {
+                "type": "chat.message",
+                "message": response_data
+            }
+        )
+        
+        return Response(response_data)
 
 
 class ChatMessageDetailView(APIView):
@@ -240,10 +296,23 @@ class ChatReadView(APIView):
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=404)
             
-        Message.objects.filter(
+        updated_count = Message.objects.filter(
             sender=other_user, 
             recipient=request.user, 
             is_read=False
         ).update(is_read=True, read_at=timezone.now())
         
+        if updated_count > 0:
+            # Notify the sender that their messages were read
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"user_{other_user.id}",
+                {
+                    "type": "chat.read",
+                    "reader_id": request.user.id
+                }
+            )
+            
         return Response({"status": "messages marked as read"})

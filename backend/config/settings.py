@@ -17,6 +17,8 @@ ALLOWED_HOSTS = ['*']
 
 # Приложения
 INSTALLED_APPS = [
+    'daphne', # Daphne must be at the very top for WebSockets
+    'modeltranslation',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -24,12 +26,14 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    # 3rd party
     'rest_framework',
-    'rest_framework_simplejwt',                  # ДОБАВИТЬ ЭТО
-    'rest_framework_simplejwt.token_blacklist',  # ДОБАВИТЬ ЭТО (для черного списка токенов)
+    'rest_framework_simplejwt',
     'corsheaders',
-    'django_filters',
     'storages',
+    'channels',
+    
+    # My apps
     'app',
 ]
 
@@ -66,6 +70,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 
 # База данных PostgreSQL
 DATABASES = {
@@ -96,10 +101,19 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Локализация
-LANGUAGE_CODE = 'ru-ru'
+LANGUAGE_CODE = 'ru'
 TIME_ZONE = 'Asia/Dushanbe'
 USE_I18N = True
 USE_TZ = True
+
+LANGUAGES = (
+    ('ru', 'Russian'),
+    ('tg', 'Tajik'),
+    ('en', 'English'),
+)
+
+MODELTRANSLATION_DEFAULT_LANGUAGE = 'ru'
+MODELTRANSLATION_FALLBACK_LANGUAGES = ('ru', 'tg', 'en')
 
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -140,6 +154,16 @@ STORAGES = {
 
 # --- Настройки OpenAI ---
 OPENAI_API_KEY = env('OPENAI_API_KEY', default=None)
+
+# --- Настройки Channels (Redis) ---
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 
 # --- НАСТРОЙКИ ДЛЯ GOOGLE CLOUD RUN ---
 CSRF_TRUSTED_ORIGINS = ['https://intizom-backend-776689431155.europe-west3.run.app']

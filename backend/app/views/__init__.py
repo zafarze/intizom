@@ -5,9 +5,9 @@ from .logs import ActionLogViewSet, AppNotificationViewSet
 from .years import AcademicYearViewSet, QuarterViewSet
 from .teachers import TeacherViewSet
 from .subjects import SubjectViewSet
-from .analytics import DashboardStatsView, StatisticsView, MonitoringView, ComparisonMetadataView, CompareEntitiesView
+from .analytics import DashboardStatsView, StatisticsView, MonitoringView, ComparisonMetadataView, CompareEntitiesView, MyClassMatrixView
 from .settings import SetActiveYearView, ResetPointsView
 from .auth import CustomTokenObtainPairView
 from .timetable import BellScheduleViewSet
 from .chat import ChatContactsView, ChatMessagesView, ChatReadView, ChatMessageDetailView, ChatHistoryDeleteView, ChatPinMessageView
-from .ai_chat import AIChatView
+from .ai_chat import AIChatView, AITranslateView

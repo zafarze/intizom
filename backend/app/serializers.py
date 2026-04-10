@@ -20,7 +20,7 @@ class QuarterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quarter
-        fields = ['id', 'academic_year', 'academic_year_name', 'name', 'is_active', 'start_date', 'end_date']
+        fields = ['id', 'academic_year', 'academic_year_name', 'name', 'name_ru', 'name_tg', 'name_en', 'is_active', 'start_date', 'end_date']
         extra_kwargs = {
             'academic_year': {'required': False, 'allow_null': True},
         }
@@ -151,7 +151,7 @@ class RuleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Rule
-        fields = ['id', 'title', 'category', 'category_display', 'points_impact', 'is_multiple']
+        fields = ['id', 'title', 'title_ru', 'title_tg', 'title_en', 'category', 'category_display', 'points_impact', 'is_multiple']
 
 # ==========================================
 # 4. УЧИТЕЛЯ (ПОЛЬЗОВАТЕЛИ) И ПРЕДМЕТЫ
@@ -159,7 +159,7 @@ class RuleSerializer(serializers.ModelSerializer):
 class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'name_ru', 'name_tg', 'name_en']
         
 class TeacherSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
@@ -301,4 +301,4 @@ class AppNotificationSerializer(serializers.ModelSerializer):
 class BellScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = BellSchedule
-        fields = ['id', 'lesson_number', 'start_time', 'end_time']
+        fields = ['id', 'lesson_number', 'start_time', 'end_time']

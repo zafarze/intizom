@@ -5,6 +5,7 @@ import {
 	Settings, LogOut, PanelLeftClose, PanelLeftOpen, RefreshCw, GitCompare
 } from 'lucide-react';
 import logoUrl from '../../assets/logo.png';
+import { useTranslation } from 'react-i18next';
 
 interface SidebarProps {
 	isMobileOpen: boolean;
@@ -14,6 +15,7 @@ interface SidebarProps {
 export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps) {
 	const [expanded, setExpanded] = useState(true);
 	const navigate = useNavigate();
+	const { t } = useTranslation();
 
 	// ==========================================
 	// ЖЕЛЕЗОБЕТОННОЕ ЧТЕНИЕ РОЛИ
@@ -110,30 +112,42 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 									expanded={expanded}
 									to={isAdmin ? "/admin" : isTeacher ? "/teacher" : "/student"}
 									icon={<LayoutDashboard size={20} />}
-									label="Дашбоард"
+									label={t('sidebar.dashboard')}
 									onClick={handleNavClick}
 								/>
 
 								{/* 2. Статистику видят Админ и Учитель */}
 								{(isAdmin || isTeacher) && (
 									<>
-										<NavItem expanded={expanded} to="/statistics" icon={<BarChart2 size={20} />} label="Статистика" onClick={handleNavClick} />
-										<NavItem expanded={expanded} to="/monitoring" icon={<Activity size={20} />} label="Мониторинг" badge="Live" onClick={handleNavClick} />
-										<NavItem expanded={expanded} to="/comparison" icon={<GitCompare size={20} />} label="Сравнение" onClick={handleNavClick} />
+										<NavItem expanded={expanded} to="/statistics" icon={<BarChart2 size={20} />} label={t('sidebar.statistics')} onClick={handleNavClick} />
+										<NavItem expanded={expanded} to="/monitoring" icon={<Activity size={20} />} label={t('sidebar.monitoring')} badge="Live" onClick={handleNavClick} />
+										<NavItem expanded={expanded} to="/comparison" icon={<GitCompare size={20} />} label={t('sidebar.comparison')} onClick={handleNavClick} />
 									</>
 								)}
 
 								{/* 3. Управление видит ТОЛЬКО Админ */}
 								{isAdmin && (
-									<NavItem expanded={expanded} to="/management" icon={<Users size={20} />} label="Управление" onClick={handleNavClick} />
+									<NavItem expanded={expanded} to="/management" icon={<Users size={20} />} label={t('sidebar.management')} onClick={handleNavClick} />
 								)}
 
 								{/* 4. Настройки видят Админ и Учитель */}
 								{(isAdmin || isTeacher) && (
-									<NavItem expanded={expanded} to="/settings" icon={<Settings size={20} />} label="Настройки" onClick={handleNavClick} />
+									<NavItem expanded={expanded} to="/settings" icon={<Settings size={20} />} label={t('sidebar.settings')} onClick={handleNavClick} />
 								)}
 							</nav>
 						</div>
+
+						{/* 5. Дополнительно для учителя */}
+						{isTeacher && (
+							<div className="mt-4">
+								<p className={`text-[10px] font-bold tracking-[0.2em] text-slate-800/40 mb-3 transition-all duration-300 whitespace-nowrap ${expanded ? 'opacity-100 text-left pl-2' : 'opacity-0 h-0 hidden'}`}>
+									СИНФИ МАН
+								</p>
+								<nav className="space-y-1.5">
+									<NavItem expanded={expanded} to="/teacher/my-class" icon={<Users size={20} />} label="Синфи ман" onClick={handleNavClick} />
+								</nav>
+							</div>
+						)}
 					</div>
 
 					<div className="mt-4 pt-4 border-t border-slate-900/5 flex flex-col gap-2">
@@ -144,7 +158,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 							onClick={() => {
 								if ('serviceWorker' in navigator) {
 									navigator.serviceWorker.getRegistrations().then((registrations) => {
-										for (let registration of registrations) {
+										for (const registration of registrations) {
 											registration.unregister();
 										}
 									});

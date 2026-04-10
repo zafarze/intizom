@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, AlertOctagon, ShieldAlert, Download, Plus, Loader2 } from 'lucide-react';
+import { Users, TrendingUp, AlertOctagon, ShieldAlert, Download, Award, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import StatCard from '../../components/ui/StatCard';
 import api from '../../api/axios';
 
@@ -25,12 +26,50 @@ interface ActionLog {
 	created_at: string;
 }
 
+
+
 export default function AdminDashboard() {
 	const navigate = useNavigate();
+	const { t } = useTranslation();
+
+	const SLIDES = [
+		{
+			id: 1,
+			type: 'image',
+			src: 'https://media.tenor.com/JaS6UyBMXtEAAAAC/tc-classmate.gif', 
+			title: t('dashboard.slides.welcome.title'),
+			desc: t('dashboard.slides.welcome.desc')
+		},
+		{
+			id: 2,
+			type: 'image',
+			src: 'https://media.tenor.com/CXSAcNItAF8AAAAC/yes-blippi.gif',
+			title: t('dashboard.slides.performance.title'),
+			desc: t('dashboard.slides.performance.desc')
+		},
+		{
+			id: 3,
+			type: 'image',
+			src: 'https://media.tenor.com/7Z37gFSTJPcAAAAC/happy-children%27s-day-mighty-little-bheem.gif',
+			title: t('dashboard.slides.future.title'),
+			desc: t('dashboard.slides.future.desc')
+		}
+	];
+
 	// --- СОСТОЯНИЯ ---
 	const [stats, setStats] = useState<any>(null); // Храним статистику с бэкенда
 	const [logs, setLogs] = useState<ActionLog[]>([]); // Оставляем логи для таблицы
 	const [isLoading, setIsLoading] = useState(true);
+
+	// --- СОСТОЯНИЯ ДЛЯ СЛАЙДЕРА ---
+	const [currentSlide, setCurrentSlide] = useState(0);
+
+	useEffect(() => {
+		const timer = setInterval(() => {
+			setCurrentSlide((prev) => (prev + 1) % SLIDES.length);
+		}, 6000);
+		return () => clearInterval(timer);
+	}, []);
 
 	// ==========================================
 	// 2. ЗАГРУЗКА ДАННЫХ ИЗ БАЗЫ
@@ -112,53 +151,117 @@ export default function AdminDashboard() {
 	return (
 		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500">
 
-			{/* Шапка дашборда */}
-			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 bg-white/40 backdrop-blur-md border border-white p-6 rounded-[2rem] shadow-sm">
-				<div>
-					<h1 className="text-2xl font-black text-slate-800 tracking-tight">Панель Администратора</h1>
-					<p className="text-sm font-medium text-slate-500 mt-1">Общая статистика школы и контроль дисциплины</p>
-				</div>
-				<div className="flex gap-3">
-					<button className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-bold border border-slate-200 shadow-sm transition-all active:scale-95">
-						<Download size={16} />
-						<span className="hidden sm:inline">Отчет</span>
-					</button>
-					<button className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md hover:shadow-lg hover:shadow-indigo-500/20 transition-all active:scale-95 border border-indigo-400/50">
-						<Plus size={16} />
-						<span className="hidden sm:inline">Добавить ученика</span>
-					</button>
+			{/* Шапка дашборда (Premium Media Slider) */}
+			<div className="relative overflow-hidden bg-slate-900 rounded-[2rem] shadow-xl border border-indigo-500/20 min-h-[240px] flex items-center group">
+				{/* Фон слайдов (Фото/Видео) */}
+				{SLIDES.map((slide, index) => (
+					<div
+						key={slide.id}
+						className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+							currentSlide === index ? 'opacity-100 z-0' : 'opacity-0 -z-10 pointer-events-none'
+						}`}
+					>
+						{/* Отрисовка фото или видео */}
+						{slide.type === 'image' ? (
+							<img src={slide.src} alt={slide.title} className="absolute right-0 top-1/2 -translate-y-1/2 w-36 sm:w-48 md:w-64 lg:w-72 object-contain opacity-100 drop-shadow-xl mr-2 md:mr-10 z-0" />
+						) : slide.type === 'video' ? (
+							<video src={slide.src} autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover z-0" />
+						) : null}
+
+						{/* Темный оверлей сверху фото/видео для идеальной читаемости текста на всех устройствах */}
+						<div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/80 md:via-slate-900/60 to-slate-900/30 z-10 pointer-events-none"></div>
+					</div>
+				))}
+
+				{/* Контент поверх слайдера */}
+				<div className="relative z-20 flex flex-col w-full h-full px-6 py-8 sm:p-10">
+					<div className="max-w-2xl text-white flex-1 flex flex-col justify-center">
+						<div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md mb-5 shadow-sm w-fit">
+							<span className="relative flex h-2 w-2">
+								<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+								<span className="relative inline-flex rounded-full h-2 w-2 bg-green-400"></span>
+							</span>
+							<span className="text-[11px] font-bold text-indigo-50 uppercase tracking-wider">Система включена</span>
+						</div>
+						
+						{/* Фиксируем высоту текстового блока, чтобы слайдер не прыгал (размер не менялся) */}
+						<div className="min-h-[160px] md:min-h-[120px] flex flex-col justify-center">
+							<h1 
+								key={`title-${currentSlide}`} 
+								className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight mb-3 drop-shadow-lg animate-in slide-in-from-bottom-4 fade-in duration-500"
+							>
+								{SLIDES[currentSlide].title}
+							</h1>
+							<p 
+								key={`desc-${currentSlide}`}
+								className="text-indigo-50 text-sm md:text-base font-medium max-w-xl leading-relaxed opacity-90 drop-shadow-md animate-in slide-in-from-bottom-2 fade-in duration-700"
+							>
+								{SLIDES[currentSlide].desc}
+							</p>
+						</div>
+
+						{/* Элементы управления: индикаторы и кнопки в одном ряду */}
+						<div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mt-8">
+							{/* Индикаторы слайдера */}
+							<div className="flex gap-2">
+								{SLIDES.map((_, idx) => (
+									<button
+										key={idx}
+										onClick={() => setCurrentSlide(idx)}
+										className={`h-1.5 rounded-full transition-all duration-300 ${
+											currentSlide === idx ? 'w-8 bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]' : 'w-2 bg-white/30 hover:bg-white/60'
+										}`}
+									/>
+								))}
+							</div>
+
+							{/* Кнопки действий */}
+							<div className="flex flex-wrap gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+								<button className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 rounded-xl text-sm font-bold border border-white/20 backdrop-blur-md transition-all active:scale-95 shadow-lg relative overflow-hidden group/btn">
+									<div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:translate-x-full duration-1000 ease-in-out transition-transform"></div>
+									<Download size={18} />
+									<span>{t('dashboard.report')}</span>
+								</button>
+								<button onClick={() => navigate('/teacher')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white text-indigo-700 hover:text-indigo-800 hover:bg-indigo-50 px-5 py-2.5 rounded-xl text-sm font-bold shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all active:scale-95 border border-white group/btn relative overflow-hidden">
+									<div className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-100/50 to-transparent -translate-x-full group-hover/btn:translate-x-full duration-1000 ease-in-out transition-transform"></div>
+									<Award size={18} />
+									<span>{t('dashboard.grade_student')}</span>
+								</button>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 
 			{/* Карточки статистики (ЖИВЫЕ ДАННЫЕ ИЗ НОВОГО API) */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
 				<StatCard
-					title="Всего учеников"
+					title={t('dashboard.total_students')}
 					value={totalStudents.toString()}
-					subtitle="В базе данных"
+					subtitle={t('dashboard.in_database')}
 					icon={<Users size={20} />}
 					color="indigo"
 				/>
 				<StatCard
-					title="Средний балл"
+					title={t('dashboard.average_score')}
 					value={averageScore.toString()}
-					subtitle="По всей школе"
+					subtitle={t('dashboard.across_school')}
 					trend="Live"
 					trendUp
 					icon={<TrendingUp size={20} />}
 					color="green"
 				/>
 				<StatCard
-					title="Нарушения"
+					title={t('dashboard.violations')}
 					value={violationsCount.toString()}
-					subtitle="За всё время"
+					subtitle={t('dashboard.all_time')}
 					icon={<AlertOctagon size={20} />}
 					color="orange"
 				/>
 				<StatCard
-					title="Риск исключения"
+					title={t('dashboard.risk_exclusion')}
 					value={atRiskCount.toString()}
-					subtitle="Баллы < 25"
+					subtitle={t('dashboard.points_under_25')}
 					trend={atRiskCount > 0 ? "Нужен педсовет" : "Всё отлично"}
 					trendDown={atRiskCount > 0}
 					icon={<ShieldAlert size={20} />}
@@ -172,8 +275,8 @@ export default function AdminDashboard() {
 				{/* Таблица последних событий */}
 				<div className="lg:col-span-2 bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm flex flex-col">
 					<div className="flex justify-between items-center mb-6">
-						<h2 className="text-lg font-bold text-slate-800">Последние серьезные нарушения</h2>
-						<button className="text-[13px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">Смотреть все</button>
+						<h2 className="text-lg font-bold text-slate-800">{t('dashboard.recent_violations')}</h2>
+						<button className="text-[13px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">{t('dashboard.view_all')}</button>
 					</div>
 
 					<div className="overflow-x-auto flex-1">
@@ -232,7 +335,7 @@ export default function AdminDashboard() {
 						<div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 border border-white/30">
 							<TrendingUp size={24} className="text-white" />
 						</div>
-						<h2 className="text-xl font-bold mb-2">Динамика дисциплины</h2>
+						<h2 className="text-xl font-bold mb-2">{t('dashboard.discipline_dynamics')}</h2>
 						<p className="text-indigo-100 text-sm font-medium leading-relaxed">
 							Средний балл по школе сейчас составляет <strong>{averageScore}</strong>.
 							{atRiskCount > 0
@@ -259,7 +362,7 @@ export default function AdminDashboard() {
 						{/* Полоса среднего балла */}
 						<div className="mt-4">
 							<div className="flex justify-between items-center mb-1.5">
-								<span className="text-[11px] text-indigo-200 font-bold">Уровень дисциплины</span>
+								<span className="text-[11px] text-indigo-200 font-bold">{t('dashboard.discipline_level')}</span>
 								<span className="text-[11px] text-white font-black">{averageScore}/100</span>
 							</div>
 							<div className="w-full bg-white/20 rounded-full h-1.5">

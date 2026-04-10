@@ -1,0 +1,65 @@
+{
+  "sidebar": {
+    "dashboard": "Дашборд",
+    "students": "Хонандагон",
+    "teachers": "Омӯзгорон",
+    "management": "Идоракунӣ",
+    "statistics": "Омор",
+    "monitoring": "Мониторинг",
+    "comparison": "Муқоиса",
+    "settings": "Танзимот",
+    "rules": "Қоидаҳо",
+    "classes": "Синфҳо",
+    "subjects": "Фанҳо",
+    "years": "Солҳои хониш",
+    "logout": "Баромадан"
+  },
+  "header": {
+    "language": "Забон",
+    "notifications": "Огоҳиномаҳо",
+    "profile": "Профил"
+  },
+  "dashboard": {
+    "slides": {
+      "welcome": {
+        "title": "Хуш омадед!",
+        "desc": "Системаи интеллектуалии назорат. Интизомро пайгирӣ кунед ва мактабро идора кунед."
+      },
+      "performance": {
+        "title": "Идоракунии фаъолият",
+        "desc": "Акнун шумо метавонед баробари муаллимон баҳои хонандагонро гузоред ва назорат кунед."
+      },
+      "future": {
+        "title": "Ояндаро идора кунед",
+        "desc": "Барои хониш шароити қулай фароҳам оред ва бо мо аз муваффақиятҳои кӯдакон хурсанд шавед!"
+      }
+    },
+    "system_online": "Система фаъол аст",
+    "report": "Ҳисобот",
+    "grade_student": "Баҳогузорӣ кардан",
+    "total_students": "Ҳамаи хонандагон",
+    "in_database": "Дар базаի маълумот",
+    "average_score": "Баҳои миёна",
+    "live": "Live",
+    "across_school": "Дар тамоми мактаб",
+    "violations": "Вайронкуниҳо",
+    "all_time": "Барои тамоми вақт",
+    "risk_exclusion": "Хатари хориҷкунӣ",
+    "council_needed": "Шӯрои омӯзгорон лозим",
+    "points_under_25": "Холҳо < 25",
+    "recent_violations": "Охирин вайронкуниҳои ҷиддӣ",
+    "view_all": "Ҳамаро дидан",
+    "table_student": "ХОНАНДА",
+    "table_class": "СИНФ",
+    "table_violation": "ВАЙРОНКУНӢ",
+    "table_score": "ХОЛ",
+    "discipline_dynamics": "Динамикаи интизом",
+    "discipline_desc": "Баҳои миёнаи мактаб айни замон {score} мебошад. Таваҷҷӯҳ намоед, {riskCount} хонандагон дар минтақаи хатари хориҷкунӣ қарор доранд!",
+    "discipline_level": "Сатҳи интизом",
+    "view_monthly_results": "Дидани натиҷаҳои моҳона",
+    "total": "Ҳамагӣ",
+    "students_count": "хонандагон",
+    "violations_count": "вайронкунӣ",
+    "risk_zone": "Минтақаи хатар"
+  }
+}

@@ -5,6 +5,7 @@ import MainLayout from './components/layout/MainLayout';
 import LoginPage from './pages/auth/LoginPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
+import TeacherMyClass from './pages/teacher/TeacherMyClass';
 import StudentDashboard from './pages/student/StudentDashboard';
 import Statistics from './pages/admin/Statistics';
 import Monitoring from './pages/admin/Monitoring';
@@ -111,6 +112,11 @@ export default function App() {
           <Route path="teacher" element={
             <ProtectedRoute allowedRoles={['teacher', 'admin']}>
               <TeacherDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="teacher/my-class" element={
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <TeacherMyClass />
             </ProtectedRoute>
           } />
 

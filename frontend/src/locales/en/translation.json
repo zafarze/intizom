@@ -1,0 +1,65 @@
+{
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "students": "Students",
+    "teachers": "Teachers",
+    "management": "Management",
+    "statistics": "Statistics",
+    "monitoring": "Monitoring",
+    "comparison": "Comparison",
+    "settings": "Settings",
+    "rules": "Rules",
+    "classes": "Classes",
+    "subjects": "Subjects",
+    "years": "Academic Years",
+    "logout": "Logout"
+  },
+  "header": {
+    "language": "Language",
+    "notifications": "Notifications",
+    "profile": "Profile"
+  },
+  "dashboard": {
+    "slides": {
+      "welcome": {
+        "title": "Welcome!",
+        "desc": "Intelligent monitoring system. Track discipline and manage the school."
+      },
+      "performance": {
+        "title": "Performance Management",
+        "desc": "You can now grade and monitor student performance along with teachers."
+      },
+      "future": {
+        "title": "Manage the Future",
+        "desc": "Create comfortable condition for studying and rejoice in children's success with us!"
+      }
+    },
+    "system_online": "System Online",
+    "report": "Report",
+    "grade_student": "Grade Student",
+    "total_students": "Total Students",
+    "in_database": "In database",
+    "average_score": "Average Score",
+    "live": "Live",
+    "across_school": "Across the school",
+    "violations": "Violations",
+    "all_time": "All time",
+    "risk_exclusion": "Exclusion Risk",
+    "council_needed": "Council Required",
+    "points_under_25": "Points < 25",
+    "recent_violations": "Recent Severe Violations",
+    "view_all": "View All",
+    "table_student": "STUDENT",
+    "table_class": "CLASS",
+    "table_violation": "VIOLATION",
+    "table_score": "SCORE",
+    "discipline_dynamics": "Discipline Dynamics",
+    "discipline_desc": "The average school score is currently {score}. Please note, {riskCount} students are in the exclusion risk zone!",
+    "discipline_level": "Discipline Level",
+    "view_monthly_results": "View Monthly Results",
+    "total": "Total",
+    "students_count": "students",
+    "violations_count": "violations",
+    "risk_zone": "Risk Zone"
+  }
+}

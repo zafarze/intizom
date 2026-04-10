@@ -32,6 +32,8 @@ interface Message {
   content: string;
   audio_file?: string | null;
   image_file?: string | null;
+  document_file?: string | null;
+  document_name?: string | null;
   is_read: boolean;
   is_edited?: boolean;
   can_edit?: boolean;
@@ -82,6 +84,17 @@ export const ChatWidget: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [activeTab, setActiveTab] = useState<'chats' | 'teachers' | 'students' | 'ai'>('chats');
 
+  // Pagination state
+  const [messagePage, setMessagePage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // WebSockets state
+  const wsRef = useRef<WebSocket | null>(null);
+  const activeContactRef = useRef<Contact | null>(null);
+  const [typingUsers, setTypingUsers] = useState<Set<number>>(new Set());
+  const typingTimeoutRefs = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
   // AI Chat state
   interface AIMessage { role: 'user' | 'assistant'; content: string; created_at?: string; }
   const [aiMessages, setAiMessages] = useState<AIMessage[]>([]);
@@ -104,6 +117,10 @@ export const ChatWidget: React.FC = () => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
+  // Document attachment state
+  const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
 
   // Quick suggestions
   const SUGGESTIONS = [
@@ -174,19 +191,50 @@ export const ChatWidget: React.FC = () => {
   const fetchContacts = async () => {
     try {
       const res = await api.get('/chat/contacts/');
-      setContacts(res.data);
+      if (res.data && Array.isArray(res.data.results)) {
+        setContacts(res.data.results);
+      } else if (Array.isArray(res.data)) {
+        setContacts(res.data);
+      } else {
+        setContacts([]);
+      }
     } catch (error) {
       console.error('Failed to fetch contacts', error);
     }
   };
 
-  const fetchMessages = async (userId: number) => {
+  const fetchMessages = async (userId: number, page: number = 1, append: boolean = false) => {
     try {
-      const res = await api.get(`/chat/messages/${userId}/`);
-      setMessages(res.data);
-      // Optional: scroll to bottom if new message arrived
+      const res = await api.get(`/chat/messages/${userId}/?page=${page}`);
+      if (append) {
+        setMessages(prev => {
+          // Filter out duplicates just in case
+          const existingIds = new Set(prev.map(m => m.id));
+          const newMsgs = res.data.results.filter((m: Message) => !existingIds.has(m.id));
+          return [...newMsgs, ...prev];
+        });
+      } else {
+        setMessages(res.data.results);
+      }
+      setHasMoreMessages(res.data.has_previous); // Wait, Django paginator reversed the list. Actually has_next means older messages because we order by -created_at in backend. So has_next is true if there are older messages.
+      setHasMoreMessages(res.data.has_next);
+      setMessagePage(res.data.current_page);
     } catch (error) {
       console.error('Failed to fetch messages', error);
+    }
+  };
+
+  const handleScrollMessages = async (e: React.UIEvent<HTMLDivElement>) => {
+    if (e.currentTarget.scrollTop === 0 && hasMoreMessages && !isLoadingMore && activeContact) {
+      setIsLoadingMore(true);
+      const prevScrollHeight = e.currentTarget.scrollHeight;
+      await fetchMessages(activeContact.id, messagePage + 1, true);
+      requestAnimationFrame(() => {
+        if (e.currentTarget) {
+          e.currentTarget.scrollTop = e.currentTarget.scrollHeight - prevScrollHeight;
+        }
+      });
+      setIsLoadingMore(false);
     }
   };
 
@@ -211,27 +259,112 @@ export const ChatWidget: React.FC = () => {
     }
   }, [aiMessages, activeTab]);
 
-  // Initial load and polling
+  // Set activeContact ref for WebSockets
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
+    activeContactRef.current = activeContact;
+  }, [activeContact]);
 
-    // Always fetch contacts periodically to update last seen and recent messages
-    const poll = async () => {
-      fetchContacts();
-      if (activeContact) {
-        await fetchMessages(activeContact.id);
+  // Initial load and WebSockets setup
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    fetchContacts();
+
+    const connectWs = () => {
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      let wsUrl = '';
+      if (import.meta.env.VITE_API_URL) {
+        wsUrl = import.meta.env.VITE_API_URL.replace(/^http(s?):\/\//, `${wsProtocol}//`).replace(/\/api\/?$/, '/ws/chat/');
+      } else {
+        wsUrl = `${wsProtocol}//127.0.0.1:8000/ws/chat/`;
       }
+
+      const ws = new WebSocket(`${wsUrl}?token=${token}`);
+
+      ws.onopen = () => {
+        console.log('Chat WebSocket connected');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          if (data.type === 'new_message') {
+            const newMsg = data.message;
+            const currentActive = activeContactRef.current;
+
+            // If the message is for the active chat, append it
+            if (currentActive && (newMsg.sender_id === currentActive.id || newMsg.recipient_id === currentActive.id)) {
+              setMessages(prev => {
+                if (prev.some(m => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+              });
+
+              // Mark as read if the message is incoming
+              if (newMsg.sender_id === currentActive.id) {
+                markAsRead(currentActive.id);
+              }
+            }
+
+            fetchContacts();
+
+          } else if (data.type === 'typing') {
+            const senderId = data.sender_id;
+            setTypingUsers(prev => {
+              const newSet = new Set(prev);
+              newSet.add(senderId);
+              return newSet;
+            });
+
+            if (typingTimeoutRefs.current[senderId]) {
+              clearTimeout(typingTimeoutRefs.current[senderId]);
+            }
+
+            typingTimeoutRefs.current[senderId] = setTimeout(() => {
+              setTypingUsers(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(senderId);
+                return newSet;
+              });
+            }, 3000);
+
+          } else if (data.type === 'messages_read') {
+            const readerId = data.reader_id;
+            const currentActive = activeContactRef.current;
+
+            if (currentActive && readerId === currentActive.id) {
+              setMessages(prev => prev.map(m =>
+                m.recipient_id === readerId && !m.is_read
+                  ? { ...m, is_read: true, read_at: new Date().toISOString() }
+                  : m
+              ));
+            }
+            fetchContacts();
+          }
+        } catch (e) {
+          console.error("WebSocket message parsing error", e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('Chat WebSocket disconnected, reconnecting in 3s');
+        setTimeout(connectWs, 3000);
+      };
+
+      wsRef.current = ws;
     };
 
-    if (localStorage.getItem('access_token')) {
-      poll();
-      interval = setInterval(poll, 5000); // Poll every 5s
-    }
+    connectWs();
 
     return () => {
-      if (interval) clearInterval(interval);
+      if (wsRef.current) {
+        wsRef.current.onclose = null; // Prevent reconnect loop on unmount
+        wsRef.current.close();
+      }
+      Object.values(typingTimeoutRefs.current).forEach(clearTimeout);
     };
-  }, [activeContact]);
+  }, []);
 
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -298,7 +431,7 @@ export const ChatWidget: React.FC = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!inputText.trim() && !selectedImage) || !activeContact || isSending) return;
+    if ((!inputText.trim() && !selectedImage && !selectedDocument) || !activeContact || isSending) return;
 
     setIsSending(true);
     try {
@@ -314,12 +447,22 @@ export const ChatWidget: React.FC = () => {
         formData.append('content', tempText);
         if (replyingMessage) formData.append('reply_to_id', String(replyingMessage.id));
         if (selectedImage) formData.append('image_file', selectedImage);
+        if (selectedDocument) {
+          formData.append('document_file', selectedDocument);
+          formData.append('document_name', selectedDocument.name);
+        }
         const res = await api.post(`/chat/messages/${activeContact.id}/`, formData);
         setMessages(prev => [...prev, res.data]);
         setInputText('');
         setReplyingMessage(null);
         removeSelectedImage();
+        setSelectedDocument(null);
         fetchContacts();
+
+        // Scroll to bottom after sending
+        setTimeout(() => {
+          if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
       }
     } catch (error) {
       console.error('Failed to send/edit message', error);
@@ -368,6 +511,18 @@ export const ChatWidget: React.FC = () => {
     setSelectedImage(null);
     if (previewImage) URL.revokeObjectURL(previewImage);
     setPreviewImage(null);
+  };
+
+  const handleDocumentSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 25 * 1024 * 1024) {
+        toast.error("Файл слишком большой (макс. 25МБ)");
+        return;
+      }
+      setSelectedDocument(file);
+      if (documentInputRef.current) documentInputRef.current.value = '';
+    }
   };
 
   const sendVoiceMessage = async (audioBlob: Blob) => {
@@ -559,10 +714,10 @@ export const ChatWidget: React.FC = () => {
     return diffMs < 120000; // < 2 mins
   };
 
-  const totalUnread = contacts.reduce((sum, c) => sum + c.unread_count, 0);
+  const totalUnread = Array.isArray(contacts) ? contacts.reduce((sum, c) => sum + (c.unread_count || 0), 0) : 0;
 
   const filteredContacts = React.useMemo(() => {
-    let result = contacts;
+    let result = Array.isArray(contacts) ? contacts : [];
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -629,7 +784,13 @@ export const ChatWidget: React.FC = () => {
                 </button>
                 <div className="chat-header-title">
                   <h3>{activeContact.name}</h3>
-                  <span>{formatLastSeen(activeContact.last_seen)}</span>
+                  <span>
+                    {typingUsers.has(activeContact.id) ? (
+                      <span style={{ color: '#3B82F6', fontStyle: 'italic' }}>печатает...</span>
+                    ) : (
+                      formatLastSeen(activeContact.last_seen)
+                    )}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -797,7 +958,8 @@ export const ChatWidget: React.FC = () => {
           ) : !isDesktopMode ? (
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               {/* Messages */}
-              <div className="chat-messages">
+              <div className="chat-messages" onScroll={handleScrollMessages}>
+                {isLoadingMore && <div className="chat-loader" style={{ padding: 10 }}><Loader size={20} className="loader-pulse" /></div>}
                 {pinnedMessage && (
                   <div className="chat-pinned-message">
                     <div className="pinned-bar"></div>
@@ -816,73 +978,93 @@ export const ChatWidget: React.FC = () => {
                     <MessageSquare size={48} />
                     <p>Напишите первое сообщение</p>
                   </div>
-                ) : (
-                  messages.map(msg => {
+                ) : (() => {
+                  let lastDate: string | null = null;
+                  return messages.map(msg => {
+                    const msgDateStr = new Date(msg.created_at).toLocaleDateString([], { day: 'numeric', month: 'long' });
+                    const showDate = msgDateStr !== lastDate;
+                    lastDate = msgDateStr;
                     const isIncoming = msg.sender_id === activeContact!.id;
                     return (
-                      <div key={msg.id} className="message-wrapper">
-                        {isSelectMode && (
-                          <div className="message-select-box" onClick={() => toggleSelect(msg.id)}>
-                            <input type="checkbox" readOnly checked={selectedMessages.has(msg.id)} />
+                      <React.Fragment key={msg.id}>
+                        {showDate && (
+                          <div className="chat-date-separator">
+                            <span>{msgDateStr}</span>
                           </div>
                         )}
-                        <div className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}>
-                          {msg.forwarded_from_name && (
-                            <div className="message-forwarded">
-                              <Forward size={12} /> Переслано от: {msg.forwarded_from_name}
+                        <div className="message-wrapper">
+                          {isSelectMode && (
+                            <div className="message-select-box" onClick={() => toggleSelect(msg.id)}>
+                              <input type="checkbox" readOnly checked={selectedMessages.has(msg.id)} />
                             </div>
                           )}
-                          {msg.reply_to_content && (
-                            <div className="message-quoted">
-                              <div className="quoted-bar"></div>
-                              <p>{msg.reply_to_content}</p>
-                            </div>
-                          )}
-                          {msg.image_file ? (
-                            <div className="chat-image-container">
-                              <img src={getMediaUrl(msg.image_file)} alt="attachment" className="chat-message-image" onClick={() => setFullScreenImage(getMediaUrl(msg.image_file))} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="chat-file-deleted"><X size={16}/> Файл удалён</div>'; }} />
-                              {msg.content && <span className="image-caption">{msg.content}</span>}
-                            </div>
-                          ) : msg.audio_file ? (
-                            <div className="voice-message-player">
-                              <Mic size={14} className="voice-icon" />
-                              <audio controls src={getMediaUrl(msg.audio_file)} className="voice-audio" />
-                            </div>
-                          ) : (
-                            <span>{msg.content}</span>
-                          )}
-                          <div className="message-footer">
-                            {msg.is_edited && <span className="message-edited">(изменено)</span>}
-                            {formatTime(msg.created_at)}
-                            {!isIncoming && (
-                              <span className="read-ticks">
-                                {msg.is_read ? <CheckCheck size={14} /> : <Check size={14} />}
-                              </span>
+                          <div className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}>
+                            {msg.forwarded_from_name && (
+                              <div className="message-forwarded">
+                                <Forward size={12} /> Переслано от: {msg.forwarded_from_name}
+                              </div>
                             )}
-                          </div>
-                          <button className="msg-dropdown-btn" onClick={(e) => { e.stopPropagation(); setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id); }}>
-                            <MoreVertical size={16} />
-                          </button>
-                          {dropdownMessageId === msg.id && (
-                            <div className="msg-dropdown-menu tg-style">
-                              <button onClick={() => handleReplyMessage(msg)}><Reply size={16} /> Ответить</button>
-                              {msg.can_edit && <button onClick={() => handleEditMessage(msg)}><Edit2 size={16} /> Изменить</button>}
-                              <button onClick={() => handlePinMessage(msg)}><Pin size={16} /> {msg.is_pinned ? 'Открепить' : 'Закрепить'}</button>
-                              <button onClick={() => handleCopyText(msg.content)}><Copy size={16} /> Копировать текст</button>
-                              <button onClick={() => handleForwardClick(msg)}><Forward size={16} /> Переслать</button>
-                              <button onClick={() => handleSelectMessageClick(msg)}><CheckSquare size={16} /> Выделить</button>
-                              <hr className="dropdown-divider" />
-                              <button onClick={() => handleDeleteMessage(msg.id, false)}><Trash2 size={16} /> Удалить у меня</button>
-                              {msg.can_delete_for_all && (
-                                <button onClick={() => handleDeleteMessage(msg.id, true)} className="text-red-500"><Trash2 size={16} color="#EF4444" /> Удалить у обоих</button>
+                            {msg.reply_to_content && (
+                              <div className="message-quoted">
+                                <div className="quoted-bar"></div>
+                                <p>{msg.reply_to_content}</p>
+                              </div>
+                            )}
+                            {msg.image_file ? (
+                              <div className="chat-image-container">
+                                <img src={getMediaUrl(msg.image_file)} alt="attachment" className="chat-message-image" onClick={() => setFullScreenImage(getMediaUrl(msg.image_file))} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="chat-file-deleted"><X size={16}/> Файл удалён</div>'; }} />
+                                {msg.content && <span className="image-caption">{msg.content}</span>}
+                              </div>
+                            ) : msg.audio_file ? (
+                              <div className="voice-message-player">
+                                <Mic size={14} className="voice-icon" />
+                                <audio controls src={getMediaUrl(msg.audio_file)} className="voice-audio" />
+                              </div>
+                            ) : msg.document_file ? (
+                              <div className="document-message" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '8px', cursor: 'pointer' }} onClick={() => window.open(getMediaUrl(msg.document_file), '_blank')}>
+                                <Paperclip size={24} color="#7C3AED" />
+                                <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{msg.document_name || 'Документ'}</span>
+                                  <span style={{ fontSize: '11px', color: '#6B7280' }}>Нажмите, чтобы открыть</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+                            )}
+                            {msg.document_file && msg.content && <div style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{msg.content}</div>}
+                            <div className="message-footer">
+                              {msg.is_edited && <span className="message-edited">(изменено)</span>}
+                              {formatTime(msg.created_at)}
+                              {!isIncoming && (
+                                <span className="read-ticks">
+                                  {msg.is_read ? <CheckCheck size={14} /> : <Check size={14} />}
+                                </span>
                               )}
                             </div>
-                          )}
+                            <button className="msg-dropdown-btn" onClick={(e) => { e.stopPropagation(); setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id); }}>
+                              <MoreVertical size={16} />
+                            </button>
+                            {dropdownMessageId === msg.id && (
+                              <div className="msg-dropdown-menu tg-style">
+                                <button onClick={() => handleReplyMessage(msg)}><Reply size={16} /> Ответить</button>
+                                {msg.can_edit && <button onClick={() => handleEditMessage(msg)}><Edit2 size={16} /> Изменить</button>}
+                                <button onClick={() => handlePinMessage(msg)}><Pin size={16} /> {msg.is_pinned ? 'Открепить' : 'Закрепить'}</button>
+                                <button onClick={() => handleCopyText(msg.content)}><Copy size={16} /> Копировать текст</button>
+                                <button onClick={() => handleForwardClick(msg)}><Forward size={16} /> Переслать</button>
+                                <button onClick={() => handleSelectMessageClick(msg)}><CheckSquare size={16} /> Выделить</button>
+                                <hr className="dropdown-divider" />
+                                <button onClick={() => handleDeleteMessage(msg.id, false)}><Trash2 size={16} /> Удалить у меня</button>
+                                {msg.can_delete_for_all && (
+                                  <button onClick={() => handleDeleteMessage(msg.id, true)} className="text-red-500"><Trash2 size={16} color="#EF4444" /> Удалить у обоих</button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      </React.Fragment>
                     );
-                  })
-                )}
+                  });
+                })()}
                 <div ref={messagesEndRef} />
               </div>
               {replyingMessage && (
@@ -915,12 +1097,28 @@ export const ChatWidget: React.FC = () => {
                       </button>
                     </div>
                   )}
+                  {selectedDocument && (
+                    <div className="document-preview-container" style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: '#F3F4F6', borderRadius: '8px', marginBottom: '8px', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                        <Paperclip size={18} color="#7C3AED" />
+                        <span style={{ fontSize: '13px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '200px' }}>{selectedDocument.name}</span>
+                      </div>
+                      <button type="button" onClick={() => setSelectedDocument(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}><X size={16} /></button>
+                    </div>
+                  )}
                   <input
                     type="file"
                     accept="image/*"
                     ref={imageInputRef}
                     style={{ display: 'none' }}
                     onChange={handleImageSelect}
+                  />
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                    ref={documentInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleDocumentSelect}
                   />
                   {filteredSuggestions().length > 0 && (
                     <div className="suggestions-bar">
@@ -937,10 +1135,24 @@ export const ChatWidget: React.FC = () => {
                     </div>
                   ) : (
                     <form className={`chat-input-area ${(editingMessageId || replyingMessage) ? 'attached-mode' : ''}`} onSubmit={handleSendMessage}>
-                      <button type="button" className="chat-attach-btn" onClick={() => imageInputRef.current?.click()}>
-                        <Paperclip size={20} />
-                      </button>
-                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={e => setInputText(e.target.value)} onPaste={handlePaste} />
+                      <div className="attach-dropdown" style={{ position: 'relative' }}>
+                        <button type="button" className="chat-attach-btn" onClick={() => {
+                          const dropdown = document.getElementById('attach-menu');
+                          if (dropdown) dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                        }}>
+                          <Paperclip size={20} />
+                        </button>
+                        <div id="attach-menu" className="msg-dropdown-menu tg-style" style={{ display: 'none', bottom: '100%', top: 'auto', left: 0, right: 'auto', transformOrigin: 'bottom left' }}>
+                          <button type="button" onClick={() => { document.getElementById('attach-menu')!.style.display = 'none'; imageInputRef.current?.click(); }}>Фото/Изображение</button>
+                          <button type="button" onClick={() => { document.getElementById('attach-menu')!.style.display = 'none'; documentInputRef.current?.click(); }}>Документ/Файл</button>
+                        </div>
+                      </div>
+                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={(e) => {
+                        setInputText(e.target.value);
+                        if (activeContact && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                          wsRef.current.send(JSON.stringify({ action: 'typing', recipient_id: activeContact.id }));
+                        }
+                      }} onPaste={handlePaste} />
                       {(!inputText.trim() && !selectedImage) ? (
                         <button type="button" className="chat-mic-btn" onClick={startRecording} disabled={isSending}><Mic size={20} /></button>
                       ) : (
@@ -967,7 +1179,13 @@ export const ChatWidget: React.FC = () => {
                   </div>
                   <div className="dct-meta">
                     <h4>{activeContact.name}</h4>
-                    <span>{activeContact.role_subtitle || 'Пользователь'} &nbsp;·&nbsp; {formatLastSeen(activeContact.last_seen)}</span>
+                    <span>
+                      {typingUsers.has(activeContact.id) ? (
+                        <span style={{ color: '#3B82F6', fontStyle: 'italic' }}>печатает...</span>
+                      ) : (
+                        <>{activeContact.role_subtitle || 'Пользователь'} &nbsp;·&nbsp; {formatLastSeen(activeContact.last_seen)}</>
+                      )}
+                    </span>
                   </div>
                 </div>
                 <div className="desktop-chat-topbar-actions">
@@ -979,7 +1197,8 @@ export const ChatWidget: React.FC = () => {
                 </div>
               </div>
 
-              <div className="chat-messages">
+              <div className="chat-messages" onScroll={handleScrollMessages}>
+                {isLoadingMore && <div className="chat-loader" style={{ padding: 10 }}><Loader size={20} className="loader-pulse" /></div>}
                 {pinnedMessage && (
                   <div className="chat-pinned-message">
                     <div className="pinned-bar"></div>
@@ -993,60 +1212,80 @@ export const ChatWidget: React.FC = () => {
                   <div className="chat-loader"><MessageCircle size={32} className="loader-pulse" /></div>
                 ) : messages.length === 0 ? (
                   <div className="chat-empty"><MessageSquare size={48} /><p>Напишите первое сообщение</p></div>
-                ) : (
-                  messages.map(msg => {
+                ) : (() => {
+                  let lastDate: string | null = null;
+                  return messages.map(msg => {
+                    const msgDateStr = new Date(msg.created_at).toLocaleDateString([], { day: 'numeric', month: 'long' });
+                    const showDate = msgDateStr !== lastDate;
+                    lastDate = msgDateStr;
                     const isIncoming = msg.sender_id === activeContact.id;
                     return (
-                      <div key={msg.id} className="message-wrapper">
-                        {isSelectMode && (
-                          <div className="message-select-box" onClick={() => toggleSelect(msg.id)}>
-                            <input type="checkbox" readOnly checked={selectedMessages.has(msg.id)} />
+                      <React.Fragment key={msg.id}>
+                        {showDate && (
+                          <div className="chat-date-separator">
+                            <span>{msgDateStr}</span>
                           </div>
                         )}
-                        <div className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}>
-                          {msg.forwarded_from_name && <div className="message-forwarded"><Forward size={12} /> Переслано от: {msg.forwarded_from_name}</div>}
-                          {msg.reply_to_content && <div className="message-quoted"><div className="quoted-bar"></div><p>{msg.reply_to_content}</p></div>}
-                          {msg.image_file ? (
-                            <div className="chat-image-container">
-                              <img src={getMediaUrl(msg.image_file)} alt="attachment" className="chat-message-image" onClick={() => setFullScreenImage(getMediaUrl(msg.image_file))} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="chat-file-deleted"><X size={16} style="display:inline;vertical-align:middle;margin-right:4px;"/> Файл удалён</div>'; }} />
-                              {msg.content && <span className="image-caption">{msg.content}</span>}
+                        <div className="message-wrapper">
+                          {isSelectMode && (
+                            <div className="message-select-box" onClick={() => toggleSelect(msg.id)}>
+                              <input type="checkbox" readOnly checked={selectedMessages.has(msg.id)} />
                             </div>
-                          ) : msg.audio_file ? (
-                            <div className="voice-message-player">
-                              <Mic size={14} className="voice-icon" />
-                              <audio controls src={getMediaUrl(msg.audio_file)} className="voice-audio" />
-                            </div>
-                          ) : (
-                            <span>{msg.content}</span>
                           )}
-                          <div className="message-footer">
-                            {msg.is_edited && <span className="message-edited">(изменено)</span>}
-                            {formatTime(msg.created_at)}
-                            {!isIncoming && <span className="read-ticks">{msg.is_read ? <CheckCheck size={14} /> : <Check size={14} />}</span>}
+                          <div className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}>
+                            {msg.forwarded_from_name && <div className="message-forwarded"><Forward size={12} /> Переслано от: {msg.forwarded_from_name}</div>}
+                            {msg.reply_to_content && <div className="message-quoted"><div className="quoted-bar"></div><p>{msg.reply_to_content}</p></div>}
+                            {msg.image_file ? (
+                              <div className="chat-image-container">
+                                <img src={getMediaUrl(msg.image_file)} alt="attachment" className="chat-message-image" onClick={() => setFullScreenImage(getMediaUrl(msg.image_file))} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="chat-file-deleted"><X size={16} style="display:inline;vertical-align:middle;margin-right:4px;"/> Файл удалён</div>'; }} />
+                                {msg.content && <span className="image-caption">{msg.content}</span>}
+                              </div>
+                            ) : msg.audio_file ? (
+                              <div className="voice-message-player">
+                                <Mic size={14} className="voice-icon" />
+                                <audio controls src={getMediaUrl(msg.audio_file)} className="voice-audio" />
+                              </div>
+                            ) : msg.document_file ? (
+                              <div className="document-message" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '8px', cursor: 'pointer' }} onClick={() => window.open(getMediaUrl(msg.document_file), '_blank')}>
+                                <Paperclip size={24} color="#7C3AED" />
+                                <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{msg.document_name || 'Документ'}</span>
+                                  <span style={{ fontSize: '11px', color: '#6B7280' }}>Нажмите, чтобы открыть</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+                            )}
+                            {msg.document_file && msg.content && <div style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{msg.content}</div>}
+                            <div className="message-footer">
+                              {msg.is_edited && <span className="message-edited">(изменено)</span>}
+                              {formatTime(msg.created_at)}
+                              {!isIncoming && <span className="read-ticks">{msg.is_read ? <CheckCheck size={14} /> : <Check size={14} />}</span>}
+                            </div>
+                            <button className="msg-dropdown-btn" onClick={(e) => { e.stopPropagation(); setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id); }}>
+                              <MoreVertical size={16} />
+                            </button>
+                            {dropdownMessageId === msg.id && (
+                              <div className="msg-dropdown-menu tg-style">
+                                <button onClick={() => handleReplyMessage(msg)}><Reply size={16} /> Ответить</button>
+                                {msg.can_edit && <button onClick={() => handleEditMessage(msg)}><Edit2 size={16} /> Изменить</button>}
+                                <button onClick={() => handlePinMessage(msg)}><Pin size={16} /> {msg.is_pinned ? 'Открепить' : 'Закрепить'}</button>
+                                <button onClick={() => handleCopyText(msg.content)}><Copy size={16} /> Копировать текст</button>
+                                <button onClick={() => handleForwardClick(msg)}><Forward size={16} /> Переслать</button>
+                                <button onClick={() => handleSelectMessageClick(msg)}><CheckSquare size={16} /> Выделить</button>
+                                <hr className="dropdown-divider" />
+                                <button onClick={() => handleDeleteMessage(msg.id, false)}><Trash2 size={16} /> Удалить у меня</button>
+                                {msg.can_delete_for_all && (
+                                  <button onClick={() => handleDeleteMessage(msg.id, true)} className="text-red-500"><Trash2 size={16} color="#EF4444" /> Удалить у обоих</button>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <button className="msg-dropdown-btn" onClick={(e) => { e.stopPropagation(); setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id); }}>
-                            <MoreVertical size={16} />
-                          </button>
-                          {dropdownMessageId === msg.id && (
-                            <div className="msg-dropdown-menu tg-style">
-                              <button onClick={() => handleReplyMessage(msg)}><Reply size={16} /> Ответить</button>
-                              {msg.can_edit && <button onClick={() => handleEditMessage(msg)}><Edit2 size={16} /> Изменить</button>}
-                              <button onClick={() => handlePinMessage(msg)}><Pin size={16} /> {msg.is_pinned ? 'Открепить' : 'Закрепить'}</button>
-                              <button onClick={() => handleCopyText(msg.content)}><Copy size={16} /> Копировать текст</button>
-                              <button onClick={() => handleForwardClick(msg)}><Forward size={16} /> Переслать</button>
-                              <button onClick={() => handleSelectMessageClick(msg)}><CheckSquare size={16} /> Выделить</button>
-                              <hr className="dropdown-divider" />
-                              <button onClick={() => handleDeleteMessage(msg.id, false)}><Trash2 size={16} /> Удалить у меня</button>
-                              {msg.can_delete_for_all && (
-                                <button onClick={() => handleDeleteMessage(msg.id, true)} className="text-red-500"><Trash2 size={16} color="#EF4444" /> Удалить у обоих</button>
-                              )}
-                            </div>
-                          )}
                         </div>
-                      </div>
+                      </React.Fragment>
                     );
-                  })
-                )}
+                  });
+                })()}
                 <div ref={messagesEndRef} />
               </div>
               {replyingMessage && (
@@ -1073,12 +1312,28 @@ export const ChatWidget: React.FC = () => {
                       </button>
                     </div>
                   )}
+                  {selectedDocument && (
+                    <div className="document-preview-container" style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: '#F3F4F6', borderRadius: '8px', marginBottom: '8px', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                        <Paperclip size={18} color="#7C3AED" />
+                        <span style={{ fontSize: '13px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '200px' }}>{selectedDocument.name}</span>
+                      </div>
+                      <button type="button" onClick={() => setSelectedDocument(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}><X size={16} /></button>
+                    </div>
+                  )}
                   <input
                     type="file"
                     accept="image/*"
                     ref={imageInputRef}
                     style={{ display: 'none' }}
                     onChange={handleImageSelect}
+                  />
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                    ref={documentInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleDocumentSelect}
                   />
                   {filteredSuggestions().length > 0 && (
                     <div className="suggestions-bar">
@@ -1095,10 +1350,24 @@ export const ChatWidget: React.FC = () => {
                     </div>
                   ) : (
                     <form className={`chat-input-area ${(editingMessageId || replyingMessage) ? 'attached-mode' : ''}`} onSubmit={handleSendMessage}>
-                      <button type="button" className="chat-attach-btn" onClick={() => imageInputRef.current?.click()}>
-                        <Paperclip size={20} />
-                      </button>
-                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={e => setInputText(e.target.value)} onPaste={handlePaste} />
+                      <div className="attach-dropdown" style={{ position: 'relative' }}>
+                        <button type="button" className="chat-attach-btn" onClick={() => {
+                          const dropdown = document.getElementById('attach-menu-desktop');
+                          if (dropdown) dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                        }}>
+                          <Paperclip size={20} />
+                        </button>
+                        <div id="attach-menu-desktop" className="msg-dropdown-menu tg-style" style={{ display: 'none', bottom: '100%', top: 'auto', left: 0, right: 'auto', transformOrigin: 'bottom left' }}>
+                          <button type="button" onClick={() => { document.getElementById('attach-menu-desktop')!.style.display = 'none'; imageInputRef.current?.click(); }}>Фото/Изображение</button>
+                          <button type="button" onClick={() => { document.getElementById('attach-menu-desktop')!.style.display = 'none'; documentInputRef.current?.click(); }}>Документ/Файл</button>
+                        </div>
+                      </div>
+                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={(e) => {
+                        setInputText(e.target.value);
+                        if (activeContact && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                          wsRef.current.send(JSON.stringify({ action: 'typing', recipient_id: activeContact.id }));
+                        }
+                      }} onPaste={handlePaste} />
                       {(!inputText.trim() && !selectedImage) ? (
                         <button type="button" className="chat-mic-btn" onClick={startRecording} disabled={isSending}><Mic size={20} /></button>
                       ) : (

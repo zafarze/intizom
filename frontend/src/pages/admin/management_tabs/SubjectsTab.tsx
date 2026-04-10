@@ -7,16 +7,24 @@ import { TableTemplate, ActionButtons, Modal } from './Shared';
 export default function SubjectsTab({ data, teachers = [], refresh }: { data: any[], teachers?: any[], refresh: () => void }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
-	const [name, setName] = useState('');
+	const [formData, setFormData] = useState({ name_ru: '', name_tg: '', name_en: '' });
+	const [activeLang, setActiveLang] = useState<'ru' | 'tg' | 'en'>('ru');
 
 	// Состояние для модалки списка учителей
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const [selectedSubjectTeachers, setSelectedSubjectTeachers] = useState<any[] | null>(null);
 	const [subjectNameForTeachers, setSubjectNameForTeachers] = useState<string>('');
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const openModal = (item?: any) => {
 		setEditingId(item?.id || null);
-		setName(item?.name || '');
+		setFormData(item ? {
+			name_ru: item.name_ru || '',
+			name_tg: item.name_tg || '',
+			name_en: item.name_en || ''
+		} : { name_ru: '', name_tg: '', name_en: '' });
 		setIsModalOpen(true);
+		setActiveLang('ru');
 	};
 
 	const handleDelete = async (id: number) => {
@@ -33,7 +41,11 @@ export default function SubjectsTab({ data, teachers = [], refresh }: { data: an
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		try {
-			editingId ? await api.patch(`subjects/${editingId}/`, { name }) : await api.post(`subjects/`, { name });
+			if (editingId) {
+				await api.patch(`subjects/${editingId}/`, formData);
+			} else {
+				await api.post(`subjects/`, formData);
+			}
 			setIsModalOpen(false);
 			refresh();
 			toast.success('Сохранено успешно');
@@ -59,7 +71,7 @@ export default function SubjectsTab({ data, teachers = [], refresh }: { data: an
 							<td className="py-4 px-4 font-bold text-xs text-slate-400 w-12">{idx + 1}</td>
 							<td className="py-4 px-4 font-bold text-lg text-indigo-700">{s.name}</td>
 							<td className="py-4 px-4 font-medium text-sm text-slate-600">
-								<button 
+								<button
 									onClick={() => {
 										setSelectedSubjectTeachers(attachedTeachers);
 										setSubjectNameForTeachers(s.name);
@@ -117,22 +129,24 @@ export default function SubjectsTab({ data, teachers = [], refresh }: { data: an
 			</Modal>
 
 			<Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-					<div className="bg-white p-6 rounded-3xl w-full max-w-sm">
-						<h3 className="font-black text-xl mb-4">{editingId ? 'Редактировать' : 'Добавить'} предмет</h3>
-						<form onSubmit={handleSubmit} className="space-y-4">
-							<input
-								required
-								placeholder="Например: Математика"
-								value={name}
-								onChange={e => setName(e.target.value)}
-								className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none rounded-xl px-4 py-3 font-medium transition-all"
-							/>
-							<div className="flex gap-3 pt-2">
-								<button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 transition-colors py-3 rounded-xl font-bold text-slate-700">Отмена</button>
-								<button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 transition-colors text-white py-3 rounded-xl font-bold shadow-md">Сохранить</button>
-							</div>
-						</form>
+				<div className="bg-white p-6 rounded-3xl w-full max-w-sm">
+					<h3 className="font-black text-xl mb-4">{editingId ? 'Редактировать' : 'Добавить'} предмет</h3>
+					<div className="flex gap-2 mb-4 bg-slate-100 p-1 rounded-xl">
+						<button type="button" onClick={() => setActiveLang('ru')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${activeLang === 'ru' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>Русский</button>
+						<button type="button" onClick={() => setActiveLang('tg')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${activeLang === 'tg' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>Тоҷикӣ</button>
+						<button type="button" onClick={() => setActiveLang('en')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${activeLang === 'en' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>English</button>
 					</div>
+					<form onSubmit={handleSubmit} className="space-y-4">
+						{activeLang === 'ru' && <input required placeholder="Например: Математика" value={formData.name_ru} onChange={e => setFormData({ ...formData, name_ru: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none rounded-xl px-4 py-3 font-medium transition-all" />}
+						{activeLang === 'tg' && <input placeholder="Например: Риёзиёт" value={formData.name_tg} onChange={e => setFormData({ ...formData, name_tg: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none rounded-xl px-4 py-3 font-medium transition-all" />}
+						{activeLang === 'en' && <input placeholder="Например: Mathematics" value={formData.name_en} onChange={e => setFormData({ ...formData, name_en: e.target.value })} className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none rounded-xl px-4 py-3 font-medium transition-all" />}
+
+						<div className="flex gap-3 pt-2">
+							<button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 transition-colors py-3 rounded-xl font-bold text-slate-700">Отмена</button>
+							<button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 transition-colors text-white py-3 rounded-xl font-bold shadow-md">Сохранить</button>
+						</div>
+					</form>
+				</div>
 			</Modal>
 		</div>
 	);

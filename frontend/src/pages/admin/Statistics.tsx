@@ -1,9 +1,37 @@
 import { useState, useEffect } from 'react';
-import { PieChart, BarChart3, TrendingUp, Award, Loader2, ShieldAlert } from 'lucide-react';
+import { PieChart, BarChart3, TrendingUp, Award, Loader2, ShieldAlert, TrendingDown, Activity } from 'lucide-react';
 import api from '../../api/axios';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+// Types for better structure and no ESLint errors
+interface StudentStat {
+	id: number;
+	first_name: string;
+	last_name: string;
+	points: number;
+	class_name: string;
+	name?: string;
+	total?: number;
+}
+
+interface TrendData {
+	month: string;
+	bonuses: number;
+	violations: number;
+}
+
+interface StatisticsData {
+	violations: Record<string, { count: number, percent: number }>;
+	risk_levels: Record<string, { count: number, percent: number }>;
+	monthly_bonuses: number;
+	super_students: StudentStat[];
+	trend_data: TrendData[];
+	top_10_best: StudentStat[];
+	top_10_worst: StudentStat[];
+}
 
 export default function Statistics() {
-	const [stats, setStats] = useState<any>(null);
+	const [stats, setStats] = useState<StatisticsData | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
@@ -142,6 +170,98 @@ export default function Statistics() {
 					</button>
 				</div>
 
+				{/* 5. ТРЕНД ПОВЕДЕНИЯ ПО МЕСЯЦАМ */}
+				<div className="col-span-1 lg:col-span-2 bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm">
+					<div className="flex items-center gap-3 mb-6">
+						<div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
+							<Activity size={24} />
+						</div>
+						<h2 className="text-lg font-bold text-slate-800">Тренд поведения школы (последние 6 месяцев)</h2>
+					</div>
+					<div className="h-[300px] w-full">
+						<ResponsiveContainer width="100%" height="100%">
+							<LineChart data={stats.trend_data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+								<CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+								<XAxis dataKey="month" stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+								<YAxis stroke="#94a3b8" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+								<Tooltip
+									contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+								/>
+								<Legend wrapperStyle={{ paddingTop: '20px' }} />
+								<Line type="monotone" name="Поощрения (+)" dataKey="bonuses" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+								<Line type="monotone" name="Нарушения (-)" dataKey="violations" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+							</LineChart>
+						</ResponsiveContainer>
+					</div>
+				</div>
+
+				{/* 6. ТОП-10 ЛУЧШИХ И ТОП-10 ХУДШИХ УЧЕНИКОВ */}
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 col-span-1 lg:col-span-2">
+					{/* ТОП-10 ХУДШИХ */}
+					<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm">
+						<div className="flex items-center gap-3 mb-6">
+							<div className="p-3 bg-red-100 text-red-600 rounded-2xl">
+								<TrendingDown size={24} />
+							</div>
+							<h2 className="text-lg font-bold text-slate-800">Топ-10 нарушителей</h2>
+						</div>
+						<div className="space-y-3">
+							{stats.top_10_worst?.map((student: StudentStat, idx: number) => (
+								<div key={student.id} className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-slate-100">
+									<div className="flex items-center gap-3">
+										<div className="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-xs">
+											#{idx + 1}
+										</div>
+										<div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 overflow-hidden font-bold">
+											{/* Placeholder for photo */}
+											{student.first_name?.[0]}{student.last_name?.[0]}
+										</div>
+										<div>
+											<p className="font-bold text-slate-800 text-sm">{student.last_name} {student.first_name}</p>
+											<p className="text-xs text-slate-500">{student.class_name}</p>
+										</div>
+									</div>
+									<div className="font-black text-red-500 bg-red-50 px-3 py-1 rounded-lg">
+										{student.points} б.
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+
+					{/* ТОП-10 ЛУЧШИХ */}
+					<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm">
+						<div className="flex items-center gap-3 mb-6">
+							<div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl">
+								<TrendingUp size={24} />
+							</div>
+							<h2 className="text-lg font-bold text-slate-800">Топ-10 лучших учеников</h2>
+						</div>
+						<div className="space-y-3">
+							{stats.top_10_best?.map((student: StudentStat, idx: number) => (
+								<div key={student.id} className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-slate-100">
+									<div className="flex items-center gap-3">
+										<div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">
+											#{idx + 1}
+										</div>
+										<div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 overflow-hidden font-bold">
+											{/* Placeholder for photo */}
+											{student.first_name?.[0]}{student.last_name?.[0]}
+										</div>
+										<div>
+											<p className="font-bold text-slate-800 text-sm">{student.last_name} {student.first_name}</p>
+											<p className="text-xs text-slate-500">{student.class_name}</p>
+										</div>
+									</div>
+									<div className="font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">
+										{student.points} б.
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				</div>
+
 				{/* 4. 👇 НОВЫЙ БЛОК: ГОРДОСТЬ ШКОЛЫ (СУПЕР-УЧЕНИКИ 300+) */}
 				<div className="col-span-1 lg:col-span-2 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-[2rem] p-6 shadow-lg text-white">
 					<div className="flex items-center gap-3 mb-6">
@@ -156,7 +276,7 @@ export default function Statistics() {
 
 					<div className="space-y-3">
 						{stats.super_students && stats.super_students.length > 0 ? (
-							stats.super_students.map((student: any, idx: number) => (
+							stats.super_students.map((student: StudentStat, idx: number) => (
 								<div key={idx} className="flex justify-between items-center bg-white/10 hover:bg-white/20 transition-colors p-4 rounded-xl border border-white/10 group cursor-default">
 									<div className="flex items-center gap-4">
 										<div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900 font-black flex items-center justify-center text-sm shadow-md group-hover:scale-110 transition-transform">
@@ -190,7 +310,13 @@ export default function Statistics() {
 }
 
 // Вспомогательный компонент для рендеринга прогресс-баров
-function StatBar({ label, value, color, count }: any) {
+interface StatBarProps {
+	label: string;
+	value: number;
+	color: string;
+	count: number;
+}
+function StatBar({ label, value, color, count }: StatBarProps) {
 	return (
 		<div>
 			<div className="flex justify-between text-sm font-semibold mb-1">

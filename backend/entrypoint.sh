@@ -17,5 +17,5 @@ export DJANGO_SUPERUSER_EMAIL=admin@example.com
 export DJANGO_SUPERUSER_PASSWORD=admin_intizom_2026
 python manage.py createsuperuser --noinput || true
 
-# Запускаем Gunicorn
-exec gunicorn --bind 0.0.0.0:8000 --workers 2 config.wsgi:application
+# Запускаем Daphne (для поддержки WebSocket и HTTP)
+exec daphne -b 0.0.0.0 -p ${PORT:-8000} config.asgi:application

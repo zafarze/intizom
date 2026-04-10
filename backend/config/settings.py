@@ -156,14 +156,23 @@ STORAGES = {
 OPENAI_API_KEY = env('OPENAI_API_KEY', default=None)
 
 # --- Настройки Channels (Redis) ---
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
+REDIS_URL = env('REDIS_URL', default=None)
+
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
         },
-    },
-}
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer"
+        }
+    }
 
 # --- НАСТРОЙКИ ДЛЯ GOOGLE CLOUD RUN ---
 CSRF_TRUSTED_ORIGINS = ['https://intizom-backend-776689431155.europe-west3.run.app']

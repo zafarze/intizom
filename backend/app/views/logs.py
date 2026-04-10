@@ -16,7 +16,7 @@ class ActionLogViewSet(viewsets.ModelViewSet):
     
     serializer_class = ActionLogSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['student', 'teacher']
+    filterset_fields = ['student', 'teacher', 'rule__category', 'rule__points_impact']
 
     def get_permissions(self):
         """Ученикам можно только читать, создавать могут только учителя/админы"""
@@ -73,4 +73,3 @@ class AppNotificationViewSet(viewsets.ReadOnlyModelViewSet):
         if not user.is_authenticated:
             return AppNotification.objects.none()
         return AppNotification.objects.filter(Q(recipient=user) | Q(recipient__isnull=True))
-

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PieChart, BarChart3, TrendingUp, Award, Loader2, ShieldAlert, TrendingDown, Activity } from 'lucide-react';
+import { PieChart, BarChart3, TrendingUp, Award, Loader2, ShieldAlert, TrendingDown, Activity, X } from 'lucide-react';
 import api from '../../api/axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -30,8 +30,19 @@ interface StatisticsData {
 	top_10_worst: StudentStat[];
 }
 
+interface LogModalData {
+	isOpen: boolean;
+	title: string;
+	type: 'category' | 'risk';
+	filterValue: string;
+}
+
 export default function Statistics() {
 	const [stats, setStats] = useState<StatisticsData | null>(null);
+	const [modalData, setModalData] = useState<LogModalData>({ isOpen: false, title: '', type: 'category', filterValue: '' });
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const [modalLogs, setModalLogs] = useState<any[]>([]);
+	const [isModalLoading, setIsModalLoading] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
@@ -74,8 +85,106 @@ export default function Statistics() {
 		);
 	}
 
+	const openModal = async (title: string, type: 'category' | 'risk', filterValue: string) => {
+		setModalData({ isOpen: true, title, type, filterValue });
+		setIsModalLoading(true);
+		setModalLogs([]);
+
+		try {
+			if (type === 'category') {
+				const response = await api.get(`logs/?rule__category=${filterValue}&limit=500`);
+				setModalLogs(response.data.results || response.data);
+			} else {
+				// Fetch students by risk level
+				// For now we might not have a direct endpoint, but we can fetch students and filter them
+				const response = await api.get(`students/?limit=1000`);
+				const students = response.data.results || response.data;
+
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const filtered = students.filter((s: any) => {
+					if (filterValue === 'exemplary') return s.points >= 90;
+					if (filterValue === 'verbal') return s.points >= 70 && s.points <= 89;
+					if (filterValue === 'written') return s.points >= 45 && s.points <= 69;
+					if (filterValue === 'risk') return s.points < 45;
+					return false;
+				});
+				setModalLogs(filtered);
+			}
+		} catch (error) {
+			console.error("Ошибка загрузки данных для модалки:", error);
+		} finally {
+			setIsModalLoading(false);
+		}
+	};
+
 	return (
-		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500">
+		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500 relative">
+			{/* МОДАЛЬНОЕ ОКНО */}
+			{modalData.isOpen && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+					<div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setModalData({ ...modalData, isOpen: false })}></div>
+					<div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+						<div className="flex items-center justify-between p-6 border-b border-slate-100">
+							<h3 className="text-xl font-bold text-slate-800">{modalData.title}</h3>
+							<button
+								onClick={() => setModalData({ ...modalData, isOpen: false })}
+								className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors"
+							>
+								<X size={20} />
+							</button>
+						</div>
+
+						<div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+							{isModalLoading ? (
+								<div className="flex flex-col items-center justify-center py-12 text-indigo-500">
+									<Loader2 className="animate-spin mb-4" size={32} />
+									<p className="font-medium text-slate-500">Загрузка данных...</p>
+								</div>
+							) : modalLogs.length === 0 ? (
+								<div className="text-center py-12 text-slate-500 font-medium">Нет данных для отображения</div>
+							) : (
+								<div className="space-y-3">
+									{modalData.type === 'category' ? (
+										// Рендер логов нарушений
+										// eslint-disable-next-line @typescript-eslint/no-explicit-any
+										modalLogs.map((log: any) => (
+											<div key={log.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between gap-4">
+												<div>
+													<p className="font-bold text-slate-800">{log.student_detail?.first_name} {log.student_detail?.last_name} <span className="text-slate-400 font-normal text-sm ml-2">{log.student_detail?.class_name}</span></p>
+													<p className="text-sm text-slate-600 mt-1">{log.rule_detail?.title || 'Нарушение'}</p>
+													<p className="text-xs text-slate-400 mt-1">{new Date(log.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} • Учитель: {log.teacher_name || 'Неизвестно'}</p>
+												</div>
+												<div className="font-black text-red-500 bg-red-50 px-3 py-1.5 rounded-lg shrink-0">
+													{log.rule_detail?.points_impact} б.
+												</div>
+											</div>
+										))
+									) : (
+										// Рендер студентов
+										// eslint-disable-next-line @typescript-eslint/no-explicit-any
+										modalLogs.map((student: any) => (
+											<div key={student.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between gap-4">
+												<div>
+													<p className="font-bold text-slate-800">{student.first_name} {student.last_name}</p>
+													<p className="text-sm text-slate-500">{student.school_class?.name || student.class_name || 'Класс не указан'}</p>
+												</div>
+												<div className={`font-black px-3 py-1.5 rounded-lg shrink-0 ${student.points >= 90 ? 'text-green-600 bg-green-50' :
+													student.points >= 70 ? 'text-yellow-600 bg-yellow-50' :
+														student.points >= 45 ? 'text-orange-600 bg-orange-50' :
+															'text-red-600 bg-red-50'
+													}`}>
+													{student.points} б.
+												</div>
+											</div>
+										))
+									)}
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
+
 			{/* ШАПКА */}
 			<div className="bg-white/40 backdrop-blur-md border border-white p-6 rounded-[2rem] shadow-sm">
 				<h1 className="text-2xl font-black text-slate-800">Статистика дисциплины</h1>
@@ -97,24 +206,28 @@ export default function Statistics() {
 							value={stats.violations.A.percent}
 							color="bg-yellow-400"
 							count={stats.violations.A.count}
+							onClick={() => openModal('Группа А (Мелкие)', 'category', 'A')}
 						/>
 						<StatBar
 							label="Группа Б (Средние)"
 							value={stats.violations.B.percent}
 							color="bg-orange-400"
 							count={stats.violations.B.count}
+							onClick={() => openModal('Группа Б (Средние)', 'category', 'B')}
 						/>
 						<StatBar
 							label="Группа В (Серьезные)"
 							value={stats.violations.C.percent}
 							color="bg-red-400"
 							count={stats.violations.C.count}
+							onClick={() => openModal('Группа В (Серьезные)', 'category', 'C')}
 						/>
 						<StatBar
 							label="Группа Г (Особо тяжкие)"
 							value={stats.violations.D.percent}
 							color="bg-red-600"
 							count={stats.violations.D.count}
+							onClick={() => openModal('Группа Г (Особо тяжкие)', 'category', 'D')}
 						/>
 					</div>
 				</div>
@@ -133,24 +246,28 @@ export default function Statistics() {
 							value={stats.risk_levels.exemplary.percent}
 							color="bg-green-500"
 							count={stats.risk_levels.exemplary.count}
+							onClick={() => openModal('Образцовые (90-100 баллов)', 'risk', 'exemplary')}
 						/>
 						<StatBar
 							label="Устное предупреждение (70-89 баллов)"
 							value={stats.risk_levels.verbal.percent}
 							color="bg-yellow-500"
 							count={stats.risk_levels.verbal.count}
+							onClick={() => openModal('Устное предупреждение (70-89 баллов)', 'risk', 'verbal')}
 						/>
 						<StatBar
 							label="Письм. предупреждение (45-69 баллов)"
 							value={stats.risk_levels.written.percent}
 							color="bg-orange-500"
 							count={stats.risk_levels.written.count}
+							onClick={() => openModal('Письм. предупреждение (45-69 баллов)', 'risk', 'written')}
 						/>
 						<StatBar
 							label="Риск исключения (<45 баллов)"
 							value={stats.risk_levels.risk.percent}
 							color="bg-red-500"
 							count={stats.risk_levels.risk.count}
+							onClick={() => openModal('Риск исключения (<45 баллов)', 'risk', 'risk')}
 						/>
 					</div>
 				</div>
@@ -315,10 +432,14 @@ interface StatBarProps {
 	value: number;
 	color: string;
 	count: number;
+	onClick?: () => void;
 }
-function StatBar({ label, value, color, count }: StatBarProps) {
+function StatBar({ label, value, color, count, onClick }: StatBarProps) {
 	return (
-		<div>
+		<div
+			onClick={onClick}
+			className={onClick ? "cursor-pointer group hover:bg-white/50 p-2 -m-2 rounded-xl transition-colors" : ""}
+		>
 			<div className="flex justify-between text-sm font-semibold mb-1">
 				<span className="text-slate-700">{label}</span>
 				<span className="text-slate-500">{count} случаев</span>

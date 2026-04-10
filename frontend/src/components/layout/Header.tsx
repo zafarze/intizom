@@ -392,8 +392,6 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 					</div>
 				)}
 
-				{/* Иконка мобильного поиска (Тут пусто, она перенесена в плавающий виджет вниз) */}
-
 				{/* ВЫБОР ЯЗЫКА (ТОЛЬКО ДЛЯ ПК) */}
 				<div className="relative hidden lg:block" ref={langRef}>
 					<button
@@ -532,7 +530,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 									</a>
 								)}
 							</div>
-							
+
 							{/* Инлайн кнопки выбора языка (ТОЛЬКО ДЛЯ МОБИЛОК) */}
 							<div className="mt-2 pt-2 border-t border-slate-100 block lg:hidden">
 								<p className="text-[10px] font-bold text-slate-400 px-3 uppercase tracking-widest mt-1 mb-2">Язык интерфейса</p>
@@ -555,7 +553,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
 			{/* ПОИСКОВИК ДЛЯ МОБИЛЬНОЙ ВЕРСИИ */}
 			{isMobileSearchOpen && user.role !== 'student' && (
-				<div ref={searchDropdownRef} className="absolute left-2 right-2 top-[calc(100%+12px)] bg-white/95 backdrop-blur-3xl rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.15)] border border-white p-3 z-[70] animate-in fade-in slide-in-from-top-2 duration-200 lg:hidden">
+				<div ref={searchDropdownRef} className="fixed left-4 right-4 top-[76px] bg-white/95 backdrop-blur-3xl rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.15)] border border-white p-3 z-[9997] animate-in fade-in slide-in-from-top-2 duration-200 lg:hidden">
 					<div className="flex items-center bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-inner focus-within:border-indigo-300 focus-within:ring-4 focus-within:ring-indigo-100/50 transition-all">
 						<Search size={18} className="text-indigo-500" />
 						<input
@@ -637,6 +635,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 						<div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 mt-2">
 							<h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">История изменений</h4>
 							{selectedStudentHistory.recent_logs?.length > 0 ? (
+								// eslint-disable-next-line @typescript-eslint/no-explicit-any
 								selectedStudentHistory.recent_logs.map((log: any) => {
 									const canDelete = user.role === 'admin' || user.id === log.teacher_id;
 									return (
@@ -738,14 +737,16 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 					</div>
 				</div>
 			)}
-			{/* ПЛАВАЮЩИЙ ВИДЖЕТ ПОИСКА ДЛЯ МОБИЛЬНЫХ (СПРАВА ВНИЗУ ПОД ХЕДЕРОМ) */}
+
+			{/* ПЛАВАЮЩИЙ ВИДЖЕТ ПОИСКА ДЛЯ МОБИЛЬНЫХ */}
 			{user.role !== 'student' && (
-				<div className="absolute -bottom-16 right-4 lg:hidden z-40" ref={searchRef}>
-					<button 
-						onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)} 
-						className={`flex items-center justify-center w-12 h-12 rounded-[1rem] backdrop-blur-xl border transition-all duration-300 shadow-[0_12px_25px_rgba(0,0,0,0.15)] focus:outline-none ${isMobileSearchOpen ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-400/40' : 'bg-white/90 text-indigo-600 border-white hover:bg-white'}`}
+				<div className="fixed top-[90px] right-6 lg:hidden z-[9998]" ref={searchRef}>
+					<button
+						onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+						className={`flex items-center justify-center w-[48px] h-[48px] rounded-full transition-all duration-300 focus:outline-none ${isMobileSearchOpen ? 'bg-indigo-600 text-white shadow-[0_10px_25px_rgba(79,70,229,0.5)]' : 'text-white shadow-[0_10px_25px_rgba(124,58,237,0.4)] hover:-translate-y-[3px] hover:scale-105 active:translate-y-0 active:scale-95'}`}
+						style={!isMobileSearchOpen ? { background: 'linear-gradient(135deg, #7C3AED, #4F46E5)' } : {}}
 					>
-						<Search size={22} className={isMobileSearchOpen ? 'scale-110' : ''} />
+						<Search size={20} className={isMobileSearchOpen ? 'scale-110' : ''} />
 					</button>
 				</div>
 			)}

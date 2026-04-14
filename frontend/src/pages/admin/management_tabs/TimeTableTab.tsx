@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
-import { Plus, Clock, Bell, X } from 'lucide-react';
+import { Plus, Clock, Bell, X, BookOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { ActionButtons, Modal } from './Shared';
@@ -107,49 +107,96 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 					{[...data].sort((a, b) => a.lesson_number - b.lesson_number).map((entry, idx, sorted) => {
 						// Считаем перемену перед этим уроком (от конца предыдущего до начала текущего)
 						const prev = idx > 0 ? sorted[idx - 1] : null;
+// Fallback for translation if missing
+						const breakStr = t('management.timetable.break');
+						const breakLabel = breakStr.includes('timetable.break') ? 'Перемена' : breakStr;
+
+						// Define reading time fixed parameters
+						const rStartStr = '10:00';
+						const rEndStr = '10:25';
+						const rStartMins = 10 * 60 + 0;
+						const rEndMins = 10 * 60 + 25;
+
 						let breakMins = 0;
+						let pMins = 0;
+						let cMins = 0;
+						let hasReading = false;
+						
 						if (prev) {
-							const [eh, em] = prev.end_time.slice(0, 5).split(':').map(Number);
-							const [sh, sm] = entry.start_time.slice(0, 5).split(':').map(Number);
-							breakMins = (sh * 60 + sm) - (eh * 60 + em);
+							pMins = parseInt(prev.end_time.split(':')[0]) * 60 + parseInt(prev.end_time.split(':')[1]);
+							cMins = parseInt(entry.start_time.split(':')[0]) * 60 + parseInt(entry.start_time.split(':')[1]);
+							breakMins = cMins - pMins;
+							if (pMins <= rStartMins && cMins >= rEndMins) {
+								hasReading = true;
+							}
 						}
+
+						// Helper to render a regular break badge
+						const renderRegularBreak = (startStr: string, endStr: string, mins: number, lessonNum: number) => (
+							<div className="flex items-center gap-3 px-2 py-2">
+								<div className="flex-1 h-px bg-green-100 dark:bg-emerald-500/20" />
+								<div className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400 rounded-full px-3 py-1.5 shrink-0">
+									<Bell size={11} className="text-green-500 dark:text-emerald-500" />
+									<span className="text-[11px] font-black">{breakLabel} перед {lessonNum} уроком • {mins} мин</span>
+									<span className="text-[10px] text-green-500 dark:text-emerald-500/80 font-medium">
+										{startStr} – {endStr}
+									</span>
+								</div>
+								<div className="flex-1 h-px bg-green-100 dark:bg-emerald-500/20" />
+							</div>
+						);
 
 						return (
 							<div key={entry.id}>
-								{/* Индикатор перемены / обеда */}
+								{/* Индикатор перемены / обеда / чтения */}
 								{prev && breakMins > 0 && (
-									breakMins >= 40 ? (
-										// 🍽 ОБЕД — перерыв 40+ минут
-										<div className="my-3 mx-1 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-500/5 dark:to-amber-500/5 border border-orange-200 dark:border-orange-500/20 rounded-2xl px-5 py-4 flex items-center gap-4">
-											<div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center shrink-0 text-xl">
-												🍽
+									hasReading ? (
+										// ВРЕМЯ ЧТЕНИЯ КНИГ
+										<div className="flex flex-col">
+											{rStartMins - pMins > 0 && renderRegularBreak(prev.end_time.slice(0, 5), rStartStr, rStartMins - pMins, entry.lesson_number)}
+											
+											<div className="my-2 mx-1 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-500/5 dark:to-indigo-500/5 border border-blue-200 dark:border-blue-500/20 rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm">
+												<div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center shrink-0">
+													<BookOpen size={20} className="text-blue-600 dark:text-blue-400" />
+												</div>
+												<div className="flex-1">
+													<p className="text-sm font-black text-blue-700 dark:text-blue-400">Время для чтения книг</p>
+													<p className="text-xs text-blue-500 dark:text-blue-500/80 font-medium mt-0.5">
+														{rStartStr} – {rEndStr} · 25 мин
+													</p>
+												</div>
+												<div className="text-right shrink-0">
+													<p className="text-[10px] font-bold text-blue-400 dark:text-blue-500/70 uppercase tracking-wider">ЧТЕНИЕ</p>
+													<p className="text-lg font-black text-blue-600 dark:text-blue-500">25 мин</p>
+												</div>
 											</div>
-											<div className="flex-1">
-												<p className="text-sm font-black text-orange-700 dark:text-orange-400">{t('mgmt.t_46')}</p>
-												<p className="text-xs text-orange-500 dark:text-orange-500/80 font-medium mt-0.5">
-													{prev.end_time.slice(0, 5)} – {entry.start_time.slice(0, 5)} · {breakMins} мин
-												</p>
-											</div>
-											<div className="text-right shrink-0">
-												<p className="text-[10px] font-bold text-orange-400 dark:text-orange-500/70 uppercase tracking-wider">{t('mgmt.t_69')}</p>
-												<p className="text-lg font-black text-orange-600 dark:text-orange-500">
-													{breakMins >= 60 ? `${Math.floor(breakMins / 60)} ч ${breakMins % 60 > 0 ? `${breakMins % 60} мин` : ''}`.trim() : `${breakMins} мин`}
-												</p>
-											</div>
+
+											{cMins - rEndMins > 0 && renderRegularBreak(rEndStr, entry.start_time.slice(0, 5), cMins - rEndMins, entry.lesson_number)}
 										</div>
 									) : (
-										// 🔔 Обычная перемена
-										<div className="flex items-center gap-3 px-2 py-2">
-											<div className="flex-1 h-px bg-green-100 dark:bg-emerald-500/20" />
-											<div className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400 rounded-full px-3 py-1.5 shrink-0">
-												<Bell size={11} className="text-green-500 dark:text-emerald-500" />
-												<span className="text-[11px] font-black">{t('management.timetable.break') || 'Перемена'} перед {entry.lesson_number} уроком • {breakMins} мин</span>
-												<span className="text-[10px] text-green-500 dark:text-emerald-500/80 font-medium">
-													{prev.end_time.slice(0, 5)} – {entry.start_time.slice(0, 5)}
-												</span>
+										breakMins >= 40 ? (
+											// 🍽 ОБЕД — перерыв 40+ минут
+											<div className="my-3 mx-1 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-500/5 dark:to-amber-500/5 border border-orange-200 dark:border-orange-500/20 rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm">
+												<div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center shrink-0 text-xl">
+													🍽
+												</div>
+												<div className="flex-1">
+													<p className="text-sm font-black text-orange-700 dark:text-orange-400">{t('mgmt.t_46')}</p>
+													<p className="text-xs text-orange-500 dark:text-orange-500/80 font-medium mt-0.5">
+														{prev.end_time.slice(0, 5)} – {entry.start_time.slice(0, 5)} · {breakMins} мин
+													</p>
+												</div>
+												<div className="text-right shrink-0">
+													<p className="text-[10px] font-bold text-orange-400 dark:text-orange-500/70 uppercase tracking-wider">{t('mgmt.t_69')}</p>
+													<p className="text-lg font-black text-orange-600 dark:text-orange-500">
+														{breakMins >= 60 ? `${Math.floor(breakMins / 60)} ч ${breakMins % 60 > 0 ? `${breakMins % 60} мин` : ''}`.trim() : `${breakMins} мин`}
+													</p>
+												</div>
 											</div>
-											<div className="flex-1 h-px bg-green-100 dark:bg-emerald-500/20" />
-										</div>
+										) : (
+											// 🔔 Обычная перемена
+											renderRegularBreak(prev.end_time.slice(0, 5), entry.start_time.slice(0, 5), breakMins, entry.lesson_number)
+										)
 									)
 								)}
 

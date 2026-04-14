@@ -123,6 +123,7 @@ export const ChatWidget: React.FC = () => {
 
   // Message reactions: { msgId: emoji[] }
   const [reactions, setReactions] = useState<Record<number, string[]>>({});
+  // @ts-ignore
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<number | null>(null);
 
   // Image attachment state
@@ -603,7 +604,7 @@ export const ChatWidget: React.FC = () => {
     formData.append('content', '');
     const ext = mimeType.includes('mp4') || mimeType.includes('m4a') ? 'm4a'
       : mimeType.includes('ogg') ? 'ogg'
-      : 'webm';
+        : 'webm';
     formData.append('audio_file', audioBlob, `voice.${ext}`);
     try {
       const res = await api.post(`/chat/messages/${activeContact.id}/`, formData);
@@ -622,9 +623,9 @@ export const ChatWidget: React.FC = () => {
 
       // Detect the best supported format for this device
       const mimeType = [
-        'audio/mp4',           // iOS Safari / macOS
-        'audio/webm;codecs=opus', // Chrome / Android
+        'audio/webm;codecs=opus', // Chrome / Android / Safari 16+
         'audio/webm',          // Chrome fallback
+        'audio/mp4',           // iOS Safari 14-15 (Note: has a known bug returning first recording)
         'audio/ogg',           // Firefox
       ].find(t => MediaRecorder.isTypeSupported(t)) || '';
 
@@ -636,6 +637,7 @@ export const ChatWidget: React.FC = () => {
         const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
         sendVoiceMessage(blob, mimeType || 'audio/webm');
         stream.getTracks().forEach(t => t.stop());
+        mediaRecorderRef.current = null; // Clear reference to avoid Safari caching issues
       };
       mr.start();
       setIsRecording(true);
@@ -647,7 +649,9 @@ export const ChatWidget: React.FC = () => {
   };
 
   const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
     setIsRecording(false);
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     setRecordingSeconds(0);
@@ -657,8 +661,11 @@ export const ChatWidget: React.FC = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.ondataavailable = null;
       mediaRecorderRef.current.onstop = null;
-      mediaRecorderRef.current.stop();
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
       mediaRecorderRef.current.stream?.getTracks().forEach(t => t.stop());
+      mediaRecorderRef.current = null;
     }
     setIsRecording(false);
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
@@ -700,12 +707,12 @@ export const ChatWidget: React.FC = () => {
 
   // ── Emoji ─────────────────────────────────────────────────────
   const EMOJI_LIST = [
-    '😀','😂','🥰','😍','🤔','😎','😅','🥺',
-    '👍','👎','❤️','🔥','🎉','😢','😡','🤯',
-    '👋','🙏','💪','✅','❌','⭐','💯','🚀',
-    '😏','🤩','😴','🤗','😬','🙄','😤','🫡',
+    '😀', '😂', '🥰', '😍', '🤔', '😎', '😅', '🥺',
+    '👍', '👎', '❤️', '🔥', '🎉', '😢', '😡', '🤯',
+    '👋', '🙏', '💪', '✅', '❌', '⭐', '💯', '🚀',
+    '😏', '🤩', '😴', '🤗', '😬', '🙄', '😤', '🫡',
   ];
-  const QUICK_REACTIONS = ['👍','❤️','😂','😮','😢','🔥'];
+  const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
   const handleEmojiSelect = (emoji: string) => {
     setInputText(prev => prev + emoji);
@@ -986,7 +993,7 @@ export const ChatWidget: React.FC = () => {
                   </div>
                 </div>
               )}
-              <div 
+              <div
                 className="chat-tabs"
                 onWheel={(e) => {
                   if (e.deltaY !== 0) {
@@ -1163,7 +1170,7 @@ export const ChatWidget: React.FC = () => {
                               <input type="checkbox" readOnly checked={selectedMessages.has(msg.id)} />
                             </div>
                           )}
-                          <div 
+                          <div
                             className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}
                             onClick={(e) => {
                               if (!isSelectMode) {
@@ -1239,8 +1246,8 @@ export const ChatWidget: React.FC = () => {
                                 {/* Встроенный набор реакций */}
                                 <div className="dropdown-reactions" style={{ display: 'flex', gap: '6px', padding: '8px 12px', overflowX: 'auto', borderBottom: '1px solid rgba(0,0,0,0.05)', marginBottom: '4px' }}>
                                   {QUICK_REACTIONS.map((emoji) => (
-                                    <button 
-                                      key={emoji} 
+                                    <button
+                                      key={emoji}
                                       type="button"
                                       onClick={() => { toggleReaction(msg.id, emoji); setDropdownMessageId(null); }}
                                       style={{ padding: '6px', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', width: 'auto' }}
@@ -1477,7 +1484,7 @@ export const ChatWidget: React.FC = () => {
                               <input type="checkbox" readOnly checked={selectedMessages.has(msg.id)} />
                             </div>
                           )}
-                          <div 
+                          <div
                             className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}
                             onClick={(e) => {
                               if (!isSelectMode) {
@@ -1536,8 +1543,8 @@ export const ChatWidget: React.FC = () => {
                               <div className="msg-dropdown-menu tg-style" onClick={e => e.stopPropagation()}>
                                 <div className="dropdown-reactions" style={{ display: 'flex', gap: '6px', padding: '8px 12px', overflowX: 'auto', borderBottom: '1px solid rgba(0,0,0,0.05)', marginBottom: '4px' }}>
                                   {QUICK_REACTIONS.map((emoji) => (
-                                    <button 
-                                      key={emoji} 
+                                    <button
+                                      key={emoji}
                                       type="button"
                                       onClick={() => { toggleReaction(msg.id, emoji); setDropdownMessageId(null); }}
                                       style={{ padding: '6px', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', width: 'auto' }}
@@ -1767,11 +1774,11 @@ export const ChatWidget: React.FC = () => {
         <div className="chat-modal-overlay" style={{ zIndex: 999999 }}>
           <div className="chat-modal" style={{ width: '90%', maxWidth: '450px' }}>
             <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><Sparkles size={20} color="#7C3AED" /> Массовая рассылка</h3>
-            
+
             <div style={{ marginBottom: '16px', position: 'relative' }}>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#6B7280', marginBottom: '6px' }}>Кому отправить:</label>
-              
-              <div 
+
+              <div
                 onClick={() => setIsBroadcastDropdownOpen(!isBroadcastDropdownOpen)}
                 style={{ width: '100%', padding: '10px 12px', border: '1px solid #E5E7EB', borderRadius: '12px', fontSize: '14px', backgroundColor: 'white', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
@@ -1786,9 +1793,9 @@ export const ChatWidget: React.FC = () => {
 
               {isBroadcastDropdownOpen && (
                 <>
-                  <div 
-                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }} 
-                    onClick={() => setIsBroadcastDropdownOpen(false)} 
+                  <div
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }}
+                    onClick={() => setIsBroadcastDropdownOpen(false)}
                   />
                   <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '12px', marginTop: '4px', zIndex: 10, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                     {[
@@ -1797,7 +1804,7 @@ export const ChatWidget: React.FC = () => {
                       { value: 'students', label: 'Ученикам' },
                       { value: 'specific', label: 'Выборочным пользователям' }
                     ].map(opt => (
-                      <div 
+                      <div
                         key={opt.value}
                         onClick={() => {
                           setBroadcastTarget(opt.value as any);
@@ -1807,7 +1814,7 @@ export const ChatWidget: React.FC = () => {
                         }}
                         style={{ padding: '10px 12px', fontSize: '14px', cursor: 'pointer', backgroundColor: broadcastTarget === opt.value ? '#E0E7FF' : 'white', color: broadcastTarget === opt.value ? '#4338CA' : '#374151', borderBottom: '1px solid #F3F4F6' }}
                       >
-                         {opt.label}
+                        {opt.label}
                       </div>
                     ))}
                   </div>
@@ -1821,8 +1828,8 @@ export const ChatWidget: React.FC = () => {
                 <div style={{ maxHeight: '120px', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '8px' }}>
                   {schoolClasses.map(cls => (
                     <label key={cls.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px', cursor: 'pointer' }}>
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={broadcastClasses.includes(cls.id)}
                         onChange={(e) => {
                           if (e.target.checked) setBroadcastClasses(prev => [...prev, cls.id]);
@@ -1843,8 +1850,8 @@ export const ChatWidget: React.FC = () => {
                 <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '8px' }}>
                   {contacts.filter(c => c.id !== user.id).map(contact => (
                     <label key={contact.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderBottom: '1px solid #F3F4F6' }}>
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={broadcastUsers.includes(contact.id)}
                         onChange={(e) => {
                           if (e.target.checked) setBroadcastUsers(prev => [...prev, contact.id]);
@@ -1863,7 +1870,7 @@ export const ChatWidget: React.FC = () => {
 
             <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#6B7280', marginBottom: '6px' }}>Текст рассылки:</label>
-              <textarea 
+              <textarea
                 value={broadcastContent}
                 onChange={e => setBroadcastContent(e.target.value)}
                 placeholder="Введите сообщение..."
@@ -1872,35 +1879,35 @@ export const ChatWidget: React.FC = () => {
             </div>
 
             <div style={{ marginBottom: '20px' }}>
-               <input 
-                  type="file" 
-                  accept="image/*" 
-                  ref={broadcastImageInputRef} 
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                     const file = e.target.files?.[0];
-                     if (file) setBroadcastImage(file);
-                     if (e.target) e.target.value = '';
-                  }}
-               />
-               <button 
-                  onClick={() => broadcastImageInputRef.current?.click()}
-                  style={{ padding: '8px 12px', backgroundColor: '#F3F4F6', color: '#4B5563', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', outline: 'none' }}
-               >
-                 <Paperclip size={16}/> {broadcastImage ? 'Заменить фото' : 'Прикрепить фото'}
-               </button>
-               {broadcastImage && (
-                 <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#6B7280' }}>
-                    <div style={{ padding: '2px 6px', backgroundColor: '#E0E7FF', color: '#4338CA', borderRadius: '4px', fontWeight: 'bold' }}>IMG</div>
-                    <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{broadcastImage.name}</span>
-                    <button onClick={() => setBroadcastImage(null)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={14}/></button>
-                 </div>
-               )}
+              <input
+                type="file"
+                accept="image/*"
+                ref={broadcastImageInputRef}
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setBroadcastImage(file);
+                  if (e.target) e.target.value = '';
+                }}
+              />
+              <button
+                onClick={() => broadcastImageInputRef.current?.click()}
+                style={{ padding: '8px 12px', backgroundColor: '#F3F4F6', color: '#4B5563', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', outline: 'none' }}
+              >
+                <Paperclip size={16} /> {broadcastImage ? 'Заменить фото' : 'Прикрепить фото'}
+              </button>
+              {broadcastImage && (
+                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#6B7280' }}>
+                  <div style={{ padding: '2px 6px', backgroundColor: '#E0E7FF', color: '#4338CA', borderRadius: '4px', fontWeight: 'bold' }}>IMG</div>
+                  <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{broadcastImage.name}</span>
+                  <button onClick={() => setBroadcastImage(null)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={14} /></button>
+                </div>
+              )}
             </div>
 
             <div className="chat-modal-actions">
-              <button 
-                className="chat-modal-cancel" 
+              <button
+                className="chat-modal-cancel"
                 onClick={() => {
                   setIsBroadcastModalOpen(false);
                   setBroadcastContent('');
@@ -1913,12 +1920,12 @@ export const ChatWidget: React.FC = () => {
               >
                 Отмена
               </button>
-              <button 
-                onClick={handleSendBroadcast} 
+              <button
+                onClick={handleSendBroadcast}
                 disabled={isBroadcasting || (!broadcastContent.trim() && !broadcastImage) || (broadcastTarget === 'specific' && broadcastUsers.length === 0)}
                 style={{ padding: '10px 16px', backgroundColor: '#7C3AED', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', cursor: (!broadcastContent.trim() && !broadcastImage) ? 'not-allowed' : 'pointer', opacity: (!broadcastContent.trim() && !broadcastImage) || isBroadcasting ? 0.6 : 1 }}
               >
-                {isBroadcasting ? <Loader size={16} className="animate-spin"/> : <Send size={16}/>}
+                {isBroadcasting ? <Loader size={16} className="animate-spin" /> : <Send size={16} />}
                 Отправить всем
               </button>
             </div>

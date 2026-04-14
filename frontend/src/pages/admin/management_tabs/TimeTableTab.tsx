@@ -18,7 +18,7 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [form, setForm] = useState({ lesson_number: 1, start_time: '08:00', end_time: '08:45' });
 
-	const openModal = (item?: BellEntry) => {
+	const openModal = (item?: BellEntry, isReading?: boolean) => {
 		if (item) {
 			setEditingId(item.id);
 			setForm({
@@ -26,9 +26,13 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 				start_time: item.start_time.slice(0, 5),
 				end_time: item.end_time.slice(0, 5),
 			});
+		} else if (isReading) {
+			setEditingId(null);
+			setForm({ lesson_number: 99, start_time: '10:00', end_time: '10:25' });
 		} else {
 			setEditingId(null);
-			const nextLesson = data.length > 0 ? Math.max(...data.map(d => d.lesson_number)) + 1 : 1;
+			const normalLessons = data.filter(d => d.lesson_number < 90);
+			const nextLesson = normalLessons.length > 0 ? Math.max(...normalLessons.map(d => d.lesson_number)) + 1 : 1;
 			setForm({ lesson_number: nextLesson, start_time: '08:00', end_time: '08:45' });
 		}
 		setIsModalOpen(true);
@@ -85,12 +89,24 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 						</p>
 					</div>
 				</div>
-				<button
-					onClick={() => openModal()}
-					className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 transition-all active:scale-95 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md"
-				>
-					<Plus size={16} /> {t('management.common.add')}
-				</button>
+				<div className="flex items-center gap-2">
+					<button
+						onClick={() => {
+							const existing = data.find(d => d.lesson_number === 99);
+							if (existing) openModal(existing);
+							else openModal(undefined, true);
+						}}
+						className="flex items-center gap-2 bg-blue-100 dark:bg-blue-500/20 hover:bg-blue-200 dark:hover:bg-blue-500/30 text-blue-700 dark:text-blue-400 px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all active:scale-95"
+					>
+						<BookOpen size={16} /> Чтение
+					</button>
+					<button
+						onClick={() => openModal()}
+						className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 transition-all active:scale-95 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md"
+					>
+						<Plus size={16} /> {t('management.common.add')}
+					</button>
+				</div>
 			</div>
 
 			{/* Список уроков */}
@@ -104,32 +120,30 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 				</div>
 			) : (
 				<div className="flex flex-col gap-0">
-					{[...data].sort((a, b) => a.lesson_number - b.lesson_number).map((entry, idx, sorted) => {
+					{[...data].sort((a, b) => {
+						const aMins = parseInt(a.start_time.split(':')[0]) * 60 + parseInt(a.start_time.split(':')[1]);
+						const bMins = parseInt(b.start_time.split(':')[0]) * 60 + parseInt(b.start_time.split(':')[1]);
+						return aMins - bMins;
+					}).map((entry, idx, sorted) => {
 						// Считаем перемену перед этим уроком (от конца предыдущего до начала текущего)
 						const prev = idx > 0 ? sorted[idx - 1] : null;
-// Fallback for translation if missing
+
+						// Fallback for translation if missing
 						const breakStr = t('management.timetable.break');
 						const breakLabel = breakStr.includes('timetable.break') ? 'Перемена' : breakStr;
-
-						// Define reading time fixed parameters
-						const rStartStr = '10:00';
-						const rEndStr = '10:25';
-						const rStartMins = 10 * 60 + 0;
-						const rEndMins = 10 * 60 + 25;
 
 						let breakMins = 0;
 						let pMins = 0;
 						let cMins = 0;
-						let hasReading = false;
 						
 						if (prev) {
 							pMins = parseInt(prev.end_time.split(':')[0]) * 60 + parseInt(prev.end_time.split(':')[1]);
 							cMins = parseInt(entry.start_time.split(':')[0]) * 60 + parseInt(entry.start_time.split(':')[1]);
 							breakMins = cMins - pMins;
-							if (pMins <= rStartMins && cMins >= rEndMins) {
-								hasReading = true;
-							}
 						}
+
+						// Назначаем номер "урока" для перемены (игнорируем 99)
+						const nextNormalLesson = entry.lesson_number < 90 ? entry.lesson_number : (idx + 1 < sorted.length ? sorted[idx + 1].lesson_number : entry.lesson_number);
 
 						// Helper to render a regular break badge
 						const renderRegularBreak = (startStr: string, endStr: string, mins: number, lessonNum: number) => (
@@ -148,97 +162,96 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 
 						return (
 							<div key={entry.id}>
-								{/* Индикатор перемены / обеда / чтения */}
+								{/* Индикатор перемены / обеда */}
 								{prev && breakMins > 0 && (
-									hasReading ? (
-										// ВРЕМЯ ЧТЕНИЯ КНИГ
-										<div className="flex flex-col">
-											{rStartMins - pMins > 0 && renderRegularBreak(prev.end_time.slice(0, 5), rStartStr, rStartMins - pMins, entry.lesson_number)}
-											
-											<div className="my-2 mx-1 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-500/5 dark:to-indigo-500/5 border border-blue-200 dark:border-blue-500/20 rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm">
-												<div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center shrink-0">
-													<BookOpen size={20} className="text-blue-600 dark:text-blue-400" />
-												</div>
-												<div className="flex-1">
-													<p className="text-sm font-black text-blue-700 dark:text-blue-400">Время для чтения книг</p>
-													<p className="text-xs text-blue-500 dark:text-blue-500/80 font-medium mt-0.5">
-														{rStartStr} – {rEndStr} · 25 мин
-													</p>
-												</div>
-												<div className="text-right shrink-0">
-													<p className="text-[10px] font-bold text-blue-400 dark:text-blue-500/70 uppercase tracking-wider">ЧТЕНИЕ</p>
-													<p className="text-lg font-black text-blue-600 dark:text-blue-500">25 мин</p>
-												</div>
+									breakMins >= 40 ? (
+										// 🍽 ОБЕД — перерыв 40+ минут
+										<div className="my-3 mx-1 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-500/5 dark:to-amber-500/5 border border-orange-200 dark:border-orange-500/20 rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm">
+											<div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center shrink-0 text-xl">
+												🍽
 											</div>
-
-											{cMins - rEndMins > 0 && renderRegularBreak(rEndStr, entry.start_time.slice(0, 5), cMins - rEndMins, entry.lesson_number)}
+											<div className="flex-1">
+												<p className="text-sm font-black text-orange-700 dark:text-orange-400">{t('mgmt.t_46')}</p>
+												<p className="text-xs text-orange-500 dark:text-orange-500/80 font-medium mt-0.5">
+													{prev.end_time.slice(0, 5)} – {entry.start_time.slice(0, 5)} · {breakMins} мин
+												</p>
+											</div>
+											<div className="text-right shrink-0">
+												<p className="text-[10px] font-bold text-orange-400 dark:text-orange-500/70 uppercase tracking-wider">{t('mgmt.t_69')}</p>
+												<p className="text-lg font-black text-orange-600 dark:text-orange-500">
+													{breakMins >= 60 ? `${Math.floor(breakMins / 60)} ч ${breakMins % 60 > 0 ? `${breakMins % 60} мин` : ''}`.trim() : `${breakMins} мин`}
+												</p>
+											</div>
 										</div>
 									) : (
-										breakMins >= 40 ? (
-											// 🍽 ОБЕД — перерыв 40+ минут
-											<div className="my-3 mx-1 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-500/5 dark:to-amber-500/5 border border-orange-200 dark:border-orange-500/20 rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm">
-												<div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center shrink-0 text-xl">
-													🍽
-												</div>
-												<div className="flex-1">
-													<p className="text-sm font-black text-orange-700 dark:text-orange-400">{t('mgmt.t_46')}</p>
-													<p className="text-xs text-orange-500 dark:text-orange-500/80 font-medium mt-0.5">
-														{prev.end_time.slice(0, 5)} – {entry.start_time.slice(0, 5)} · {breakMins} мин
-													</p>
-												</div>
-												<div className="text-right shrink-0">
-													<p className="text-[10px] font-bold text-orange-400 dark:text-orange-500/70 uppercase tracking-wider">{t('mgmt.t_69')}</p>
-													<p className="text-lg font-black text-orange-600 dark:text-orange-500">
-														{breakMins >= 60 ? `${Math.floor(breakMins / 60)} ч ${breakMins % 60 > 0 ? `${breakMins % 60} мин` : ''}`.trim() : `${breakMins} мин`}
-													</p>
-												</div>
-											</div>
-										) : (
-											// 🔔 Обычная перемена
-											renderRegularBreak(prev.end_time.slice(0, 5), entry.start_time.slice(0, 5), breakMins, entry.lesson_number)
-										)
+										// 🔔 Обычная перемена
+										renderRegularBreak(prev.end_time.slice(0, 5), entry.start_time.slice(0, 5), breakMins, nextNormalLesson)
 									)
 								)}
 
-
-								{/* Карточка урока */}
-								<div className="group relative bg-white/80 dark:bg-zinc-800/80 border border-slate-100 dark:border-zinc-700 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-indigo-100 dark:hover:border-indigo-500/40 transition-all">
-									<div className="flex items-center gap-4">
-										{/* Номер */}
-										<div className="w-11 h-11 rounded-xl bg-indigo-500 text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0">
-											{entry.lesson_number}
+								{/* Карточка урока или Время Чтения */}
+								{entry.lesson_number === 99 ? (
+									<div className="group relative bg-white/80 dark:bg-zinc-800/80 my-2 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-500/5 dark:to-indigo-500/5 border border-blue-200 dark:border-blue-500/20 rounded-2xl p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-all">
+										<div className="w-11 h-11 rounded-xl bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center shrink-0">
+											<BookOpen size={20} className="text-blue-600 dark:text-blue-400" />
+										</div>
+										<div className="flex-1">
+											<p className="text-sm font-black text-blue-700 dark:text-blue-400">Время для чтения книг</p>
+											<p className="text-xs text-blue-500 dark:text-blue-500/80 font-medium mt-0.5">
+												{fmt(entry.start_time)} – {fmt(entry.end_time)}
+											</p>
+										</div>
+										
+										{/* Время и Длительность */}
+										<div className="text-right shrink-0 group-hover:opacity-0 transition-opacity">
+											<p className="text-[10px] font-bold text-blue-400 dark:text-blue-500/70 uppercase tracking-wider">ЧТЕНИЕ</p>
+											<p className="text-lg font-black text-blue-600 dark:text-blue-500">{duration(fmt(entry.start_time), fmt(entry.end_time))}</p>
 										</div>
 
-										{/* Урок / длительность */}
-										<div className="shrink-0">
-											<p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t('mgmt.t_128')}</p>
-											<p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{duration(fmt(entry.start_time), fmt(entry.end_time))}</p>
-										</div>
-
-										{/* Разделитель */}
-										<div className="flex-1" />
-
-										{/* Время */}
-										<div className="flex items-center gap-3">
-											<div className="bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-center min-w-[72px]">
-												<p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-0.5">{t('mgmt.t_110')}</p>
-												<p className="text-lg font-black text-slate-800 dark:text-zinc-100">{fmt(entry.start_time)}</p>
-											</div>
-											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" className="stroke-slate-300 dark:stroke-zinc-600">
-												<path d="M5 12h14M12 5l7 7-7 7"/>
-											</svg>
-											<div className="bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-center min-w-[72px]">
-												<p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-0.5">{t('mgmt.t_125')}</p>
-												<p className="text-lg font-black text-slate-800 dark:text-zinc-100">{fmt(entry.end_time)}</p>
-											</div>
-										</div>
-
-										{/* Кнопки */}
-										<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+										{/* Действия */}
+										<div className="absolute right-5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
 											<ActionButtons onEdit={() => openModal(entry)} onDelete={() => handleDelete(entry.id)} />
 										</div>
 									</div>
-								</div>
+								) : (
+									<div className="group relative bg-white/80 dark:bg-zinc-800/80 border border-slate-100 dark:border-zinc-700 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-indigo-100 dark:hover:border-indigo-500/40 transition-all">
+										<div className="flex items-center gap-4">
+											{/* Номер */}
+											<div className="w-11 h-11 rounded-xl bg-indigo-500 text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0">
+												{entry.lesson_number}
+											</div>
+
+											{/* Урок / длительность */}
+											<div className="shrink-0">
+												<p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t('mgmt.t_128')}</p>
+												<p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{duration(fmt(entry.start_time), fmt(entry.end_time))}</p>
+											</div>
+
+											{/* Разделитель */}
+											<div className="flex-1" />
+
+											{/* Время */}
+											<div className="flex items-center gap-3">
+												<div className="bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-center min-w-[72px]">
+													<p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-0.5">{t('mgmt.t_110')}</p>
+													<p className="text-lg font-black text-slate-800 dark:text-zinc-100">{fmt(entry.start_time)}</p>
+												</div>
+												<svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" className="stroke-slate-300 dark:stroke-zinc-600">
+													<path d="M5 12h14M12 5l7 7-7 7"/>
+												</svg>
+												<div className="bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-center min-w-[72px]">
+													<p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-0.5">{t('mgmt.t_125')}</p>
+													<p className="text-lg font-black text-slate-800 dark:text-zinc-100">{fmt(entry.end_time)}</p>
+												</div>
+											</div>
+
+											{/* Кнопки */}
+											<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+												<ActionButtons onEdit={() => openModal(entry)} onDelete={() => handleDelete(entry.id)} />
+											</div>
+										</div>
+									</div>
+								)}
 							</div>
 						);
 					})}

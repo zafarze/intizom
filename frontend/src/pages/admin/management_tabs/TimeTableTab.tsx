@@ -266,9 +266,13 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 					<div className="flex justify-between items-start mb-6">
 						<div>
 							<h3 className="text-xl font-black text-slate-800 dark:text-zinc-50">
-								{editingId ? t('mgmt.t_41') : t('mgmt.t_63')}
+								{form.lesson_number === 99 
+									? (editingId ? 'Изменить время для чтения' : 'Время для чтения книг')
+									: (editingId ? t('mgmt.t_41') : t('mgmt.t_63'))}
 							</h3>
-							<p className="text-xs text-slate-500 dark:text-zinc-400 font-medium mt-1">{t('mgmt.t_15')}</p>
+							{form.lesson_number !== 99 && (
+								<p className="text-xs text-slate-500 dark:text-zinc-400 font-medium mt-1">{t('mgmt.t_15')}</p>
+							)}
 						</div>
 						<button
 							type="button"
@@ -281,25 +285,27 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 
 					<form onSubmit={handleSubmit} className="space-y-4">
 						{/* Номер урока */}
-						<div>
-							<label className="block text-xs font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider mb-2">{t('mgmt.t_78')}</label>
-							<input
-								type="number"
-								min={1}
-								max={20}
-								required
-								value={form.lesson_number}
-								onChange={e => setForm({ ...form, lesson_number: Number(e.target.value) })}
-								className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 focus:border-indigo-400 dark:focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-zinc-100 transition-all"
-								placeholder="1"
-							/>
-						</div>
+						{form.lesson_number !== 99 && (
+							<div>
+								<label className="block text-xs font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider mb-2">{t('mgmt.t_78')}</label>
+								<input
+									type="number"
+									min={1}
+									max={90}
+									required
+									value={form.lesson_number}
+									onChange={e => setForm({ ...form, lesson_number: Number(e.target.value) })}
+									className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 focus:border-indigo-400 dark:focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-zinc-100 transition-all"
+									placeholder="1"
+								/>
+							</div>
+						)}
 
 						{/* Время начала и конца */}
 						<div className="grid grid-cols-2 gap-3">
 							<div>
 								<label className="block text-xs font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider mb-2">
-									<Bell size={12} className="inline mr-1" />{t('management.timetable.start') || 'Начало'}
+									<Bell size={12} className="inline mr-1" />{t('mgmt.t_110')}
 								</label>
 								<input
 									type="time"
@@ -311,7 +317,7 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 							</div>
 							<div>
 								<label className="block text-xs font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider mb-2">
-									<Bell size={12} className="inline mr-1" />{t('management.timetable.end') || 'Конец'}
+									<Bell size={12} className="inline mr-1" />{t('mgmt.t_125')}
 								</label>
 								<input
 									type="time"
@@ -328,7 +334,7 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 							<div className="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-xl px-4 py-3 flex items-center gap-2">
 								<Clock size={14} className="text-indigo-500 dark:text-indigo-400 shrink-0" />
 								<p className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
-									{t('management.timetable.duration') || 'Длительность:'} {duration(form.start_time, form.end_time)}
+									Длительность: {duration(form.start_time, form.end_time)}
 								</p>
 							</div>
 						)}

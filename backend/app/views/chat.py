@@ -392,7 +392,8 @@ class ChatBroadcastView(APIView):
                 sender=request.user,
                 recipient=recipients[0], # первый получатель
                 content=content,
-                image_file=image_file
+                image_file=image_file,
+                visible_to_sender=False
             )
             # Уведомление для первого 
             notifications_to_create.append(
@@ -407,7 +408,8 @@ class ChatBroadcastView(APIView):
                         sender=request.user,
                         recipient=recipients[i],
                         content=content,
-                        image_file=base_msg.image_file.name # Тот же путь в БД
+                        image_file=base_msg.image_file.name, # Тот же путь в БД
+                        visible_to_sender=False
                     )
                 )
                 notifications_to_create.append(
@@ -416,7 +418,7 @@ class ChatBroadcastView(APIView):
         else:
             # Нет файла, просто bulk
             for user in recipients:
-                messages_to_bulk.append(Message(sender=request.user, recipient=user, content=content))
+                messages_to_bulk.append(Message(sender=request.user, recipient=user, content=content, visible_to_sender=False))
                 notifications_to_create.append(
                     AppNotification(recipient=user, title="Рассылка от администратора", message=notif_text)
                 )
@@ -424,11 +426,37 @@ class ChatBroadcastView(APIView):
 
         if messages_to_bulk:
             created_msgs = Message.objects.bulk_create(messages_to_bulk)
-            # bulk_create в SQLite не возвращает ID для созданных инстансов в старых версиях, 
-            # но в Postgres и SQLite с 3.35+ возвращает.
             created_messages.extend(created_msgs)
 
         AppNotification.objects.bulk_create(notifications_to_create)
+
+        # Создаем системного пользователя для логов
+        sys_broadcast, _ = User.objects.get_or_create(
+            username='sys_broadcast',
+            defaults={
+                'first_name': '📢 История',
+                'last_name': 'Рассылок',
+                'is_active': False
+            }
+        )
+
+        # Сообщение-история для администратора
+        tag_map = {
+            'all': 'Всем',
+            'teachers': 'Учителям',
+            'students': 'Ученикам',
+            'specific': 'Выборочно'
+        }
+        history_content = f"[Кому: {tag_map.get(target_type, 'Неизвестно')}]\n{content}"
+
+        history_msg = Message.objects.create(
+            sender=request.user,
+            recipient=sys_broadcast,
+            content=history_content,
+            image_file=base_msg.image_file.name if base_msg and hasattr(base_msg, 'image_file') and base_msg.image_file else None,
+            visible_to_sender=True,
+            visible_to_recipient=False
+        )
 
         # Рассылаем WS уведомления
         for msg in created_messages:
@@ -462,5 +490,31 @@ class ChatBroadcastView(APIView):
                     "message": response_data
                 }
             )
+
+        # Рассылаем WS уведомление самому админу об успешной истории
+        history_response = {
+            'id': getattr(history_msg, 'id', 0),
+            'sender_id': request.user.id,
+            'recipient_id': sys_broadcast.id,
+            'content': history_msg.content,
+            'is_read': False,
+            'is_edited': False,
+            'is_pinned': False,
+            'audio_file': None,
+            'image_file': history_msg.image_file.url if getattr(history_msg, 'image_file', None) else None,
+            'document_file': None,
+            'document_name': None,
+            'reply_to_id': None,
+            'created_at': timezone.now().isoformat(),
+            'can_edit': True,
+            'can_delete_for_all': True
+        }
+        async_to_sync(channel_layer.group_send)(
+            f"user_{request.user.id}",
+            {
+                "type": "chat.message",
+                "message": history_response
+            }
+        )
 
         return Response({"status": "success", "sent_count": len(recipients)})

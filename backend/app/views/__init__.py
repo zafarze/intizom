@@ -9,5 +9,5 @@ from .analytics import DashboardStatsView, StatisticsView, MonitoringView, Compa
 from .settings import SetActiveYearView, ResetPointsView
 from .auth import CustomTokenObtainPairView
 from .timetable import BellScheduleViewSet
-from .chat import ChatContactsView, ChatMessagesView, ChatReadView, ChatMessageDetailView, ChatHistoryDeleteView, ChatPinMessageView
+from .chat import ChatContactsView, ChatMessagesView, ChatReadView, ChatMessageDetailView, ChatHistoryDeleteView, ChatPinMessageView, ChatBroadcastView
 from .ai_chat import AIChatView, AITranslateView

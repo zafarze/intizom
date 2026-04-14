@@ -5,8 +5,9 @@ from django.contrib.auth.models import User
 from django.db.models import Q, OuterRef, Subquery, Count, F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from app.models import Message, UserActivity
+from app.models import Message, UserActivity, AppNotification
 from django.core.paginator import Paginator
+import json
 
 class ChatContactsView(APIView):
     """API для получения списка контактов в чате"""
@@ -316,3 +317,150 @@ class ChatReadView(APIView):
             )
             
         return Response({"status": "messages marked as read"})
+
+class ChatBroadcastView(APIView):
+    """API для массовой рассылки (только для админов)"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not (request.user.is_superuser or request.user.is_staff):
+            return Response({"error": "Только администратор может делать рассылки."}, status=403)
+
+        content = request.data.get('content', '').strip()
+        image_file = request.FILES.get('image_file')
+
+        if not content and not image_file:
+            return Response({"error": "Сообщение не может быть пустым."}, status=400)
+
+        target_type = request.data.get('target_type', 'all')
+        target_classes_str = request.data.get('target_classes', '[]')
+        target_users_str = request.data.get('target_users', '[]')
+
+        try:
+            target_classes = json.loads(target_classes_str)
+        except:
+            target_classes = []
+            
+        try:
+            target_users = json.loads(target_users_str)
+        except:
+            target_users = []
+
+        users_query = User.objects.exclude(id=request.user.id).filter(is_active=True)
+
+        if target_type == 'teachers':
+            users_query = users_query.filter(teacher_profile__isnull=False)
+        elif target_type == 'students':
+            if target_classes:
+                users_query = users_query.filter(student_profile__school_class_id__in=target_classes)
+            else:
+                users_query = users_query.filter(student_profile__isnull=False)
+        elif target_type == 'specific':
+            if target_users:
+                users_query = users_query.filter(id__in=target_users)
+            else:
+                return Response({"error": "Не выбраны конкретные пользователи."}, status=400)
+        # Если 'all' - оставляем users_query без доп. фильтров
+
+        recipients = list(users_query)
+
+        if not recipients:
+            return Response({"error": "Нет пользователей для рассылки по заданным критериям."}, status=400)
+
+        notifications_to_create = []
+
+        notif_text = content[:100] + ('...' if len(content) > 100 else '')
+        if not notif_text and image_file:
+            notif_text = "[Фотография]"
+
+        # Сначала создадим оригинальное сообщение для рассылки с файлом
+        # Мы должны создать по одному сообщению на каждого юзера.
+        # Для bulk_create нельзя сохранить файлы нормально, поэтому мы создадим
+        # первое сообщение через create(), чтобы сформировался image_file,
+        # а для остальных просто скопируем имя файла.
+        
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+
+        base_msg = None
+        messages_to_bulk = []
+        
+        # Если есть файл, то сохраняем его в первый инстанс
+        if image_file:
+            base_msg = Message.objects.create(
+                sender=request.user,
+                recipient=recipients[0], # первый получатель
+                content=content,
+                image_file=image_file
+            )
+            # Уведомление для первого 
+            notifications_to_create.append(
+                AppNotification(recipient=recipients[0], title="Рассылка от администратора", message=notif_text)
+            )
+            created_messages = [base_msg]
+            
+            # Для остальных - копируем URL файла без физического копирования файла на диске
+            for i in range(1, len(recipients)):
+                messages_to_bulk.append(
+                    Message(
+                        sender=request.user,
+                        recipient=recipients[i],
+                        content=content,
+                        image_file=base_msg.image_file.name # Тот же путь в БД
+                    )
+                )
+                notifications_to_create.append(
+                    AppNotification(recipient=recipients[i], title="Рассылка от администратора", message=notif_text)
+                )
+        else:
+            # Нет файла, просто bulk
+            for user in recipients:
+                messages_to_bulk.append(Message(sender=request.user, recipient=user, content=content))
+                notifications_to_create.append(
+                    AppNotification(recipient=user, title="Рассылка от администратора", message=notif_text)
+                )
+            created_messages = []
+
+        if messages_to_bulk:
+            created_msgs = Message.objects.bulk_create(messages_to_bulk)
+            # bulk_create в SQLite не возвращает ID для созданных инстансов в старых версиях, 
+            # но в Postgres и SQLite с 3.35+ возвращает.
+            created_messages.extend(created_msgs)
+
+        AppNotification.objects.bulk_create(notifications_to_create)
+
+        # Рассылаем WS уведомления
+        for msg in created_messages:
+            # Если bulk_create не вернул ID, WS будет без ID, это не страшно,
+            # клиент перезапросит при открытии чата. Но лучше достать последние:
+            if not getattr(msg, 'id', None):
+                # Fallback, но обычно WS триггеры достаточно просто дать
+                pass
+                
+            response_data = {
+                'id': getattr(msg, 'id', 0),
+                'sender_id': request.user.id,
+                'recipient_id': msg.recipient_id,
+                'content': msg.content,
+                'is_read': False,
+                'is_edited': False,
+                'is_pinned': False,
+                'audio_file': None,
+                'image_file': msg.image_file.url if getattr(msg, 'image_file', None) else None,
+                'document_file': None,
+                'document_name': None,
+                'reply_to_id': None,
+                'created_at': timezone.now().isoformat(),
+                'can_edit': True,
+                'can_delete_for_all': True
+            }
+            async_to_sync(channel_layer.group_send)(
+                f"user_{msg.recipient_id}",
+                {
+                    "type": "chat.message",
+                    "message": response_data
+                }
+            )
+
+        return Response({"status": "success", "sent_count": len(recipients)})

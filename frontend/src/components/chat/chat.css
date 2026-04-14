@@ -399,31 +399,44 @@
 
 .chat-tabs {
   display: flex;
-  padding: 8px 12px 0;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(0,0,0,0.05);
   background: white;
+  overflow-x: auto;
+  white-space: nowrap;
+  gap: 6px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE */
+}
+
+.chat-tabs::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
 }
 
 .chat-tab {
-  flex: 1;
+  flex: none;
   background: transparent;
   border: none;
-  padding: 10px 0;
+  padding: 8px 16px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: #6B7280;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+  border-radius: 20px;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .chat-tab:hover {
-  color: #4F46E5;
+  background: rgba(0,0,0,0.05);
+  color: #4B5563;
 }
 
 .chat-tab.active {
-  color: #4F46E5;
-  border-bottom: 2px solid #4F46E5;
+  background: #3B82F6;
+  color: white;
 }
 
 .chat-contacts {
@@ -1315,6 +1328,8 @@
   flex-direction: column;
   flex-shrink: 0;
   background: white;
+  position: relative;
+  z-index: 1000;
 }
 
 .suggestions-bar {
@@ -1674,7 +1689,8 @@
   gap: 2px;
   padding: 10px;
   z-index: 200;
-  width: 260px;
+  width: max-content;
+  max-width: calc(100vw - 40px);
   animation: slide-up 0.15s ease-out;
 }
 

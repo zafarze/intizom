@@ -135,6 +135,65 @@ export const ChatWidget: React.FC = () => {
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
 
+  // Broadcast state
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [isBroadcastDropdownOpen, setIsBroadcastDropdownOpen] = useState(false);
+  const [broadcastTarget, setBroadcastTarget] = useState<'all' | 'teachers' | 'students' | 'specific'>('all');
+  const [broadcastClasses, setBroadcastClasses] = useState<number[]>([]);
+  const [broadcastUsers, setBroadcastUsers] = useState<number[]>([]);
+  const [broadcastContent, setBroadcastContent] = useState('');
+  const [broadcastImage, setBroadcastImage] = useState<File | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [schoolClasses, setSchoolClasses] = useState<any[]>([]);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const broadcastImageInputRef = useRef<HTMLInputElement>(null);
+
+  const userStr = localStorage.getItem('user');
+  const user = userStr ? JSON.parse(userStr) : { id: 0, role: 'unknown' };
+
+  useEffect(() => {
+    if ((user.role === 'admin' || user.is_superuser) && isBroadcastModalOpen && schoolClasses.length === 0) {
+      api.get('/classes/').then(res => setSchoolClasses(res.data.results || res.data)).catch(console.error);
+    }
+  }, [isBroadcastModalOpen, user.role]);
+
+  const handleSendBroadcast = async () => {
+    if (!broadcastContent.trim() && !broadcastImage) {
+      toast.error("Сообщение пустое!");
+      return;
+    }
+    if (broadcastTarget === 'specific' && broadcastUsers.length === 0) {
+      toast.error("Выберите пользователей для отправки");
+      return;
+    }
+    setIsBroadcasting(true);
+    const formData = new FormData();
+    formData.append('content', broadcastContent.trim());
+    formData.append('target_type', broadcastTarget);
+    if (broadcastImage) formData.append('image_file', broadcastImage);
+    if (broadcastTarget === 'students' && broadcastClasses.length > 0) {
+      formData.append('target_classes', JSON.stringify(broadcastClasses));
+    }
+    if (broadcastTarget === 'specific' && broadcastUsers.length > 0) {
+      formData.append('target_users', JSON.stringify(broadcastUsers));
+    }
+
+    try {
+      const res = await api.post('/chat/broadcast/', formData);
+      toast.success(`Рассылка отправлена (${res.data.sent_count} чел.)`);
+      setIsBroadcastModalOpen(false);
+      setBroadcastContent('');
+      setBroadcastImage(null);
+      setBroadcastClasses([]);
+      setBroadcastUsers([]);
+      setBroadcastTarget('all');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Ошибка при рассылке");
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
   // Quick suggestions
   const SUGGESTIONS = [
     'Салом', 'Салом алейкум', 'Хорошо', 'Спасибо', 'Понятно', 'Ок', 'Отлично',
@@ -909,6 +968,7 @@ export const ChatWidget: React.FC = () => {
           {/* Contacts sidebar - always visible in desktop mode, shows when no active contact in widget mode */}
           {(isDesktopMode || !activeContact) ? (
             <div className={isDesktopMode ? 'chat-contacts-panel' : 'chat-contacts-container'}>
+
               {activeTab !== 'ai' && (
                 <div className="chat-search-container">
                   <div className="chat-search-bar">
@@ -926,7 +986,14 @@ export const ChatWidget: React.FC = () => {
                   </div>
                 </div>
               )}
-              <div className="chat-tabs">
+              <div 
+                className="chat-tabs"
+                onWheel={(e) => {
+                  if (e.deltaY !== 0) {
+                    e.currentTarget.scrollLeft += e.deltaY;
+                  }
+                }}
+              >
                 <button
                   className={`chat-tab ${activeTab === 'chats' ? 'active' : ''}`}
                   onClick={() => setActiveTab('chats')}
@@ -949,11 +1016,18 @@ export const ChatWidget: React.FC = () => {
                   className={`chat-tab ${activeTab === 'ai' ? 'active' : ''}`}
                   onClick={() => setActiveTab('ai')}
                 >
-                  <Bot size={16} style={{ marginRight: 4, display: 'inline', verticalAlign: 'text-bottom' }} /> ИИ
+                  <Bot size={16} /> ИИ
                 </button>
-              </div>
-
-              {activeTab === 'ai' ? (
+                {(user.role === 'admin' || user.is_superuser) && (
+                  <button
+                    className="chat-tab"
+                    style={{ color: '#7C3AED', backgroundColor: 'rgba(124,58,237, 0.1)' }}
+                    onClick={() => setIsBroadcastModalOpen(true)}
+                  >
+                    📢 Рассылка
+                  </button>
+                )}
+              </div>              {activeTab === 'ai' ? (
                 <div className="ai-chat-wrapper" style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, overflow: 'hidden' }}>
                   <div className="chat-messages ai-messages" style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {aiMessages.length === 0 ? (
@@ -1089,7 +1163,18 @@ export const ChatWidget: React.FC = () => {
                               <input type="checkbox" readOnly checked={selectedMessages.has(msg.id)} />
                             </div>
                           )}
-                          <div className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}>
+                          <div 
+                            className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}
+                            onClick={(e) => {
+                              if (!isSelectMode) {
+                                e.stopPropagation();
+                                setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id);
+                                setReactionPickerMsgId(null);
+                              } else {
+                                toggleSelect(msg.id);
+                              }
+                            }}
+                          >
                             {msg.forwarded_from_name && (
                               <div className="message-forwarded">
                                 <Forward size={12} /> Переслано от: {msg.forwarded_from_name}
@@ -1144,27 +1229,32 @@ export const ChatWidget: React.FC = () => {
                               </div>
                             )}
 
-                            {/* Быстрый пикер реакций */}
-                            {reactionPickerMsgId === msg.id && (
-                              <div className="quick-reaction-picker" onClick={e => e.stopPropagation()}>
-                                {QUICK_REACTIONS.map(emoji => (
-                                  <button key={emoji} onClick={() => toggleReaction(msg.id, emoji)}>{emoji}</button>
-                                ))}
-                              </div>
-                            )}
+                            {/* Быстрый пикер реакций (old floating one removed) */}
 
                             <button className="msg-dropdown-btn" onClick={(e) => { e.stopPropagation(); setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id); setReactionPickerMsgId(null); }}>
                               <MoreVertical size={16} />
                             </button>
                             {dropdownMessageId === msg.id && (
-                              <div className="msg-dropdown-menu tg-style">
-                                <button onClick={() => { setReactionPickerMsgId(msg.id); setDropdownMessageId(null); }}>&#128578; Реакция</button>
-                                <button onClick={() => handleReplyMessage(msg)}><Reply size={16} /> Ответить</button>
-                                {msg.can_edit && <button onClick={() => handleEditMessage(msg)}><Edit2 size={16} /> Изменить</button>}
-                                <button onClick={() => handlePinMessage(msg)}><Pin size={16} /> {msg.is_pinned ? 'Открепить' : 'Закрепить'}</button>
-                                <button onClick={() => handleCopyText(msg.content)}><Copy size={16} /> Копировать текст</button>
-                                <button onClick={() => handleForwardClick(msg)}><Forward size={16} /> Переслать</button>
-                                <button onClick={() => handleSelectMessageClick(msg)}><CheckSquare size={16} /> Выделить</button>
+                              <div className="msg-dropdown-menu tg-style" onClick={e => e.stopPropagation()}>
+                                {/* Встроенный набор реакций */}
+                                <div className="dropdown-reactions" style={{ display: 'flex', gap: '6px', padding: '8px 12px', overflowX: 'auto', borderBottom: '1px solid rgba(0,0,0,0.05)', marginBottom: '4px' }}>
+                                  {QUICK_REACTIONS.map((emoji) => (
+                                    <button 
+                                      key={emoji} 
+                                      type="button"
+                                      onClick={() => { toggleReaction(msg.id, emoji); setDropdownMessageId(null); }}
+                                      style={{ padding: '6px', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', width: 'auto' }}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                                <button onClick={() => { handleReplyMessage(msg); setDropdownMessageId(null); }}><Reply size={16} /> Ответить</button>
+                                {msg.can_edit && <button onClick={() => { handleEditMessage(msg); setDropdownMessageId(null); }}><Edit2 size={16} /> Изменить</button>}
+                                <button onClick={() => { handlePinMessage(msg); setDropdownMessageId(null); }}><Pin size={16} /> {msg.is_pinned ? 'Открепить' : 'Закрепить'}</button>
+                                <button onClick={() => { handleCopyText(msg.content); setDropdownMessageId(null); }}><Copy size={16} /> Копировать текст</button>
+                                <button onClick={() => { handleForwardClick(msg); setDropdownMessageId(null); }}><Forward size={16} /> Переслать</button>
+                                <button onClick={() => { handleSelectMessageClick(msg); setDropdownMessageId(null); }}><CheckSquare size={16} /> Выделить</button>
                                 <hr className="dropdown-divider" />
                                 <button onClick={() => handleDeleteMessage(msg.id, false)}><Trash2 size={16} /> Удалить у меня</button>
                                 {msg.can_delete_for_all && (
@@ -1387,7 +1477,18 @@ export const ChatWidget: React.FC = () => {
                               <input type="checkbox" readOnly checked={selectedMessages.has(msg.id)} />
                             </div>
                           )}
-                          <div className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}>
+                          <div 
+                            className={`message-bubble ${isIncoming ? 'message-in' : 'message-out'}`}
+                            onClick={(e) => {
+                              if (!isSelectMode) {
+                                e.stopPropagation();
+                                setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id);
+                                setReactionPickerMsgId(null);
+                              } else {
+                                toggleSelect(msg.id);
+                              }
+                            }}
+                          >
                             {msg.forwarded_from_name && <div className="message-forwarded"><Forward size={12} /> Переслано от: {msg.forwarded_from_name}</div>}
                             {msg.reply_to_content && <div className="message-quoted"><div className="quoted-bar"></div><p>{msg.reply_to_content}</p></div>}
                             {msg.image_file ? (
@@ -1417,17 +1518,40 @@ export const ChatWidget: React.FC = () => {
                               {formatTime(msg.created_at)}
                               {!isIncoming && <span className="read-ticks">{msg.is_read ? <CheckCheck size={14} /> : <Check size={14} />}</span>}
                             </div>
-                            <button className="msg-dropdown-btn" onClick={(e) => { e.stopPropagation(); setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id); }}>
+                            {/* Реакции (desktop mode display) */}
+                            {reactions[msg.id] && reactions[msg.id].length > 0 && (
+                              <div className="msg-reactions">
+                                {reactions[msg.id].map(emoji => (
+                                  <button key={emoji} className="reaction-badge" onClick={(e) => { e.stopPropagation(); toggleReaction(msg.id, emoji); }}>
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            <button className="msg-dropdown-btn" onClick={(e) => { e.stopPropagation(); setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id); setReactionPickerMsgId(null); }}>
                               <MoreVertical size={16} />
                             </button>
                             {dropdownMessageId === msg.id && (
-                              <div className="msg-dropdown-menu tg-style">
-                                <button onClick={() => handleReplyMessage(msg)}><Reply size={16} /> Ответить</button>
-                                {msg.can_edit && <button onClick={() => handleEditMessage(msg)}><Edit2 size={16} /> Изменить</button>}
-                                <button onClick={() => handlePinMessage(msg)}><Pin size={16} /> {msg.is_pinned ? 'Открепить' : 'Закрепить'}</button>
-                                <button onClick={() => handleCopyText(msg.content)}><Copy size={16} /> Копировать текст</button>
-                                <button onClick={() => handleForwardClick(msg)}><Forward size={16} /> Переслать</button>
-                                <button onClick={() => handleSelectMessageClick(msg)}><CheckSquare size={16} /> Выделить</button>
+                              <div className="msg-dropdown-menu tg-style" onClick={e => e.stopPropagation()}>
+                                <div className="dropdown-reactions" style={{ display: 'flex', gap: '6px', padding: '8px 12px', overflowX: 'auto', borderBottom: '1px solid rgba(0,0,0,0.05)', marginBottom: '4px' }}>
+                                  {QUICK_REACTIONS.map((emoji) => (
+                                    <button 
+                                      key={emoji} 
+                                      type="button"
+                                      onClick={() => { toggleReaction(msg.id, emoji); setDropdownMessageId(null); }}
+                                      style={{ padding: '6px', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', width: 'auto' }}
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                                <button onClick={() => { handleReplyMessage(msg); setDropdownMessageId(null); }}><Reply size={16} /> Ответить</button>
+                                {msg.can_edit && <button onClick={() => { handleEditMessage(msg); setDropdownMessageId(null); }}><Edit2 size={16} /> Изменить</button>}
+                                <button onClick={() => { handlePinMessage(msg); setDropdownMessageId(null); }}><Pin size={16} /> {msg.is_pinned ? 'Открепить' : 'Закрепить'}</button>
+                                <button onClick={() => { handleCopyText(msg.content); setDropdownMessageId(null); }}><Copy size={16} /> Копировать текст</button>
+                                <button onClick={() => { handleForwardClick(msg); setDropdownMessageId(null); }}><Forward size={16} /> Переслать</button>
+                                <button onClick={() => { handleSelectMessageClick(msg); setDropdownMessageId(null); }}><CheckSquare size={16} /> Выделить</button>
                                 <hr className="dropdown-divider" />
                                 <button onClick={() => handleDeleteMessage(msg.id, false)}><Trash2 size={16} /> Удалить у меня</button>
                                 {msg.can_delete_for_all && (
@@ -1637,6 +1761,171 @@ export const ChatWidget: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Broadcast Modal */}
+      {isBroadcastModalOpen && (user.role === 'admin' || user.is_superuser) && (
+        <div className="chat-modal-overlay" style={{ zIndex: 999999 }}>
+          <div className="chat-modal" style={{ width: '90%', maxWidth: '450px' }}>
+            <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><Sparkles size={20} color="#7C3AED" /> Массовая рассылка</h3>
+            
+            <div style={{ marginBottom: '16px', position: 'relative' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#6B7280', marginBottom: '6px' }}>Кому отправить:</label>
+              
+              <div 
+                onClick={() => setIsBroadcastDropdownOpen(!isBroadcastDropdownOpen)}
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #E5E7EB', borderRadius: '12px', fontSize: '14px', backgroundColor: 'white', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <span>
+                  {broadcastTarget === 'all' && 'Всем пользователям'}
+                  {broadcastTarget === 'teachers' && 'Всем учителям'}
+                  {broadcastTarget === 'students' && 'Ученикам'}
+                  {broadcastTarget === 'specific' && 'Выборочным пользователям'}
+                </span>
+                <span style={{ color: '#9CA3AF', transform: isBroadcastDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+              </div>
+
+              {isBroadcastDropdownOpen && (
+                <>
+                  <div 
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }} 
+                    onClick={() => setIsBroadcastDropdownOpen(false)} 
+                  />
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '12px', marginTop: '4px', zIndex: 10, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                    {[
+                      { value: 'all', label: 'Всем пользователям' },
+                      { value: 'teachers', label: 'Всем учителям' },
+                      { value: 'students', label: 'Ученикам' },
+                      { value: 'specific', label: 'Выборочным пользователям' }
+                    ].map(opt => (
+                      <div 
+                        key={opt.value}
+                        onClick={() => {
+                          setBroadcastTarget(opt.value as any);
+                          setBroadcastClasses([]);
+                          setBroadcastUsers([]);
+                          setIsBroadcastDropdownOpen(false);
+                        }}
+                        style={{ padding: '10px 12px', fontSize: '14px', cursor: 'pointer', backgroundColor: broadcastTarget === opt.value ? '#E0E7FF' : 'white', color: broadcastTarget === opt.value ? '#4338CA' : '#374151', borderBottom: '1px solid #F3F4F6' }}
+                      >
+                         {opt.label}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {broadcastTarget === 'students' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#6B7280', marginBottom: '6px' }}>Выберите классы (если пусто - всем ученикам):</label>
+                <div style={{ maxHeight: '120px', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '8px' }}>
+                  {schoolClasses.map(cls => (
+                    <label key={cls.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={broadcastClasses.includes(cls.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setBroadcastClasses(prev => [...prev, cls.id]);
+                          else setBroadcastClasses(prev => prev.filter(id => id !== cls.id));
+                        }}
+                      />
+                      <span style={{ fontSize: '14px' }}>Класс {cls.name}</span>
+                    </label>
+                  ))}
+                  {schoolClasses.length === 0 && <span style={{ fontSize: '13px', color: '#9CA3AF' }}>Нет доступных классов</span>}
+                </div>
+              </div>
+            )}
+
+            {broadcastTarget === 'specific' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#6B7280', marginBottom: '6px' }}>Выберите конкретных пользователей:</label>
+                <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '8px' }}>
+                  {contacts.filter(c => c.id !== user.id).map(contact => (
+                    <label key={contact.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderBottom: '1px solid #F3F4F6' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={broadcastUsers.includes(contact.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setBroadcastUsers(prev => [...prev, contact.id]);
+                          else setBroadcastUsers(prev => prev.filter(id => id !== contact.id));
+                        }}
+                      />
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{contact.name}</div>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>{contact.role_subtitle}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#6B7280', marginBottom: '6px' }}>Текст рассылки:</label>
+              <textarea 
+                value={broadcastContent}
+                onChange={e => setBroadcastContent(e.target.value)}
+                placeholder="Введите сообщение..."
+                style={{ width: '100%', minHeight: '100px', padding: '12px', border: '1px solid #E5E7EB', borderRadius: '12px', fontSize: '14px', outline: 'none', resize: 'vertical' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+               <input 
+                  type="file" 
+                  accept="image/*" 
+                  ref={broadcastImageInputRef} 
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                     const file = e.target.files?.[0];
+                     if (file) setBroadcastImage(file);
+                     if (e.target) e.target.value = '';
+                  }}
+               />
+               <button 
+                  onClick={() => broadcastImageInputRef.current?.click()}
+                  style={{ padding: '8px 12px', backgroundColor: '#F3F4F6', color: '#4B5563', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', outline: 'none' }}
+               >
+                 <Paperclip size={16}/> {broadcastImage ? 'Заменить фото' : 'Прикрепить фото'}
+               </button>
+               {broadcastImage && (
+                 <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#6B7280' }}>
+                    <div style={{ padding: '2px 6px', backgroundColor: '#E0E7FF', color: '#4338CA', borderRadius: '4px', fontWeight: 'bold' }}>IMG</div>
+                    <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{broadcastImage.name}</span>
+                    <button onClick={() => setBroadcastImage(null)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={14}/></button>
+                 </div>
+               )}
+            </div>
+
+            <div className="chat-modal-actions">
+              <button 
+                className="chat-modal-cancel" 
+                onClick={() => {
+                  setIsBroadcastModalOpen(false);
+                  setBroadcastContent('');
+                  setBroadcastImage(null);
+                  setBroadcastClasses([]);
+                  setBroadcastUsers([]);
+                  setBroadcastTarget('all');
+                }}
+                disabled={isBroadcasting}
+              >
+                Отмена
+              </button>
+              <button 
+                onClick={handleSendBroadcast} 
+                disabled={isBroadcasting || (!broadcastContent.trim() && !broadcastImage) || (broadcastTarget === 'specific' && broadcastUsers.length === 0)}
+                style={{ padding: '10px 16px', backgroundColor: '#7C3AED', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', cursor: (!broadcastContent.trim() && !broadcastImage) ? 'not-allowed' : 'pointer', opacity: (!broadcastContent.trim() && !broadcastImage) || isBroadcasting ? 0.6 : 1 }}
+              >
+                {isBroadcasting ? <Loader size={16} className="animate-spin"/> : <Send size={16}/>}
+                Отправить всем
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

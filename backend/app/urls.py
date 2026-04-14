@@ -27,6 +27,7 @@ from .views import (
     ChatHistoryDeleteView,
     ChatPinMessageView,
     ChatReadView,
+    ChatBroadcastView,
     AIChatView,
     AITranslateView,
     MyClassMatrixView,
@@ -64,6 +65,7 @@ urlpatterns = [
     path('teacher/my-class/', MyClassMatrixView.as_view(), name='teacher-my-class'),
 
     # Chat
+    path('chat/broadcast/', ChatBroadcastView.as_view(), name='chat_broadcast'),
     path('chat/contacts/', ChatContactsView.as_view(), name='chat_contacts'),
     path('chat/messages/<int:user_id>/', ChatMessagesView.as_view(), name='chat_messages'),
     path('chat/message/<int:message_id>/', ChatMessageDetailView.as_view(), name='chat_message_detail'),

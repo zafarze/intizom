@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef } from 'react';
 import { Outlet } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
@@ -8,6 +9,8 @@ import toast from 'react-hot-toast'; // 👈 Импорт уведомлений
 import { ChatWidget } from '../chat/ChatWidget';
 
 export default function MainLayout() {
+  const { t } = useTranslation();
+
 	const [isMobileOpen, setIsMobileOpen] = useState(false);
 	const [pullProgress, setPullProgress] = useState(0);
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -27,12 +30,12 @@ export default function MainLayout() {
 	// ==========================================
 	useEffect(() => {
 		const handleOnline = () => {
-			toast.success('🌐 Подключение восстановлено!', { duration: 4000 });
+			toast.success(t('auto.t_110_podklyuchenie_vosstanovleno'), { duration: 4000 });
 			syncOfflineData(); // Как только появился интернет, отправляем всё из очереди
 		};
 
 		const handleOffline = () => {
-			toast.error('📶 Нет интернета. Включен офлайн-режим.', { duration: 4000 });
+			toast.error(t('auto.t_224_net_interneta_vklyuchen_oflayn'), { duration: 4000 });
 		};
 
 		// Вешаем слушатели событий на браузер
@@ -130,9 +133,7 @@ export default function MainLayout() {
 	}, []);
 
 	return (
-		/* УБРАЛИ сплошной цвет фона (bg-[#F8FAFC]).
-		   Теперь фон прозрачный, и сквозь него видно нашу анимацию из index.css */
-		<div className="flex h-screen bg-transparent font-sans text-slate-800 selection:bg-indigo-500/30">
+		<div className="flex h-screen bg-slate-50 dark:bg-zinc-950 font-sans text-slate-800 dark:text-zinc-50 selection:bg-indigo-500/30 dark:selection:bg-indigo-500/50 transition-colors duration-300">
 			<ChatWidget />
 			<Sidebar
 				isMobileOpen={isMobileOpen}
@@ -145,7 +146,7 @@ export default function MainLayout() {
 
 				{/* Pull to refresh индикатор */}
 				<div
-					className={`absolute left-1/2 -translate-x-1/2 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition-all duration-300 ease-out ${isRefreshing ? 'top-20' : 'top-16'}`}
+					className={`absolute left-1/2 -translate-x-1/2 z-50 flex items-center justify-center bg-white/90 dark:bg-zinc-900/90 dark:border dark:border-zinc-800 backdrop-blur-sm rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition-all duration-300 ease-out ${isRefreshing ? 'top-20' : 'top-16'}`}
 					style={{
 						width: '44px',
 						height: '44px',

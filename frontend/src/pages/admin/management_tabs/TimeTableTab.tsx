@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { Plus, Clock, Bell, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -12,6 +13,7 @@ type BellEntry = {
 };
 
 export default function TimeTableTab({ data, refresh }: { data: BellEntry[], refresh: () => void }) {
+	const { t } = useTranslation();
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [form, setForm] = useState({ lesson_number: 1, start_time: '08:00', end_time: '08:45' });
@@ -33,13 +35,13 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 	};
 
 	const handleDelete = async (id: number) => {
-		if (!window.confirm('Удалить этот урок из расписания?')) return;
+		if (!window.confirm(t('mgmt.t_12'))) return;
 		try {
 			await api.delete(`timetable/${id}/`);
 			refresh();
-			toast.success('Урок удален');
+			toast.success(t('mgmt.t_76'));
 		} catch (err: any) {
-			toast.error(err.response?.data?.detail || 'Ошибка при удалении');
+			toast.error(err.response?.data?.detail || t('mgmt.t_35'));
 		}
 	};
 
@@ -51,9 +53,9 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 				: await api.post(`timetable/`, form);
 			setIsModalOpen(false);
 			refresh();
-			toast.success('Сохранено!');
+			toast.success(t('mgmt.t_81'));
 		} catch (err: any) {
-			toast.error(err.response?.data?.detail || 'Ошибка сохранения');
+			toast.error(err.response?.data?.detail || t('mgmt.t_47'));
 		}
 	};
 
@@ -69,17 +71,17 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 	};
 
 	return (
-		<div className="bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm animate-in fade-in duration-300">
+		<div className="bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl border border-white dark:border-zinc-800/60 rounded-[2rem] p-6 shadow-sm animate-in fade-in duration-300">
 			{/* Заголовок */}
 			<div className="flex items-center justify-between mb-8">
 				<div className="flex items-center gap-3">
-					<div className="w-10 h-10 rounded-2xl bg-indigo-100 flex items-center justify-center">
-						<Bell size={20} className="text-indigo-600" />
+					<div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center">
+						<Bell size={20} className="text-indigo-600 dark:text-indigo-400" />
 					</div>
 					<div>
-						<h2 className="text-lg font-black text-slate-800">Расписание звонков</h2>
-						<p className="text-xs text-slate-500 font-medium mt-0.5">
-							{data.length} {data.length === 1 ? 'урок' : data.length < 5 ? 'урока' : 'уроков'} в расписании
+						<h2 className="text-lg font-black text-slate-800 dark:text-zinc-50">{t('mgmt.t_38')}</h2>
+						<p className="text-xs text-slate-500 dark:text-zinc-400 font-medium mt-0.5">
+							{data.length} {data.length === 1 ? t('mgmt.t_127') : data.length < 5 ? t('mgmt.t_122') : t('mgmt.t_118')} в расписании
 						</p>
 					</div>
 				</div>
@@ -87,18 +89,18 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 					onClick={() => openModal()}
 					className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 transition-all active:scale-95 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md"
 				>
-					<Plus size={16} /> Добавить урок
+					<Plus size={16} /> {t('management.common.add')}
 				</button>
 			</div>
 
 			{/* Список уроков */}
 			{data.length === 0 ? (
 				<div className="flex flex-col items-center justify-center py-16 text-center">
-					<div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center mb-4">
-						<Clock size={28} className="text-slate-400" />
+					<div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-zinc-800/50 flex items-center justify-center mb-4">
+						<Clock size={28} className="text-slate-400 dark:text-zinc-500" />
 					</div>
-					<p className="text-base font-black text-slate-500">Расписание пустое</p>
-					<p className="text-sm font-medium text-slate-400 mt-1">Нажмите "Добавить урок" чтобы начать</p>
+					<p className="text-base font-black text-slate-500 dark:text-zinc-300">{t('mgmt.t_42')}</p>
+					<p className="text-sm font-medium text-slate-400 dark:text-zinc-500 mt-1">{t('mgmt.t_9')}</p>
 				</div>
 			) : (
 				<div className="flex flex-col gap-0">
@@ -116,21 +118,21 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 							<div key={entry.id}>
 								{/* Индикатор перемены / обеда */}
 								{prev && breakMins > 0 && (
-									breakMins >= 60 ? (
-										// 🍽 ОБЕД — перерыв 60+ минут
-										<div className="my-3 mx-1 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl px-5 py-4 flex items-center gap-4">
-											<div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0 text-xl">
+									breakMins >= 40 ? (
+										// 🍽 ОБЕД — перерыв 40+ минут
+										<div className="my-3 mx-1 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-500/5 dark:to-amber-500/5 border border-orange-200 dark:border-orange-500/20 rounded-2xl px-5 py-4 flex items-center gap-4">
+											<div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center shrink-0 text-xl">
 												🍽
 											</div>
 											<div className="flex-1">
-												<p className="text-sm font-black text-orange-700">Обеденный перерыв</p>
-												<p className="text-xs text-orange-500 font-medium mt-0.5">
+												<p className="text-sm font-black text-orange-700 dark:text-orange-400">{t('mgmt.t_46')}</p>
+												<p className="text-xs text-orange-500 dark:text-orange-500/80 font-medium mt-0.5">
 													{prev.end_time.slice(0, 5)} – {entry.start_time.slice(0, 5)} · {breakMins} мин
 												</p>
 											</div>
 											<div className="text-right shrink-0">
-												<p className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Длительность</p>
-												<p className="text-lg font-black text-orange-600">
+												<p className="text-[10px] font-bold text-orange-400 dark:text-orange-500/70 uppercase tracking-wider">{t('mgmt.t_69')}</p>
+												<p className="text-lg font-black text-orange-600 dark:text-orange-500">
 													{breakMins >= 60 ? `${Math.floor(breakMins / 60)} ч ${breakMins % 60 > 0 ? `${breakMins % 60} мин` : ''}`.trim() : `${breakMins} мин`}
 												</p>
 											</div>
@@ -138,22 +140,22 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 									) : (
 										// 🔔 Обычная перемена
 										<div className="flex items-center gap-3 px-2 py-2">
-											<div className="flex-1 h-px bg-green-100" />
-											<div className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 rounded-full px-3 py-1 shrink-0">
-												<Bell size={11} className="text-green-500" />
-												<span className="text-[11px] font-black">Перемена {breakMins} мин</span>
-												<span className="text-[10px] text-green-500 font-medium">
+											<div className="flex-1 h-px bg-green-100 dark:bg-emerald-500/20" />
+											<div className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400 rounded-full px-3 py-1.5 shrink-0">
+												<Bell size={11} className="text-green-500 dark:text-emerald-500" />
+												<span className="text-[11px] font-black">{t('management.timetable.break') || 'Перемена'} перед {entry.lesson_number} уроком • {breakMins} мин</span>
+												<span className="text-[10px] text-green-500 dark:text-emerald-500/80 font-medium">
 													{prev.end_time.slice(0, 5)} – {entry.start_time.slice(0, 5)}
 												</span>
 											</div>
-											<div className="flex-1 h-px bg-green-100" />
+											<div className="flex-1 h-px bg-green-100 dark:bg-emerald-500/20" />
 										</div>
 									)
 								)}
 
 
 								{/* Карточка урока */}
-								<div className="group relative bg-white/80 border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all">
+								<div className="group relative bg-white/80 dark:bg-zinc-800/80 border border-slate-100 dark:border-zinc-700 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-indigo-100 dark:hover:border-indigo-500/40 transition-all">
 									<div className="flex items-center gap-4">
 										{/* Номер */}
 										<div className="w-11 h-11 rounded-xl bg-indigo-500 text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0">
@@ -162,8 +164,8 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 
 										{/* Урок / длительность */}
 										<div className="shrink-0">
-											<p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">УРОК</p>
-											<p className="text-xs font-bold text-indigo-600">{duration(fmt(entry.start_time), fmt(entry.end_time))}</p>
+											<p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t('mgmt.t_128')}</p>
+											<p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{duration(fmt(entry.start_time), fmt(entry.end_time))}</p>
 										</div>
 
 										{/* Разделитель */}
@@ -171,16 +173,16 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 
 										{/* Время */}
 										<div className="flex items-center gap-3">
-											<div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-center min-w-[72px]">
-												<p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Начало</p>
-												<p className="text-lg font-black text-slate-800">{fmt(entry.start_time)}</p>
+											<div className="bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-center min-w-[72px]">
+												<p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-0.5">{t('mgmt.t_110')}</p>
+												<p className="text-lg font-black text-slate-800 dark:text-zinc-100">{fmt(entry.start_time)}</p>
 											</div>
-											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round">
+											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" className="stroke-slate-300 dark:stroke-zinc-600">
 												<path d="M5 12h14M12 5l7 7-7 7"/>
 											</svg>
-											<div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-center min-w-[72px]">
-												<p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Конец</p>
-												<p className="text-lg font-black text-slate-800">{fmt(entry.end_time)}</p>
+											<div className="bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-center min-w-[72px]">
+												<p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-0.5">{t('mgmt.t_125')}</p>
+												<p className="text-lg font-black text-slate-800 dark:text-zinc-100">{fmt(entry.end_time)}</p>
 											</div>
 										</div>
 
@@ -199,19 +201,19 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 
 			{/* Модальное окно */}
 			<Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-				<div className="bg-white p-6 rounded-[2rem] w-full max-w-sm shadow-2xl">
+				<div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] w-full max-w-sm shadow-2xl">
 					{/* Заголовок */}
 					<div className="flex justify-between items-start mb-6">
 						<div>
-							<h3 className="text-xl font-black text-slate-800">
-								{editingId ? 'Редактировать урок' : 'Добавить урок'}
+							<h3 className="text-xl font-black text-slate-800 dark:text-zinc-50">
+								{editingId ? t('mgmt.t_41') : t('mgmt.t_63')}
 							</h3>
-							<p className="text-xs text-slate-500 font-medium mt-1">Укажите номер и время звонков</p>
+							<p className="text-xs text-slate-500 dark:text-zinc-400 font-medium mt-1">{t('mgmt.t_15')}</p>
 						</div>
 						<button
 							type="button"
 							onClick={() => setIsModalOpen(false)}
-							className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+							className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 rounded-xl transition-all"
 						>
 							<X size={20} />
 						</button>
@@ -220,7 +222,7 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 					<form onSubmit={handleSubmit} className="space-y-4">
 						{/* Номер урока */}
 						<div>
-							<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Номер урока</label>
+							<label className="block text-xs font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider mb-2">{t('mgmt.t_78')}</label>
 							<input
 								type="number"
 								min={1}
@@ -228,7 +230,7 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 								required
 								value={form.lesson_number}
 								onChange={e => setForm({ ...form, lesson_number: Number(e.target.value) })}
-								className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none rounded-xl px-4 py-3 font-bold text-slate-800 transition-all"
+								className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 focus:border-indigo-400 dark:focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-zinc-100 transition-all"
 								placeholder="1"
 							/>
 						</div>
@@ -236,37 +238,37 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 						{/* Время начала и конца */}
 						<div className="grid grid-cols-2 gap-3">
 							<div>
-								<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-									<Bell size={12} className="inline mr-1" />Начало
+								<label className="block text-xs font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider mb-2">
+									<Bell size={12} className="inline mr-1" />{t('management.timetable.start') || 'Начало'}
 								</label>
 								<input
 									type="time"
 									required
 									value={form.start_time}
 									onChange={e => setForm({ ...form, start_time: e.target.value })}
-									className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none rounded-xl px-4 py-3 font-bold text-slate-800 transition-all"
+									className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 focus:border-indigo-400 dark:focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-zinc-100 transition-all"
 								/>
 							</div>
 							<div>
-								<label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-									<Bell size={12} className="inline mr-1" />Конец
+								<label className="block text-xs font-bold text-slate-500 dark:text-zinc-500 uppercase tracking-wider mb-2">
+									<Bell size={12} className="inline mr-1" />{t('management.timetable.end') || 'Конец'}
 								</label>
 								<input
 									type="time"
 									required
 									value={form.end_time}
 									onChange={e => setForm({ ...form, end_time: e.target.value })}
-									className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none rounded-xl px-4 py-3 font-bold text-slate-800 transition-all"
+									className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 focus:border-indigo-400 dark:focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-zinc-100 transition-all"
 								/>
 							</div>
 						</div>
 
 						{/* Превью длительности */}
 						{form.start_time && form.end_time && (
-							<div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 flex items-center gap-2">
-								<Clock size={14} className="text-indigo-500 shrink-0" />
-								<p className="text-sm font-bold text-indigo-700">
-									Длительность: {duration(form.start_time, form.end_time)}
+							<div className="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-xl px-4 py-3 flex items-center gap-2">
+								<Clock size={14} className="text-indigo-500 dark:text-indigo-400 shrink-0" />
+								<p className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+									{t('management.timetable.duration') || 'Длительность:'} {duration(form.start_time, form.end_time)}
 								</p>
 							</div>
 						)}
@@ -275,15 +277,15 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 							<button
 								type="button"
 								onClick={() => setIsModalOpen(false)}
-								className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-bold transition-all"
+								className="flex-1 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 py-3 rounded-xl font-bold transition-all"
 							>
-								Отмена
+								{t('management.common.cancel')}
 							</button>
 							<button
 								type="submit"
 								className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md transition-all active:scale-95"
 							>
-								Сохранить
+								{t('management.common.save')}
 							</button>
 						</div>
 					</form>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle, X, Send, ArrowLeft, Check, CheckCheck, User, MessageSquare, Trash2, Edit2, MoreVertical, CheckCircle2, Reply, Pin, Copy, Forward, CheckSquare, Maximize2, Minimize2, Bot, Sparkles, Loader, RotateCcw, Mic, StopCircle, Paperclip } from 'lucide-react';
 import api from '../../api/axios';
@@ -73,6 +74,7 @@ const getSearchVariants = (q: string): string[] => {
 };
 
 export const ChatWidget: React.FC = () => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -732,9 +734,9 @@ export const ChatWidget: React.FC = () => {
       if (activeTab === 'chats') {
         result = result.filter(c => c.last_message !== null);
       } else if (activeTab === 'teachers') {
-        result = result.filter(c => c.role_subtitle === 'Учитель' || c.role_subtitle === 'Администратор' || c.role_subtitle === 'Сотрудник');
+        result = result.filter(c => c.role_subtitle === t('auto.t_18_uchitel') || c.role_subtitle === 'Администратор' || c.role_subtitle === 'Сотрудник');
       } else if (activeTab === 'students') {
-        result = result.filter(c => c.role_subtitle.startsWith('Ученик'));
+        result = result.filter(c => c.role_subtitle.startsWith(t('auto.t_14_uchenik')));
       }
     }
 
@@ -786,7 +788,7 @@ export const ChatWidget: React.FC = () => {
                   <h3>{activeContact.name}</h3>
                   <span>
                     {typingUsers.has(activeContact.id) ? (
-                      <span style={{ color: '#3B82F6', fontStyle: 'italic' }}>печатает...</span>
+                      <span style={{ color: '#3B82F6', fontStyle: 'italic' }}>{t('auto.t_4_pechataet')}</span>
                     ) : (
                       formatLastSeen(activeContact.last_seen)
                     )}
@@ -795,7 +797,7 @@ export const ChatWidget: React.FC = () => {
               </div>
             ) : (
               <div className="chat-header-title">
-                <h3>Сообщения</h3>
+                <h3>{t('auto.t_26_soobshcheniya')}</h3>
                 <span>{contacts.length} контактов</span>
               </div>
             )}
@@ -831,7 +833,7 @@ export const ChatWidget: React.FC = () => {
                   <div className="chat-search-bar">
                     <input
                       type="text"
-                      placeholder="Поиск..."
+                      placeholder={t('auto.t_198_poisk')}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -876,7 +878,7 @@ export const ChatWidget: React.FC = () => {
                     {aiMessages.length === 0 ? (
                       <div className="chat-empty">
                         <Sparkles size={48} color="#3B82F6" />
-                        <p>Чем я могу вам помочь?</p>
+                        <p>{t('auto.t_163_chem_ya_mogu_vam')}</p>
                       </div>
                     ) : (
                       aiMessages.map((msg, idx) => (
@@ -889,7 +891,7 @@ export const ChatWidget: React.FC = () => {
                     {aiLoading && (
                       <div className="message-bubble message-in" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6B7280', fontStyle: 'italic' }}>
                         <Loader size={16} className="loader-pulse" />
-                        <span>ИИ печатает...</span>
+                        <span>{t('auto.t_104_ii_pechataet')}</span>
                       </div>
                     )}
                     <div ref={aiEndRef} />
@@ -964,7 +966,7 @@ export const ChatWidget: React.FC = () => {
                   <div className="chat-pinned-message">
                     <div className="pinned-bar"></div>
                     <div className="pinned-info">
-                      <span>Закреплённое сообщение</span>
+                      <span>{t('auto.t_155_zakreplennoe_soobshchenie')}</span>
                       <p>{pinnedMessage.content}</p>
                     </div>
                   </div>
@@ -976,7 +978,7 @@ export const ChatWidget: React.FC = () => {
                 ) : messages.length === 0 ? (
                   <div className="chat-empty">
                     <MessageSquare size={48} />
-                    <p>Напишите первое сообщение</p>
+                    <p>{t('auto.t_63_napishite_pervoe_soobshchenie')}</p>
                   </div>
                 ) : (() => {
                   let lastDate: string | null = null;
@@ -1025,7 +1027,7 @@ export const ChatWidget: React.FC = () => {
                                 <Paperclip size={24} color="#7C3AED" />
                                 <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                                   <span style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{msg.document_name || 'Документ'}</span>
-                                  <span style={{ fontSize: '11px', color: '#6B7280' }}>Нажмите, чтобы открыть</span>
+                                  <span style={{ fontSize: '11px', color: '#6B7280' }}>{t('auto.t_225_nazhmite_chtoby_otkryt')}</span>
                                 </div>
                               </div>
                             ) : (
@@ -1033,7 +1035,7 @@ export const ChatWidget: React.FC = () => {
                             )}
                             {msg.document_file && msg.content && <div style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{msg.content}</div>}
                             <div className="message-footer">
-                              {msg.is_edited && <span className="message-edited">(изменено)</span>}
+                              {msg.is_edited && <span className="message-edited">{t('auto.t_77_izmeneno')}</span>}
                               {formatTime(msg.created_at)}
                               {!isIncoming && (
                                 <span className="read-ticks">
@@ -1071,7 +1073,7 @@ export const ChatWidget: React.FC = () => {
                 <div className="chat-reply-header">
                   <Reply size={18} className="accent-icon" />
                   <div className="reply-content">
-                    <span>Ответ</span>
+                    <span>{t('auto.t_45_otvet')}</span>
                     <p>{replyingMessage.content}</p>
                   </div>
                   <button onClick={() => setReplyingMessage(null)}><X size={16} /></button>
@@ -1081,7 +1083,7 @@ export const ChatWidget: React.FC = () => {
                 <div className="chat-edit-header">
                   <Edit2 size={18} className="accent-icon" />
                   <div className="reply-content">
-                    <span>Изменение сообщения</span>
+                    <span>{t('auto.t_162_izmenenie_soobshcheniya')}</span>
                     <p>{messages.find(m => m.id === editingMessageId)?.content}</p>
                   </div>
                   <button onClick={() => { setEditingMessageId(null); setInputText(''); }}><X size={16} /></button>
@@ -1181,9 +1183,9 @@ export const ChatWidget: React.FC = () => {
                     <h4>{activeContact.name}</h4>
                     <span>
                       {typingUsers.has(activeContact.id) ? (
-                        <span style={{ color: '#3B82F6', fontStyle: 'italic' }}>печатает...</span>
+                        <span style={{ color: '#3B82F6', fontStyle: 'italic' }}>{t('auto.t_4_pechataet')}</span>
                       ) : (
-                        <>{activeContact.role_subtitle || 'Пользователь'} &nbsp;·&nbsp; {formatLastSeen(activeContact.last_seen)}</>
+                        <>{activeContact.role_subtitle || t('auto.t_86_polzovatel')} &nbsp;·&nbsp; {formatLastSeen(activeContact.last_seen)}</>
                       )}
                     </span>
                   </div>
@@ -1203,7 +1205,7 @@ export const ChatWidget: React.FC = () => {
                   <div className="chat-pinned-message">
                     <div className="pinned-bar"></div>
                     <div className="pinned-info">
-                      <span>Закреплённое сообщение</span>
+                      <span>{t('auto.t_155_zakreplennoe_soobshchenie')}</span>
                       <p>{pinnedMessage.content}</p>
                     </div>
                   </div>
@@ -1211,7 +1213,7 @@ export const ChatWidget: React.FC = () => {
                 {isLoading ? (
                   <div className="chat-loader"><MessageCircle size={32} className="loader-pulse" /></div>
                 ) : messages.length === 0 ? (
-                  <div className="chat-empty"><MessageSquare size={48} /><p>Напишите первое сообщение</p></div>
+                  <div className="chat-empty"><MessageSquare size={48} /><p>{t('auto.t_63_napishite_pervoe_soobshchenie')}</p></div>
                 ) : (() => {
                   let lastDate: string | null = null;
                   return messages.map(msg => {
@@ -1250,7 +1252,7 @@ export const ChatWidget: React.FC = () => {
                                 <Paperclip size={24} color="#7C3AED" />
                                 <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                                   <span style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{msg.document_name || 'Документ'}</span>
-                                  <span style={{ fontSize: '11px', color: '#6B7280' }}>Нажмите, чтобы открыть</span>
+                                  <span style={{ fontSize: '11px', color: '#6B7280' }}>{t('auto.t_225_nazhmite_chtoby_otkryt')}</span>
                                 </div>
                               </div>
                             ) : (
@@ -1258,7 +1260,7 @@ export const ChatWidget: React.FC = () => {
                             )}
                             {msg.document_file && msg.content && <div style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{msg.content}</div>}
                             <div className="message-footer">
-                              {msg.is_edited && <span className="message-edited">(изменено)</span>}
+                              {msg.is_edited && <span className="message-edited">{t('auto.t_77_izmeneno')}</span>}
                               {formatTime(msg.created_at)}
                               {!isIncoming && <span className="read-ticks">{msg.is_read ? <CheckCheck size={14} /> : <Check size={14} />}</span>}
                             </div>
@@ -1291,14 +1293,14 @@ export const ChatWidget: React.FC = () => {
               {replyingMessage && (
                 <div className="chat-reply-header">
                   <Reply size={18} className="accent-icon" />
-                  <div className="reply-content"><span>Ответ</span><p>{replyingMessage.content}</p></div>
+                  <div className="reply-content"><span>{t('auto.t_45_otvet')}</span><p>{replyingMessage.content}</p></div>
                   <button onClick={() => setReplyingMessage(null)}><X size={16} /></button>
                 </div>
               )}
               {editingMessageId && (
                 <div className="chat-edit-header">
                   <Edit2 size={18} className="accent-icon" />
-                  <div className="reply-content"><span>Изменение сообщения</span><p>{messages.find(m => m.id === editingMessageId)?.content}</p></div>
+                  <div className="reply-content"><span>{t('auto.t_162_izmenenie_soobshcheniya')}</span><p>{messages.find(m => m.id === editingMessageId)?.content}</p></div>
                   <button onClick={() => { setEditingMessageId(null); setInputText(''); }}><X size={16} /></button>
                 </div>
               )}
@@ -1387,8 +1389,8 @@ export const ChatWidget: React.FC = () => {
             <div className="chat-main-panel">
               <div className="desktop-chat-empty">
                 <MessageCircle size={64} />
-                <h3>Выберите чат</h3>
-                <p>Нажмите на контакт слева, чтобы начать переписку</p>
+                <h3>{t('auto.t_218_vyberite_chat')}</h3>
+                <p>{t('auto.t_68_nazhmite_na_kontakt_sleva')}</p>
               </div>
             </div>
           )}
@@ -1401,7 +1403,7 @@ export const ChatWidget: React.FC = () => {
         <div className="chat-modal-overlay">
           <div className="chat-modal">
             <h3>Удалить историю с {activeContact.name}?</h3>
-            <p>Вы уверены, что хотите удалить переписку?</p>
+            <p>{t('auto.t_149_vy_uvereny_chto_hotite')}</p>
             <label className="chat-checkbox-label">
               <input
                 type="checkbox"
@@ -1426,7 +1428,7 @@ export const ChatWidget: React.FC = () => {
       {forwardModalOpen && (
         <div className="chat-modal-overlay">
           <div className="chat-modal">
-            <h3>Переслать сообщение</h3>
+            <h3>{t('auto.t_46_pereslat_soobshchenie')}</h3>
             <div className="forward-contacts-list">
               {contacts.map(c => (
                 <div key={c.id} className="forward-contact-item" onClick={() => submitForward(c.id)}>

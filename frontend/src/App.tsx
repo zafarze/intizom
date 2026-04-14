@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import MainLayout from './components/layout/MainLayout';
 import LoginPage from './pages/auth/LoginPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -12,6 +13,7 @@ import Monitoring from './pages/admin/Monitoring';
 import Comparison from './pages/admin/Comparison';
 import Management from './pages/admin/Management';
 import Settings from './pages/admin/Settings';
+import { ThemeProvider } from './components/providers/ThemeProvider';
 
 
 // 1. Умный компонент-перенаправитель для корня (/)
@@ -49,8 +51,10 @@ const ProtectedRoute = ({
 };
 
 export default function App() {
+  const { t } = useTranslation();
+
   return (
-    <>
+    <ThemeProvider defaultTheme="system" storageKey="intizom-theme">
       <Toaster
         position="top-right"
         containerStyle={{ zIndex: 99999 }}
@@ -131,10 +135,10 @@ export default function App() {
 
         <Route path="*" element={
           <div className="flex items-center justify-center h-screen text-2xl font-bold text-slate-400">
-            Саҳифа ёфт нашуд (404)
+            {t('common.page_not_found')}
           </div>
         } />
       </Routes>
-    </>
+    </ThemeProvider>
   );
 }

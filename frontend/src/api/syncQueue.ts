@@ -1,6 +1,7 @@
 // src/api/syncQueue.ts
 import api from './axios';
 import toast from 'react-hot-toast';
+import i18n from '../i18n';
 
 export const syncOfflineData = async () => {
 	// 1. Достаем запросы из хранилища браузера
@@ -8,7 +9,7 @@ export const syncOfflineData = async () => {
 
 	if (queue.length === 0) return; // Если очередь пуста, ничего не делаем
 
-	toast.loading(`Синхронизация данных (${queue.length})...`, { id: 'sync' });
+	toast.loading(i18n.t('common.syncing_data', { count: queue.length }), { id: 'sync' });
 
 	let successCount = 0;
 	const failedQueue = [];
@@ -32,9 +33,9 @@ export const syncOfflineData = async () => {
 	// 3. Обновляем очередь (очищаем успешные)
 	if (failedQueue.length === 0) {
 		localStorage.removeItem('offline_queue');
-		toast.success(`Успешно синхронизировано: ${successCount}`, { id: 'sync' });
+		toast.success(i18n.t('common.sync_success', { count: successCount }), { id: 'sync' });
 	} else {
 		localStorage.setItem('offline_queue', JSON.stringify(failedQueue));
-		toast.error(`Не удалось отправить: ${failedQueue.length}`, { id: 'sync' });
+		toast.error(i18n.t('common.sync_error', { count: failedQueue.length }), { id: 'sync' });
 	}
 };

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useCallback } from 'react';
 import { Search, CheckCircle2, Award, Clock, Smartphone, UserX, XCircle, Zap, Loader2, X, History, Users, ArrowLeft } from 'lucide-react';
 import api from '../../api/axios';
@@ -29,16 +30,18 @@ interface ActionLog {
 	teacher_id: number;
 }
 
-// Метаданные для UI (цвета и иконки для категорий)
-const CATEGORY_UI_CONFIG: Record<string, any> = {
-	'A': { desc: 'Мелкие (-5)', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', activeBg: 'bg-yellow-500 text-white', icon: <Clock size={18} /> },
-	'B': { desc: 'Средние (-15)', color: 'bg-orange-100 text-orange-700 border-orange-200', activeBg: 'bg-orange-500 text-white', icon: <Smartphone size={18} /> },
-	'C': { desc: 'Серьезные (-35)', color: 'bg-red-100 text-red-700 border-red-200', activeBg: 'bg-red-500 text-white', icon: <UserX size={18} /> },
-	'D': { desc: 'Особо тяжкие (-55)', color: 'bg-rose-100 text-rose-700 border-rose-200', activeBg: 'bg-rose-600 text-white', icon: <XCircle size={18} /> },
-	'BONUS': { desc: 'Бонусы (+)', color: 'bg-green-100 text-green-700 border-green-200', activeBg: 'bg-green-500 text-white', icon: <Award size={18} /> }
-};
-
 export default function TeacherDashboard() {
+  const { t } = useTranslation();
+
+	// Метаданные для UI (цвета и иконки для категорий)
+	const CATEGORY_UI_CONFIG: Record<string, any> = {
+		'A': { desc: t('auto.t_220_melkie_5'), color: 'bg-yellow-100 text-yellow-700 border-yellow-200', activeBg: 'bg-yellow-500 text-white', icon: <Clock size={18} /> },
+		'B': { desc: t('auto.t_102_srednie_15'), color: 'bg-orange-100 text-orange-700 border-orange-200', activeBg: 'bg-orange-500 text-white', icon: <Smartphone size={18} /> },
+		'C': { desc: t('auto.t_101_sereznye_35'), color: 'bg-red-100 text-red-700 border-red-200', activeBg: 'bg-red-500 text-white', icon: <UserX size={18} /> },
+		'D': { desc: t('auto.t_100_osobo_tyazhkie_55'), color: 'bg-rose-100 text-rose-700 border-rose-200', activeBg: 'bg-rose-600 text-white', icon: <XCircle size={18} /> },
+		'BONUS': { desc: t('auto.t_194_bonusy'), color: 'bg-green-100 text-green-700 border-green-200', activeBg: 'bg-green-500 text-white', icon: <Award size={18} /> }
+	};
+
 	// --- СОСТОЯНИЯ ---
 	const [students, setStudents] = useState<Student[]>([]);
 	const [rulesGrouped, setRulesGrouped] = useState<Record<string, Rule[]>>({});
@@ -66,7 +69,7 @@ export default function TeacherDashboard() {
 	}, []);
 
 	const userStr = localStorage.getItem('user');
-	const user = userStr ? JSON.parse(userStr) : { name: 'Учитель' };
+	const user = userStr ? JSON.parse(userStr) : { name: t('auto.t_18_uchitel') };
 
 	// ==========================================
 	// 2. ЗАГРУЗКА ДАННЫХ ИЗ DJANGO
@@ -102,7 +105,7 @@ export default function TeacherDashboard() {
 			setRulesGrouped(grouped);
 
 		} catch (error) {
-			console.error("Ошибка загрузки данных:", error);
+			console.error(t('auto.t_169_oshibka_zagruzki_dannyh'), error);
 		} finally {
 			setIsLoading(false);
 		}
@@ -143,7 +146,7 @@ export default function TeacherDashboard() {
 			await api.post('logs/', {
 				student_id: selectedStudent.id,
 				rule_id: selectedRule.id,
-				description: 'Зафиксировано через быстрый пульт учителя'
+				description: t('auto.t_152_zafiksirovano_cherez_bystryy_pult')
 			});
 
 			setSuccessMessage(`Успешно! Баллы для ${selectedStudent.first_name} обновлены.`);
@@ -156,8 +159,8 @@ export default function TeacherDashboard() {
 			}, 3000);
 
 		} catch (error) {
-			console.error("Ошибка при сохранении:", error);
-			alert("Произошла ошибка при сохранении. Попробуйте еще раз.");
+			console.error(t('auto.t_201_oshibka_pri_sohranenii'), error);
+			alert(t('auto.t_146_proizoshla_oshibka_pri_sohranenii'));
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -167,19 +170,19 @@ export default function TeacherDashboard() {
 	// 4. ОТМЕНА ОЦЕНКИ (DELETE LOG)
 	// ==========================================
 	const handleDeleteLog = async (logId: number) => {
-		if (!window.confirm("Вы уверены, что хотите отменить это действие?")) return;
+		if (!window.confirm(t('auto.t_144_vy_uvereny_chto_hotite'))) return;
 
 		try {
 			await api.delete(`logs/${logId}/`);
-			setSuccessMessage("Действие успешно отменено.");
+			setSuccessMessage(t('auto.t_177_deystvie_uspeshno_otmeneno'));
 			await fetchData(); // Обновляем списки
 
 			setTimeout(() => {
 				setSuccessMessage('');
 			}, 3000);
 		} catch (error) {
-			console.error("Ошибка при удалении:", error);
-			alert("Произошла ошибка при отмене. Попробуйте еще раз.");
+			console.error(t('auto.t_76_oshibka_pri_udalenii'), error);
+			alert(t('auto.t_82_proizoshla_oshibka_pri_otmene'));
 		}
 	};
 
@@ -192,7 +195,7 @@ export default function TeacherDashboard() {
 	// ==========================================
 	const getMinutesFromMidnight = (date: Date) => date.getHours() * 60 + date.getMinutes();
 	const getCurrentLessonInfo = () => {
-		if (!bells || bells.length === 0) return { type: 'none', label: 'Расписание не загружено' };
+		if (!bells || bells.length === 0) return { type: 'none', label: t('auto.t_189_raspisanie_ne_zagruzheno') };
 
 		const currentMins = getMinutesFromMidnight(currentTime);
 
@@ -210,15 +213,15 @@ export default function TeacherDashboard() {
 
 			// check if it's break before the next lesson
 			if (currentMins < startMins) {
-				if (i === 0) return { type: 'before', label: 'До начала занятий', remains: startMins - currentMins };
+				if (i === 0) return { type: 'before', label: t('auto.t_31_do_nachala_zanyatiy'), remains: startMins - currentMins };
 				const prevBell = bells[i - 1];
 				const pEndParts = prevBell.end_time.split(':');
 				const pEndMins = parseInt(pEndParts[0]) * 60 + parseInt(pEndParts[1]);
-				return { type: 'break', label: 'Перемена', remains: startMins - currentMins, totalBreak: startMins - pEndMins, passed: currentMins - pEndMins };
+				return { type: 'break', label: t('auto.t_67_peremena'), remains: startMins - currentMins, totalBreak: startMins - pEndMins, passed: currentMins - pEndMins };
 			}
 		}
 
-		return { type: 'after', label: 'Уроки окончены' };
+		return { type: 'after', label: t('auto.t_170_uroki_okoncheny') };
 	};
 
 	const lessonInfo = getCurrentLessonInfo();
@@ -265,7 +268,7 @@ export default function TeacherDashboard() {
 									<span className="text-[11px] font-bold text-orange-500 mt-1 leading-none">Начнется через {lessonInfo.remains} мин</span>
 								)}
 								{lessonInfo.type === 'after' && (
-									<span className="text-[11px] font-medium text-slate-400 mt-1 leading-none">Отдыхайте</span>
+									<span className="text-[11px] font-medium text-slate-400 mt-1 leading-none">{t('auto.t_91_otdyhayte')}</span>
 								)}
 							</div>
 						</div>
@@ -304,7 +307,7 @@ export default function TeacherDashboard() {
 								<Zap size={20} />
 							</div>
 							<div>
-								<h2 className="text-lg font-black text-slate-800">Быстрая фиксация</h2>
+								<h2 className="text-lg font-black text-slate-800">{t('auto.t_180_bystraya_fiksatsiya')}</h2>
 
 							</div>
 						</div>
@@ -313,14 +316,14 @@ export default function TeacherDashboard() {
 							className="xl:hidden flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100/50"
 						>
 							<History size={18} />
-							<span className="text-[13px] font-bold">История</span>
+							<span className="text-[13px] font-bold">{t('auto.t_182_istoriya')}</span>
 						</button>
 					</div>
 
 					{/* WIZARD FLOW */}
 					{!selectedClass && !selectedStudent && (
 						<div className="animate-in fade-in zoom-in-95 duration-300 relative z-20 mb-6">
-							<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block ml-1">1. Выберите класс</label>
+							<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block ml-1">{t('auto.t_71_1_vyberite_klass')}</label>
 
 							{myClasses.length > 0 && (
 								<div className="mb-6 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50">
@@ -348,7 +351,7 @@ export default function TeacherDashboard() {
 							)}
 
 							{myClasses.length > 0 && otherClasses.length > 0 && (
-								<label className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1 mt-4">Остальные классы школы</label>
+								<label className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1 mt-4">{t('auto.t_97_ostalnye_klassy_shkoly')}</label>
 							)}
 
 							<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -375,7 +378,7 @@ export default function TeacherDashboard() {
 					{selectedClass && !selectedStudent && (
 						<div className="animate-in fade-in slide-in-from-right-4 duration-300 relative z-20 mb-6">
 							<div className="flex items-center justify-between mb-4">
-								<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">2. Выберите ученика</label>
+								<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t('auto.t_21_2_vyberite_uchenika')}</label>
 								<button onClick={() => { setSelectedClass(null); setSearchQuery(''); }} className="text-[11px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95">
 									<ArrowLeft size={14} /> Назад к классам
 								</button>
@@ -418,7 +421,7 @@ export default function TeacherDashboard() {
 										</button>
 									))}
 								{studentsInClass.filter(s => `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-									<div className="col-span-full p-4 text-center text-slate-400 text-sm font-medium">Никто не найден</div>
+									<div className="col-span-full p-4 text-center text-slate-400 text-sm font-medium">{t('auto.t_167_nikto_ne_nayden')}</div>
 								)}
 							</div>
 						</div>
@@ -437,7 +440,7 @@ export default function TeacherDashboard() {
 									</div>
 								</div>
 								<button onClick={() => { setSelectedStudent(null); setActiveGroup(null); setSelectedRule(null); }} className="p-2 sm:px-4 sm:py-2 text-slate-500 hover:text-red-500 hover:bg-red-50 bg-white rounded-xl shadow-sm border border-slate-200 transition-colors flex items-center gap-2 active:scale-95">
-									<span className="hidden sm:inline text-xs font-bold">Сменить</span>
+									<span className="hidden sm:inline text-xs font-bold">{t('auto.t_120_smenit')}</span>
 									<XCircle size={18} />
 								</button>
 							</div>
@@ -446,7 +449,7 @@ export default function TeacherDashboard() {
 
 					{/* ШАГ 2: Категория нарушения */}
 					<div className={`transition-all duration-500 ${selectedStudent ? 'opacity-100 max-h-[3000px]' : 'opacity-30 pointer-events-none max-h-[400px]'}`}>
-						<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block ml-1">2. Категория СИН</label>
+						<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block ml-1">{t('auto.t_121_2_kategoriya_sin')}</label>
 						<div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
 							{Object.keys(CATEGORY_UI_CONFIG).map((categoryKey) => {
 								const ui = CATEGORY_UI_CONFIG[categoryKey];
@@ -474,7 +477,7 @@ export default function TeacherDashboard() {
 						{/* ШАГ 3: Конкретная причина из БД */}
 						{activeGroup && rulesGrouped[activeGroup] && (
 							<div className="animate-in slide-in-from-top-4 duration-300 bg-slate-50/50 rounded-2xl p-5 border border-slate-100/50 mb-6">
-								<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">3. Выберите причину</label>
+								<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">{t('auto.t_116_3_vyberite_prichinu')}</label>
 								<div className="flex flex-wrap gap-2">
 									{rulesGrouped[activeGroup].map((rule) => (
 										<button
@@ -508,7 +511,7 @@ export default function TeacherDashboard() {
 							) : selectedRule ? (
 								<>
 									<CheckCircle2 size={20} />
-									{activeGroup === 'BONUS' ? 'Начислить баллы' : 'Зафиксировать нарушение'}
+									{activeGroup === 'BONUS' ? 'Начислить баллы' : t('auto.t_142_zafiksirovat_narushenie')}
 								</>
 							) : 'Заполните все поля'}
 						</button>
@@ -518,7 +521,7 @@ export default function TeacherDashboard() {
 				{/* БОКОВАЯ КОЛОНКА (ИСТОРИЯ УЧИТЕЛЯ - ОЖИВЛЕНА!) */}
 				<div className="hidden xl:flex bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm flex-col h-full overflow-hidden">
 					<h2 className="text-lg font-bold text-slate-800 mb-6 border-b border-white pb-4">
-						{selectedStudent ? 'История ученика' : selectedClass ? `История класса ${selectedClass}` : 'Ваша недавняя история'}
+						{selectedStudent ? 'История ученика' : selectedClass ? `История класса ${selectedClass}` : t('auto.t_36_vasha_nedavnyaya_istoriya')}
 					</h2>
 					<div className="flex-1 overflow-y-auto pr-2 space-y-4 hide-scrollbar">
 						{displayedLogs.length > 0 ? (
@@ -537,7 +540,7 @@ export default function TeacherDashboard() {
 												<button
 													onClick={() => handleDeleteLog(log.id)}
 													className="text-slate-400 hover:text-red-500 transition-colors"
-													title="Отменить"
+													title={t('auto.t_215_otmenit')}
 												>
 													<XCircle size={16} />
 												</button>
@@ -577,7 +580,7 @@ export default function TeacherDashboard() {
 									<History size={20} />
 								</div>
 								<h2 className="text-lg font-black text-slate-800">
-									{selectedStudent ? 'История ученика' : selectedClass ? `История класса ${selectedClass}` : 'Ваша недавняя история'}
+									{selectedStudent ? 'История ученика' : selectedClass ? `История класса ${selectedClass}` : t('auto.t_36_vasha_nedavnyaya_istoriya')}
 								</h2>
 							</div>
 							<button
@@ -605,7 +608,7 @@ export default function TeacherDashboard() {
 													<button
 														onClick={() => handleDeleteLog(log.id)}
 														className="text-slate-400 hover:text-red-500 transition-colors"
-														title="Отменить"
+														title={t('auto.t_215_otmenit')}
 													>
 														<XCircle size={16} />
 													</button>

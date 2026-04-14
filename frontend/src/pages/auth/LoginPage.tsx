@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Sparkles, AlertCircle } from 'lucide-react';
@@ -5,13 +6,15 @@ import api from '../../api/axios';
 import logoUrl from '../../assets/logo.png';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
+
 	const [username, setUsername] = useState('');
 	const [password, setPassword] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
 	const [error, setError] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 
-	// Состояние для галочки "Запомнить меня"
+	// Состояние для галочки t('auto.t_164_zapomnit_menya')
 	const [rememberMe, setRememberMe] = useState(false);
 
 	const navigate = useNavigate();
@@ -41,7 +44,7 @@ export default function LoginPage() {
 			localStorage.setItem('access_token', response.data.access);
 			localStorage.setItem('refresh_token', response.data.refresh);
 
-			// Если стоит галочка "Запомнить меня", сохраняем логин
+			// Если стоит галочка t('auto.t_164_zapomnit_menya'), сохраняем логин
 			if (rememberMe) {
 				localStorage.setItem('saved_username', username);
 			} else {
@@ -87,13 +90,13 @@ export default function LoginPage() {
 			}
 
 		} catch (err: any) {
-			console.error("Ошибка авторизации:", err);
+			console.error(t('auto.t_188_oshibka_avtorizatsii'), err);
 
 			// 👈 ИЗМЕНЕНО: Только русский язык. Таймер убран!
 			if (err.response && err.response.status === 401) {
-				setError('Неверный логин или пароль');
+				setError(t('auto.t_65_nevernyy_login_ili_parol'));
 			} else {
-				setError('Ошибка сервера. Проверьте, работает ли бэкенд.');
+				setError(t('auto.t_3_oshibka_servera_proverte_rabotaet'));
 			}
 			// Таймер удален. Ошибка исчезнет только когда пользователь начнет печатать.
 
@@ -114,8 +117,8 @@ export default function LoginPage() {
 					<div className="w-20 h-20 mb-4 bg-white/40 p-2 rounded-3xl backdrop-blur-md border border-white shadow-sm flex items-center justify-center">
 						<img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
 					</div>
-					<h1 className="text-3xl font-bold text-slate-800 tracking-tight">Интизом</h1>
-					<p className="text-sm text-slate-500 mt-2 text-center font-medium">Система управления школой</p>
+					<h1 className="text-3xl font-bold text-slate-800 tracking-tight">{t('auto.t_151_intizom')}</h1>
+					<p className="text-sm text-slate-500 mt-2 text-center font-medium">{t('auto.t_141_sistema_upravleniya_shkoloy')}</p>
 				</div>
 
 				{/* Блок вывода ошибки */}
@@ -128,7 +131,7 @@ export default function LoginPage() {
 
 				<form onSubmit={handleLogin} className="space-y-5">
 					<div className="space-y-1.5">
-						<label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Логин</label>
+						<label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t('auto.t_98_login')}</label>
 						<input
 							type="text"
 							value={username}
@@ -143,7 +146,7 @@ export default function LoginPage() {
 					</div>
 
 					<div className="space-y-1.5">
-						<label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Пароль</label>
+						<label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t('auto.t_195_parol')}</label>
 						<div className="relative">
 							<input
 								type={showPassword ? 'text' : 'password'}
@@ -162,7 +165,7 @@ export default function LoginPage() {
 						</div>
 					</div>
 
-					{/* Чекбокс "Запомнить меня" */}
+					{/* Чекбокс t('auto.t_164_zapomnit_menya') */}
 					<div className="flex items-center justify-between pt-1">
 						<label className="flex items-center gap-2 cursor-pointer group">
 							<div className="relative flex items-center justify-center">

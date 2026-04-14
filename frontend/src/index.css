@@ -1,20 +1,9 @@
 @import "tailwindcss";
-
+@custom-variant dark (&:where(.dark, .dark *));
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   overflow: hidden; 
-  /* Идеальный строгий фон (Soft Light Gray) */
-  background-color: #f8fafc; 
-}
-
-/* Делаем супер-мягкий, едва заметный градиент только для легкого объема, без ярких цветов */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(circle at 50% 0%, #ffffff 0%, #f8fafc 70%);
 }
 
 /* Минималистичный скроллбар */

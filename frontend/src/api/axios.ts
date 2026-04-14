@@ -1,4 +1,5 @@
 import axios from 'axios';
+import i18n from '../i18n';
 
 // 1. УМНЫЙ BASE URL
 // Берем URL из .env файла (для продакшена), а если его нет - используем локальный (для разработки)
@@ -54,7 +55,7 @@ api.interceptors.response.use(
 				localStorage.setItem('offline_queue', JSON.stringify(queue));
 
 				return Promise.resolve({
-					data: { detail: 'Нет сети. Сохранено в память телефона.' },
+					data: { detail: i18n.t('common.network_offline') },
 					status: 200,
 					isOffline: true
 				});

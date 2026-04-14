@@ -127,7 +127,7 @@ export default function AdminDashboard() {
 		return (
 			<div className="h-[calc(100vh-100px)] flex flex-col items-center justify-center text-indigo-500">
 				<Loader2 className="animate-spin mb-4" size={48} />
-				<p className="font-bold text-slate-500">Загрузка статистики...</p>
+				<p className="font-bold text-slate-500">{t('auto.t_73_zagruzka_statistiki')}</p>
 			</div>
 		);
 	}
@@ -136,7 +136,7 @@ export default function AdminDashboard() {
 	if (!stats) {
 		return (
 			<div className="h-[calc(100vh-100px)] flex flex-col items-center justify-center gap-4 animate-in fade-in">
-				<div className="p-4 bg-red-50 text-red-600 rounded-2xl font-bold border border-red-100 flex items-center gap-2">
+				<div className="p-4 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-2xl font-bold border border-red-100 dark:border-red-500/20 flex items-center gap-2">
 					<ShieldAlert size={20} />
 					Ошибка связи с сервером (API недоступно)
 				</div>
@@ -152,7 +152,7 @@ export default function AdminDashboard() {
 		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500">
 
 			{/* Шапка дашборда (Premium Media Slider) */}
-			<div className="relative overflow-hidden bg-slate-900 rounded-[2rem] shadow-xl border border-indigo-500/20 min-h-[240px] flex items-center group">
+			<div className="relative overflow-hidden bg-slate-900 dark:bg-zinc-950 rounded-[2rem] shadow-xl border border-indigo-500/20 dark:border-white/50 min-h-[240px] flex items-center group">
 				{/* Фон слайдов (Фото/Видео) */}
 				{SLIDES.map((slide, index) => (
 					<div
@@ -169,7 +169,7 @@ export default function AdminDashboard() {
 						) : null}
 
 						{/* Темный оверлей сверху фото/видео для идеальной читаемости текста на всех устройствах */}
-						<div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/80 md:via-slate-900/60 to-slate-900/30 z-10 pointer-events-none"></div>
+						<div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/80 md:via-slate-900/60 to-slate-900/30 dark:from-zinc-950/95 dark:via-zinc-950/80 dark:md:via-zinc-950/70 dark:to-zinc-950/50 z-10 pointer-events-none"></div>
 					</div>
 				))}
 
@@ -181,7 +181,7 @@ export default function AdminDashboard() {
 								<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
 								<span className="relative inline-flex rounded-full h-2 w-2 bg-green-400"></span>
 							</span>
-							<span className="text-[11px] font-bold text-indigo-50 uppercase tracking-wider">Система включена</span>
+							<span className="text-[11px] font-bold text-indigo-50 uppercase tracking-wider">{t('auto.t_87_sistema_vklyuchena')}</span>
 						</div>
 						
 						{/* Фиксируем высоту текстового блока, чтобы слайдер не прыгал (размер не менялся) */}
@@ -273,42 +273,42 @@ export default function AdminDashboard() {
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
 				{/* Таблица последних событий */}
-				<div className="lg:col-span-2 bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm flex flex-col">
+				<div className="lg:col-span-2 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl border border-white dark:border-zinc-800/60 rounded-[2rem] p-6 shadow-sm flex flex-col">
 					<div className="flex justify-between items-center mb-6">
-						<h2 className="text-lg font-bold text-slate-800">{t('dashboard.recent_violations')}</h2>
+						<h2 className="text-lg font-bold text-slate-800 dark:text-zinc-50">{t('dashboard.recent_violations')}</h2>
 						<button className="text-[13px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">{t('dashboard.view_all')}</button>
 					</div>
 
 					<div className="overflow-x-auto flex-1">
 						<table className="w-full text-left border-collapse">
 							<thead>
-								<tr className="border-b border-slate-200/60">
-									<th className="pb-3 text-[12px] font-bold text-slate-400 uppercase tracking-wider">Ученик</th>
-									<th className="pb-3 text-[12px] font-bold text-slate-400 uppercase tracking-wider">Класс</th>
-									<th className="pb-3 text-[12px] font-bold text-slate-400 uppercase tracking-wider">Нарушение</th>
-									<th className="pb-3 text-[12px] font-bold text-slate-400 uppercase tracking-wider text-right">Балл</th>
+								<tr className="border-b border-slate-200/60 dark:border-zinc-800/60">
+									<th className="pb-3 text-[12px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t('auto.t_14_uchenik')}</th>
+									<th className="pb-3 text-[12px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t('auto.t_10_klass')}</th>
+									<th className="pb-3 text-[12px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">{t('auto.t_197_narushenie')}</th>
+									<th className="pb-3 text-[12px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider text-right">{t('auto.t_211_ball')}</th>
 								</tr>
 							</thead>
-							<tbody className="divide-y divide-slate-100">
+							<tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
 								{recentViolations.length > 0 ? (
 									recentViolations.map((log) => (
-										<tr key={log.id} className="hover:bg-white/50 transition-colors group">
+										<tr key={log.id} className="hover:bg-white/50 dark:hover:bg-zinc-800/40 transition-colors group">
 											<td className="py-4">
-												<div className="font-bold text-slate-800 text-[14px]">
+												<div className="font-bold text-slate-800 dark:text-zinc-100 text-[14px]">
 													{log.student_detail?.first_name} {log.student_detail?.last_name}
 												</div>
-												<div className="text-[11px] text-slate-400 font-medium">
+												<div className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">
 													{formatDate(log.created_at)}
 												</div>
 											</td>
-											<td className="py-4 text-[13px] font-medium text-slate-600">
+											<td className="py-4 text-[13px] font-medium text-slate-600 dark:text-zinc-400">
 												{log.student_detail?.class_name || '-'}
 											</td>
-											<td className="py-4 text-[13px] font-medium text-slate-600">
+											<td className="py-4 text-[13px] font-medium text-slate-600 dark:text-zinc-400">
 												{log.rule_detail?.title}
 											</td>
 											<td className="py-4 text-right">
-												<span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-red-50 text-red-600 border border-red-100 text-[12px] font-bold">
+												<span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg bg-red-50 dark:bg-rose-500/10 text-red-600 dark:text-rose-400 border border-red-100 dark:border-rose-500/20 text-[12px] font-bold">
 													{log.rule_detail?.points_impact}
 												</span>
 											</td>
@@ -327,9 +327,9 @@ export default function AdminDashboard() {
 				</div>
 
 				{/* Боковой виджет */}
-				<div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2rem] p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between">
-					<div className="absolute top-[-20%] right-[-10%] w-48 h-48 bg-white/20 rounded-full blur-[40px] pointer-events-none"></div>
-					<div className="absolute bottom-[-10%] left-[-10%] w-32 h-32 bg-black/10 rounded-full blur-[30px] pointer-events-none"></div>
+				<div className="bg-gradient-to-br from-indigo-500 to-purple-600 dark:from-zinc-900/90 dark:to-zinc-900/90 rounded-[2rem] p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between dark:border dark:border-white/5">
+					<div className="absolute top-[-20%] right-[-10%] w-48 h-48 bg-white/20 dark:bg-white/5 rounded-full blur-[40px] pointer-events-none"></div>
+					<div className="absolute bottom-[-10%] left-[-10%] w-32 h-32 bg-black/10 dark:bg-black/40 rounded-full blur-[30px] pointer-events-none"></div>
 
 					<div className="relative z-10">
 						<div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 border border-white/30">
@@ -347,15 +347,15 @@ export default function AdminDashboard() {
 						<div className="grid grid-cols-3 gap-2 mt-5">
 							<div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-xl p-3 text-center">
 								<p className="text-[22px] font-black text-white leading-none">{totalStudents}</p>
-								<p className="text-[10px] text-indigo-200 font-bold mt-1 leading-tight">Всего<br/>учеников</p>
+								<p className="text-[10px] text-indigo-200 font-bold mt-1 leading-tight">{t('auto.t_128_vsego')}<br/>{t('auto.t_13_uchenikov')}</p>
 							</div>
 							<div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-xl p-3 text-center">
 								<p className="text-[22px] font-black text-white leading-none">{violationsCount}</p>
-								<p className="text-[10px] text-indigo-200 font-bold mt-1 leading-tight">Нарушений<br/>всего</p>
+								<p className="text-[10px] text-indigo-200 font-bold mt-1 leading-tight">{t('auto.t_74_narusheniy')}<br/>{t('auto.t_103_vsego')}</p>
 							</div>
 							<div className={`${atRiskCount > 0 ? 'bg-red-500/30 border-red-300/30' : 'bg-white/15 border-white/20'} backdrop-blur-sm border rounded-xl p-3 text-center`}>
 								<p className="text-[22px] font-black text-white leading-none">{atRiskCount}</p>
-								<p className="text-[10px] text-indigo-200 font-bold mt-1 leading-tight">Зона<br/>риска</p>
+								<p className="text-[10px] text-indigo-200 font-bold mt-1 leading-tight">{t('auto.t_204_zona')}<br/>{t('auto.t_132_riska')}</p>
 							</div>
 						</div>
 
@@ -376,7 +376,7 @@ export default function AdminDashboard() {
 
 					<button
 						onClick={() => navigate('/statistics')}
-						className="relative z-10 mt-5 w-full bg-white text-indigo-600 font-bold py-3 rounded-xl shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
+						className="relative z-10 mt-5 w-full bg-white dark:bg-zinc-800 text-indigo-600 dark:text-zinc-100 font-bold py-3 rounded-xl shadow-md dark:shadow-none dark:border-zinc-700 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
 					>
 						Смотреть итоги месяца
 					</button>

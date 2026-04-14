@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { Trophy, ShieldAlert, BookOpen, ThumbsUp, TrendingDown, History, Target, AlertTriangle, ShieldCheck, Loader2 } from 'lucide-react';
 import api from '../../api/axios';
@@ -23,6 +24,8 @@ interface StudentData {
 }
 
 export default function StudentDashboard() {
+  const { t } = useTranslation();
+
 	const [student, setStudent] = useState<StudentData | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState('');
@@ -33,8 +36,8 @@ export default function StudentDashboard() {
 				const response = await api.get('students/me/');
 				setStudent(response.data);
 			} catch (err: any) {
-				console.error("Ошибка загрузки дашборда:", err);
-				setError("Не удалось загрузить данные. Возможно, вы не являетесь учеником.");
+				console.error(t('auto.t_33_oshibka_zagruzki_dashborda'), err);
+				setError(t('auto.t_85_ne_udalos_zagruzit_dannye'));
 			} finally {
 				setIsLoading(false);
 			}
@@ -47,7 +50,7 @@ export default function StudentDashboard() {
 		return (
 			<div className="h-[calc(100vh-100px)] flex flex-col items-center justify-center text-indigo-500">
 				<Loader2 className="animate-spin mb-4" size={48} />
-				<p className="font-bold text-slate-500">Загрузка вашего дневника...</p>
+				<p className="font-bold text-slate-500">{t('auto.t_183_zagruzka_vashego_dnevnika')}</p>
 			</div>
 		);
 	}
@@ -56,7 +59,7 @@ export default function StudentDashboard() {
 		return (
 			<div className="h-[calc(100vh-100px)] flex flex-col items-center justify-center text-red-500">
 				<ShieldAlert size={48} className="mb-4" />
-				<p className="font-bold text-slate-700">{error || "Произошла ошибка"}</p>
+				<p className="font-bold text-slate-700">{error || t('auto.t_160_proizoshla_oshibka')}</p>
 			</div>
 		);
 	}
@@ -64,16 +67,16 @@ export default function StudentDashboard() {
 	// --- ЛОГИКА ЦВЕТОВ И СТАТУСОВ (Синхронизировано с Бэкендом) ---
 	let statusConfig = { color: '', bg: '', icon: null as any, message: '', alert: '' };
 	const lvl = student.status_info?.level || 'excellent';
-	const statusText = student.status_info?.text || 'Образцовый';
+	const statusText = student.status_info?.text || t('auto.t_202_obraztsovyy');
 
 	if (lvl === 'excellent') {
-		statusConfig = { color: 'text-green-500', bg: 'bg-green-500', icon: <ShieldCheck size={24} className="text-green-500" />, message: 'Отличная дисциплина! Так держать.', alert: 'bg-green-50 text-green-700 border-green-200' };
+		statusConfig = { color: 'text-green-500', bg: 'bg-green-500', icon: <ShieldCheck size={24} className="text-green-500" />, message: t('auto.t_66_otlichnaya_distsiplina_tak_derzhat'), alert: 'bg-green-50 text-green-700 border-green-200' };
 	} else if (lvl === 'warning') {
-		statusConfig = { color: 'text-yellow-500', bg: 'bg-yellow-500', icon: <AlertTriangle size={24} className="text-yellow-500" />, message: 'Вы потеряли несколько баллов. Будьте внимательнее.', alert: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
+		statusConfig = { color: 'text-yellow-500', bg: 'bg-yellow-500', icon: <AlertTriangle size={24} className="text-yellow-500" />, message: t('auto.t_138_vy_poteryali_neskolko_ballov'), alert: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
 	} else if (lvl === 'danger') {
-		statusConfig = { color: 'text-orange-500', bg: 'bg-orange-500', icon: <ShieldAlert size={24} className="text-orange-500" />, message: 'Критическая ситуация! В школу могут быть вызваны родители.', alert: 'bg-orange-50 text-orange-700 border-orange-200' };
+		statusConfig = { color: 'text-orange-500', bg: 'bg-orange-500', icon: <ShieldAlert size={24} className="text-orange-500" />, message: t('auto.t_174_kriticheskaya_situatsiya_v_shkolu'), alert: 'bg-orange-50 text-orange-700 border-orange-200' };
 	} else {
-		statusConfig = { color: 'text-red-500', bg: 'bg-red-500', icon: <ShieldAlert size={24} className="text-red-500" />, message: 'Ваше дело передано на рассмотрение Педагогического совета.', alert: 'bg-red-50 text-red-700 border-red-200' };
+		statusConfig = { color: 'text-red-500', bg: 'bg-red-500', icon: <ShieldAlert size={24} className="text-red-500" />, message: t('auto.t_213_vashe_delo_peredano_na'), alert: 'bg-red-50 text-red-700 border-red-200' };
 	}
 
 	// Защита прогресс-бара: баллы от 0 до 100 для корректной отрисовки SVG
@@ -118,7 +121,7 @@ export default function StudentDashboard() {
 							<span className={`text-5xl font-black ${student.points > 100 ? 'text-emerald-300' : 'text-white'}`}>
 								{student.points}
 							</span>
-							<span className="text-[10px] font-bold uppercase tracking-widest text-indigo-100 mt-1">Баллов СИН</span>
+							<span className="text-[10px] font-bold uppercase tracking-widest text-indigo-100 mt-1">{t('auto.t_79_ballov_sin')}</span>
 						</div>
 					</div>
 				</div>
@@ -152,23 +155,23 @@ export default function StudentDashboard() {
 						<div className="flex items-center justify-between p-3.5 bg-green-50/50 border border-green-100 rounded-xl hover:bg-green-50 transition-colors group">
 							<div className="flex items-center gap-3">
 								<div className="p-2 bg-green-100 text-green-600 rounded-lg group-hover:scale-110 transition-transform"><BookOpen size={18} /></div>
-								<span className="font-bold text-slate-700 text-[13px]">Прочитать книгу (Вне программы)</span>
+								<span className="font-bold text-slate-700 text-[13px]">{t('auto.t_199_prochitat_knigu_vne_programmy')}</span>
 							</div>
-							<span className="font-black text-green-600 bg-white px-2.5 py-1 rounded-md shadow-sm border border-green-100">+5 баллов</span>
+							<span className="font-black text-green-600 bg-white px-2.5 py-1 rounded-md shadow-sm border border-green-100">{t('auto.t_39_5_ballov')}</span>
 						</div>
 						<div className="flex items-center justify-between p-3.5 bg-blue-50/50 border border-blue-100 rounded-xl hover:bg-blue-50 transition-colors group">
 							<div className="flex items-center gap-3">
 								<div className="p-2 bg-blue-100 text-blue-600 rounded-lg group-hover:scale-110 transition-transform"><ThumbsUp size={18} /></div>
-								<span className="font-bold text-slate-700 text-[13px]">Помощь школе / Доброе дело</span>
+								<span className="font-bold text-slate-700 text-[13px]">{t('auto.t_186_pomoshch_shkole_dobroe_delo')}</span>
 							</div>
-							<span className="font-black text-blue-600 bg-white px-2.5 py-1 rounded-md shadow-sm border border-blue-100">+5 баллов</span>
+							<span className="font-black text-blue-600 bg-white px-2.5 py-1 rounded-md shadow-sm border border-blue-100">{t('auto.t_39_5_ballov')}</span>
 						</div>
 						<div className="flex items-center justify-between p-3.5 bg-purple-50/50 border border-purple-100 rounded-xl hover:bg-purple-50 transition-colors group">
 							<div className="flex items-center gap-3">
 								<div className="p-2 bg-purple-100 text-purple-600 rounded-lg group-hover:scale-110 transition-transform"><ShieldCheck size={18} /></div>
-								<span className="font-bold text-slate-700 text-[13px]">Месяц без нарушений</span>
+								<span className="font-bold text-slate-700 text-[13px]">{t('auto.t_117_mesyats_bez_narusheniy')}</span>
 							</div>
-							<span className="font-black text-purple-600 bg-white px-2.5 py-1 rounded-md shadow-sm border border-purple-100">+10 баллов</span>
+							<span className="font-black text-purple-600 bg-white px-2.5 py-1 rounded-md shadow-sm border border-purple-100">{t('auto.t_118_10_ballov')}</span>
 						</div>
 					</div>
 				</div>
@@ -209,7 +212,7 @@ export default function StudentDashboard() {
 							</div>
 						))
 					) : (
-						<div className="text-center text-slate-500 py-6 font-medium pl-6">История пуста. Ваш дневник чист!</div>
+						<div className="text-center text-slate-500 py-6 font-medium pl-6">{t('auto.t_20_istoriya_pusta_vash_dnevnik')}</div>
 					)}
 
 					{/* Финальная точка старта системы */}
@@ -218,8 +221,8 @@ export default function StudentDashboard() {
 							<div className="w-2 h-2 bg-slate-400 rounded-full"></div>
 						</div>
 						<div className="pt-1.5">
-							<h4 className="font-bold text-slate-500 text-[13px]">Начало четверти</h4>
-							<p className="text-[11px] font-bold text-slate-400 mt-1">(Начислено 100 стартовых баллов)</p>
+							<h4 className="font-bold text-slate-500 text-[13px]">{t('auto.t_139_nachalo_chetverti')}</h4>
+							<p className="text-[11px] font-bold text-slate-400 mt-1">{t('auto.t_59_nachisleno_100_startovyh_ballov')}</p>
 						</div>
 					</div>
 

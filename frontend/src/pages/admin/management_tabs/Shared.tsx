@@ -6,9 +6,9 @@ export function TableTemplate({ headers, children }: { headers: (string | React.
 	return (
 		<table className="w-full text-left border-collapse">
 			<thead>
-				<tr className="border-b border-slate-200/60">
+				<tr className="border-b border-slate-200/60 dark:border-zinc-800/60">
 					{headers.map((h, i) => (
-						<th key={i} className={`pb-3 text-[12px] font-bold text-slate-400 uppercase tracking-wider px-4 ${i === headers.length - 1 ? 'w-24' : ''}`}>
+						<th key={i} className={`pb-3 text-[12px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider px-4 ${i === headers.length - 1 ? 'w-24' : ''}`}>
 							{h}
 						</th>
 					))}
@@ -23,8 +23,8 @@ export function ActionButtons({ onEdit, onDelete, extraButton }: { onEdit: () =>
 	return (
 		<div className="flex items-center gap-1.5">
 			{extraButton}
-			<button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><Edit size={16} /></button>
-			<button onClick={onDelete} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
+			<button onClick={onEdit} className="p-1.5 text-slate-400 dark:text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 rounded-lg transition-colors"><Edit size={16} /></button>
+			<button onClick={onDelete} className="p-1.5 text-slate-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-rose-400 hover:bg-red-50 dark:hover:bg-rose-500/20 rounded-lg transition-colors"><Trash2 size={16} /></button>
 		</div>
 	);
 }
@@ -49,7 +49,7 @@ export function Modal({ isOpen, onClose, children }: { isOpen: boolean, onClose:
 	if (!isOpen) return null;
 
 	return createPortal(
-		<div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onMouseDown={onClose}>
+		<div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200" onMouseDown={onClose}>
 			<div className="relative animate-in zoom-in-95 duration-200" onMouseDown={e => e.stopPropagation()} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
 				{children}
 			</div>

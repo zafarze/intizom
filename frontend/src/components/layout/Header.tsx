@@ -1,17 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, ChevronDown, User, LogOut, Settings, Menu, Loader2, LayoutDashboard, BarChart2, Activity, Users, X, Globe } from 'lucide-react';
+import { Search, Bell, ChevronDown, User, LogOut, Settings, Menu, Loader2, LayoutDashboard, BarChart2, Activity, Users, X, Globe, Moon, Sun, Monitor } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../../api/axios';
 import { requestFirebaseNotificationPermission, onMessageListener } from '../../firebase';
+import { useTheme } from '../providers/ThemeProvider';
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	const [isProfileOpen, setIsProfileOpen] = useState(false);
 	const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 	const [isNotifOpen, setIsNotifOpen] = useState(false);
 	const [isLangOpen, setIsLangOpen] = useState(false);
-	const { i18n } = useTranslation();
+	const [isThemeOpen, setIsThemeOpen] = useState(false);
+	const { t, i18n } = useTranslation();
 	const langRef = useRef<HTMLDivElement>(null);
+	const themeRef = useRef<HTMLDivElement>(null);
 	// --- СОСТОЯНИЯ ГЛОБАЛЬНОГО ПОИСКА ---
 	const [searchQuery, setSearchQuery] = useState('');
 	const [studentResults, setStudentResults] = useState<any[]>([]);
@@ -33,14 +36,16 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	const navigate = useNavigate();
 	const location = useLocation();
 
+	const { theme, setTheme } = useTheme();
+
 	const getPageTitle = () => {
 		const path = location.pathname;
-		if (path.includes('/management')) return 'Управление школой';
-		if (path.includes('/statistics')) return 'Статистика школы';
-		if (path.includes('/monitoring')) return 'Мониторинг (Live)';
-		if (path.includes('/settings')) return 'Настройки системы';
-		if (path.includes('/admin') || path.includes('/teacher')) return 'Главная (Дашбоард)';
-		return 'Система Интизом';
+		if (path.includes('/management')) return t('auto.t_179_upravlenie_shkoloy');
+		if (path.includes('/statistics')) return t('auto.t_112_statistika_shkoly');
+		if (path.includes('/monitoring')) return t('auto.t_127_monitoring_live');
+		if (path.includes('/settings')) return t('auto.t_40_nastroyki_sistemy');
+		if (path.includes('/admin') || path.includes('/teacher')) return t('auto.t_83_glavnaya_dashboard');
+		return t('auto.t_129_sistema_intizom');
 	};
 
 	const profileRef = useRef<HTMLDivElement>(null);
@@ -52,23 +57,23 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	// 1. ДАННЫЕ ПОЛЬЗОВАТЕЛЯ И НАВИГАЦИЯ
 	// ==========================================
 	const userStr = localStorage.getItem('user');
-	const user = userStr ? JSON.parse(userStr) : { name: 'Гость', initials: 'Г', role: 'unknown', email: '' };
+	const user = userStr ? JSON.parse(userStr) : { name: t('auto.t_96_gost'), initials: 'Г', role: 'unknown', email: '' };
 
 	let roleDisplay = '';
 	switch (user.role) {
-		case 'admin': roleDisplay = 'Админ'; break;
-		case 'teacher': roleDisplay = 'Учитель'; break;
-		case 'student': roleDisplay = 'Ученик'; break;
-		default: roleDisplay = 'Пользователь';
+		case 'admin': roleDisplay = t('auto.t_143_admin'); break;
+		case 'teacher': roleDisplay = t('auto.t_18_uchitel'); break;
+		case 'student': roleDisplay = t('auto.t_14_uchenik'); break;
+		default: roleDisplay = t('auto.t_86_polzovatel');
 	}
 
 	// Карта сайта для поиска
 	const SITE_PAGES = [
-		{ title: 'Дашбоард (Главная)', link: user.role === 'admin' ? '/admin' : '/teacher', icon: <LayoutDashboard size={14} />, roles: ['admin', 'teacher'] },
-		{ title: 'Статистика школы', link: '/statistics', icon: <BarChart2 size={14} />, roles: ['admin', 'teacher'] },
-		{ title: 'Мониторинг (Live)', link: '/monitoring', icon: <Activity size={14} />, roles: ['admin', 'teacher'] },
-		{ title: 'Управление (Классы, Учителя, Ученики)', link: '/management', icon: <Users size={14} />, roles: ['admin'] },
-		{ title: 'Настройки системы', link: '/settings', icon: <Settings size={14} />, roles: ['admin', 'teacher'] },
+		{ title: t('auto.t_23_dashboard_glavnaya'), link: user.role === 'admin' ? '/admin' : '/teacher', icon: <LayoutDashboard size={14} />, roles: ['admin', 'teacher'] },
+		{ title: t('auto.t_112_statistika_shkoly'), link: '/statistics', icon: <BarChart2 size={14} />, roles: ['admin', 'teacher'] },
+		{ title: t('auto.t_127_monitoring_live'), link: '/monitoring', icon: <Activity size={14} />, roles: ['admin', 'teacher'] },
+		{ title: t('auto.t_11_upravlenie_klassy_uchitelya_ucheniki'), link: '/management', icon: <Users size={14} />, roles: ['admin'] },
+		{ title: t('auto.t_40_nastroyki_sistemy'), link: '/settings', icon: <Settings size={14} />, roles: ['admin', 'teacher'] },
 	];
 
 	// ==========================================
@@ -125,7 +130,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
 				if (newToPush.length > 0) {
 					newToPush.forEach((item: any) => {
-						const title = item.itemType === 'sys' ? item.title : 'Изменение баллов';
+						const title = item.itemType === 'sys' ? item.title : t('auto.t_56_izmenenie_ballov');
 						const body = item.itemType === 'sys' ? item.message : `${item.student_detail?.first_name} ${item.student_detail?.last_name} (${item.rule_detail?.points_impact > 0 ? '+' : ''}${item.rule_detail?.points_impact})`;
 
 						new Notification(title, {
@@ -139,7 +144,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			}
 
 		} catch (err) {
-			console.error("Ошибка загрузки уведомлений", err);
+			console.error(t('auto.t_122_oshibka_zagruzki_uvedomleniy'), err);
 		} finally {
 			setIsLoadingNotifs(false);
 		}
@@ -161,7 +166,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			fetchNotifications();
 			// Можно также показать браузерный Push:
 			if (Notification.permission === 'granted') {
-				new Notification(payload.notification?.title || "Новое уведомление", {
+				new Notification(payload.notification?.title || t('auto.t_159_novoe_uvedomlenie'), {
 					body: payload.notification?.body || "",
 					icon: '/vite.svg'
 				});
@@ -226,7 +231,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			setSelectedStudentHistory(res.data);
 			setIsHistoryModalOpen(true);
 		} catch (err) {
-			console.error("Ошибка загрузки истории:", err);
+			console.error(t('auto.t_43_oshibka_zagruzki_istorii'), err);
 		} finally {
 			setIsLoadingHistory(false);
 			setSearchQuery('');
@@ -235,7 +240,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	};
 
 	const handleDeleteLog = async (logId: number) => {
-		if (!window.confirm("Вы уверены, что хотите отменить это действие?")) return;
+		if (!window.confirm(t('auto.t_144_vy_uvereny_chto_hotite'))) return;
 		try {
 			await api.delete(`logs/${logId}/`);
 			// Обновляем историю после удаления
@@ -244,8 +249,8 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 				setSelectedStudentHistory(res.data);
 			}
 		} catch (error) {
-			console.error("Ошибка при удалении лога:", error);
-			alert("Произошла ошибка при отмене. Попробуйте еще раз.");
+			console.error(t('auto.t_135_oshibka_pri_udalenii_loga'), error);
+			alert(t('auto.t_82_proizoshla_oshibka_pri_otmene'));
 		}
 	};
 
@@ -257,6 +262,8 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			const target = event.target as Node;
 			if (profileRef.current && !profileRef.current.contains(target)) setIsProfileOpen(false);
 			if (notifRef.current && !notifRef.current.contains(target)) setIsNotifOpen(false);
+			if (langRef.current && !langRef.current.contains(target)) setIsLangOpen(false);
+			if (themeRef.current && !themeRef.current.contains(target)) setIsThemeOpen(false);
 			if (
 				searchRef.current && !searchRef.current.contains(target) &&
 				(!searchDropdownRef.current || !searchDropdownRef.current.contains(target))
@@ -269,6 +276,13 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
 				e.preventDefault();
 				document.getElementById('desktop-search')?.focus();
+			}
+			if (e.key === 'Escape') {
+				setIsProfileOpen(false);
+				setIsNotifOpen(false);
+				setIsLangOpen(false);
+				setIsThemeOpen(false);
+				setIsMobileSearchOpen(false);
 			}
 		}
 
@@ -298,24 +312,24 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	};
 
 	return (
-		<header className="h-[64px] my-4 mx-5 lg:mx-0 lg:mr-4 lg:ml-2 rounded-[1.5rem] flex items-center justify-between px-4 relative shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 border border-white/50 transition-all duration-300">
+		<header className="h-[64px] my-4 mx-5 lg:mx-0 lg:mr-4 lg:ml-2 rounded-[1.5rem] flex items-center justify-between px-4 relative shadow-[0_10px_30px_rgba(0,0,0,0.08)] dark:shadow-none z-30 border border-white/50 dark:border-zinc-800/50 transition-all duration-300">
 
 			{/* Фон и декоративные блики */}
 			<div className="absolute inset-0 rounded-[1.5rem] overflow-hidden pointer-events-none">
-				<div className="absolute inset-0 bg-gradient-to-r from-indigo-200/60 via-purple-100/60 to-orange-50/80 backdrop-blur-xl"></div>
-				<div className="absolute top-[-50%] left-[20%] w-64 h-64 bg-white/70 rounded-full blur-[40px]"></div>
-				<div className="absolute bottom-[-50%] right-[5%] w-48 h-48 bg-indigo-300/40 rounded-full blur-[30px]"></div>
+				<div className="absolute inset-0 bg-gradient-to-r from-indigo-200/60 via-purple-100/60 to-orange-50/80 dark:from-zinc-900/90 dark:via-zinc-900/90 dark:to-zinc-900/90 backdrop-blur-xl"></div>
+				<div className="absolute top-[-50%] left-[20%] w-64 h-64 bg-white/70 rounded-full blur-[40px] dark:opacity-0"></div>
+				<div className="absolute bottom-[-50%] right-[5%] w-48 h-48 bg-indigo-300/40 rounded-full blur-[30px] dark:opacity-0"></div>
 			</div>
 
 			{/* ЛЕВАЯ ЧАСТЬ: Гамбургер + ЗАГОЛОВОК (вместо поиска) */}
 			<div className="relative z-10 flex items-center gap-3">
-				<button onClick={onMenuClick} className="lg:hidden p-2 rounded-xl text-indigo-900/60 bg-white/30 backdrop-blur-md border border-white/50 shadow-sm hover:text-indigo-700 hover:bg-white/50 transition-all active:scale-95">
+				<button onClick={onMenuClick} className="lg:hidden p-2 rounded-xl text-indigo-900/60 bg-white/30 backdrop-blur-md border border-white/50 shadow-sm hover:text-indigo-700 hover:bg-white/50 dark:text-zinc-400 dark:bg-zinc-800/40 dark:border-zinc-700 dark:hover:text-zinc-100 dark:hover:bg-zinc-800 transition-all active:scale-95">
 					<Menu size={20} />
 				</button>
 
 				{/* ДИНАМИЧЕСКИЙ ЗАГОЛОВОК СТРАНИЦЫ */}
 				<div className="hidden lg:flex items-center">
-					<h1 className="text-2xl font-black text-slate-800 tracking-tight">{getPageTitle()}</h1>
+					<h1 className="text-2xl font-black text-slate-800 dark:text-zinc-50 tracking-tight">{getPageTitle()}</h1>
 				</div>
 			</div>
 
@@ -324,27 +338,27 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
 				{/* ПОИСКОВИК ДЛЯ ПК (ПЕРЕНЕСЕН СЮДА) */}
 				{user.role !== 'student' && (
-					<div className="hidden lg:flex relative group items-center bg-white/30 backdrop-blur-md rounded-xl px-3 py-1.5 h-10 w-[240px] xl:w-[320px] border border-white/50 shadow-sm focus-within:bg-white/60 focus-within:shadow-md focus-within:border-white transition-all duration-500 z-[80] mr-1">
-						<Search size={16} className="text-indigo-900/40 group-focus-within:text-indigo-600 transition-colors duration-300 shrink-0" />
+					<div className="hidden lg:flex relative group items-center bg-white/30 dark:bg-zinc-900/50 backdrop-blur-md rounded-xl px-3 py-1.5 h-10 w-[240px] xl:w-[320px] border border-white/50 dark:border-zinc-800 shadow-sm focus-within:bg-white/60 dark:focus-within:bg-zinc-800 focus-within:shadow-md focus-within:border-white transition-all duration-500 z-[80] mr-1">
+						<Search size={16} className="text-indigo-900/40 dark:text-zinc-500 group-focus-within:text-indigo-600 dark:group-focus-within:text-zinc-300 transition-colors duration-300 shrink-0" />
 						<input
 							id="desktop-search"
 							type="text"
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							placeholder="Поиск..."
-							className="bg-transparent border-none outline-none ml-2 text-[13px] w-full placeholder-indigo-900/40 text-slate-800 font-medium"
+							placeholder={t('auto.t_198_poisk')}
+							className="bg-transparent border-none outline-none ml-2 text-[13px] w-full placeholder-indigo-900/40 dark:placeholder-zinc-500 text-slate-800 dark:text-zinc-100 font-medium"
 						/>
-						<div className="flex items-center justify-center px-1.5 py-0.5 rounded-md bg-white/50 text-[9px] font-black text-indigo-900/50 border border-white/50 shadow-sm uppercase tracking-widest shrink-0">
+						<div className="flex items-center justify-center px-1.5 py-0.5 rounded-md bg-white/50 dark:bg-zinc-800 text-[9px] font-black text-indigo-900/50 dark:text-zinc-400 border border-white/50 dark:border-zinc-700 shadow-sm uppercase tracking-widest shrink-0">
 							⌘ K
 						</div>
 
 						{/* ВЫПАДАЮЩИЙ СПИСОК РЕЗУЛЬТАТОВ (ГЛОБАЛЬНЫЙ) */}
 						{searchQuery && (
-							<div className="absolute top-[calc(100%+12px)] right-0 w-[400px] bg-white/95 backdrop-blur-3xl rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.15)] border border-white p-2 animate-in fade-in slide-in-from-top-2">
+							<div className="absolute top-[calc(100%+12px)] right-0 w-[400px] bg-white/95 dark:bg-zinc-950 backdrop-blur-3xl rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.15)] dark:shadow-none border border-white dark:border-zinc-800 p-2 animate-in fade-in slide-in-from-top-2">
 								{isSearching ? (
 									<div className="p-6 flex flex-col items-center justify-center text-indigo-500">
 										<Loader2 className="animate-spin mb-2" size={24} />
-										<span className="text-xs font-bold text-slate-500">Поиск по базе...</span>
+										<span className="text-xs font-bold text-slate-500">{t('auto.t_27_poisk_po_baze')}</span>
 									</div>
 								) : (navResults.length > 0 || studentResults.length > 0) ? (
 									<div className="max-h-[400px] overflow-y-auto p-1 space-y-4 custom-scrollbar">
@@ -352,7 +366,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 										{/* Разделы сайта */}
 										{navResults.length > 0 && (
 											<div>
-												<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2">Разделы системы</p>
+												<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2">{t('auto.t_88_razdely_sistemy')}</p>
 												{navResults.map((nav, idx) => (
 													<button key={`nav-${idx}`} onClick={() => goToPage(nav.link)} className="w-full p-2.5 hover:bg-slate-50 rounded-xl flex items-center gap-3 transition-colors text-left group">
 														<div className="p-2 rounded-lg bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100 transition-colors">{nav.icon}</div>
@@ -365,7 +379,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 										{/* Ученики */}
 										{studentResults.length > 0 && (
 											<div>
-												<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2">Ученики</p>
+												<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2">{t('auto.t_89_ucheniki')}</p>
 												{studentResults.map(s => (
 													<div key={s.id} onClick={() => openStudentHistory(s.id)} className="p-3 hover:bg-indigo-50/80 rounded-xl cursor-pointer transition-all flex justify-between items-center group border border-transparent hover:border-indigo-100 relative">
 														{isLoadingHistory && <div className="absolute inset-0 bg-white/50 backdrop-blur-sm rounded-xl z-10 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={20} /></div>}
@@ -384,7 +398,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 								) : (
 									<div className="p-6 text-center">
 										<div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-2 text-slate-400"><Search size={20} /></div>
-										<p className="text-sm font-bold text-slate-600">Ничего не найдено</p>
+										<p className="text-sm font-bold text-slate-600">{t('auto.t_35_nichego_ne_naydeno')}</p>
 									</div>
 								)}
 							</div>
@@ -396,17 +410,35 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 				<div className="relative hidden lg:block" ref={langRef}>
 					<button
 						onClick={() => setIsLangOpen(!isLangOpen)}
-						className={`p-2 rounded-xl backdrop-blur-md border transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 focus:outline-none flex items-center gap-1 ${isLangOpen ? 'bg-white/60 border-white shadow-md text-indigo-600' : 'bg-white/30 border-white/50 shadow-sm text-indigo-900/60 hover:text-indigo-700 hover:bg-white/50'}`}
+						className={`p-2 rounded-xl backdrop-blur-md border transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 focus:outline-none flex items-center gap-1 ${isLangOpen ? 'bg-white/60 dark:bg-zinc-800 border-white dark:border-zinc-700 shadow-md text-indigo-600 dark:text-zinc-100' : 'bg-white/30 dark:bg-zinc-900/50 border-white/50 dark:border-zinc-800 shadow-sm text-indigo-900/60 dark:text-zinc-400 hover:text-indigo-700 dark:hover:text-zinc-200 hover:bg-white/50 dark:hover:bg-zinc-800'}`}
 					>
 						<Globe size={18} />
-						<span className="text-[12px] font-bold uppercase hidden sm:block">{i18n.language}</span>
+						<span className="text-[12px] font-bold uppercase hidden sm:block">{i18n.language === 'tg' ? 'tj' : i18n.language}</span>
 					</button>
 
 					{isLangOpen && (
-						<div className="absolute right-0 top-[calc(100%+12px)] w-32 bg-white/95 backdrop-blur-3xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-100 p-1.5 z-[70] transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
-							<button onClick={() => { i18n.changeLanguage('ru'); setIsLangOpen(false); }} className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-colors ${i18n.language === 'ru' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'}`}>Русский</button>
-							<button onClick={() => { i18n.changeLanguage('tg'); setIsLangOpen(false); }} className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-colors ${i18n.language === 'tg' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'}`}>Тоҷикӣ</button>
-							<button onClick={() => { i18n.changeLanguage('en'); setIsLangOpen(false); }} className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-colors ${i18n.language === 'en' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'}`}>English</button>
+						<div className="absolute right-0 top-[calc(100%+12px)] w-32 bg-white/95 dark:bg-zinc-950 backdrop-blur-3xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)]  dark:shadow-none border border-slate-100 dark:border-zinc-800 p-1.5 z-[70] transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
+							<button onClick={() => { i18n.changeLanguage('ru'); setIsLangOpen(false); }} className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-colors ${i18n.language === 'ru' ? 'bg-indigo-50 dark:bg-zinc-800 text-indigo-600 dark:text-zinc-100' : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-900 dark:hover:text-zinc-200'}`}>Русский</button>
+							<button onClick={() => { i18n.changeLanguage('tg'); setIsLangOpen(false); }} className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-colors ${i18n.language === 'tg' ? 'bg-indigo-50 dark:bg-zinc-800 text-indigo-600 dark:text-zinc-100' : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-900 dark:hover:text-zinc-200'}`}>Тоҷикӣ</button>
+							<button onClick={() => { i18n.changeLanguage('en'); setIsLangOpen(false); }} className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-colors ${i18n.language === 'en' ? 'bg-indigo-50 dark:bg-zinc-800 text-indigo-600 dark:text-zinc-100' : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-900 dark:hover:text-zinc-200'}`}>English</button>
+						</div>
+					)}
+				</div>
+
+				{/* ВЫБОР ТЕМЫ */}
+				<div className="relative hidden lg:block" ref={themeRef}>
+					<button
+						onClick={() => setIsThemeOpen(!isThemeOpen)}
+						className={`p-2 rounded-xl backdrop-blur-md border transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 focus:outline-none flex items-center gap-1 ${isThemeOpen ? 'bg-white/60 dark:bg-zinc-800 border-white dark:border-zinc-700 shadow-md text-indigo-600 dark:text-zinc-100' : 'bg-white/30 dark:bg-zinc-900/50 border-white/50 dark:border-zinc-800 shadow-sm text-indigo-900/60 dark:text-zinc-400 hover:text-indigo-700 dark:hover:text-zinc-200 hover:bg-white/50 dark:hover:bg-zinc-800'}`}
+					>
+						{theme === 'dark' ? <Moon size={18} /> : theme === 'light' ? <Sun size={18} /> : <Monitor size={18} />}
+					</button>
+
+					{isThemeOpen && (
+						<div className="absolute right-0 top-[calc(100%+12px)] w-36 bg-white/95 dark:bg-zinc-950 backdrop-blur-3xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-none border border-slate-100 dark:border-zinc-800 p-1.5 z-[70] transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
+							<button onClick={() => { setTheme('light'); setIsThemeOpen(false); }} className={`w-full text-left px-3 py-2 flex items-center gap-2 rounded-xl text-[13px] font-bold transition-colors ${theme === 'light' ? 'bg-indigo-50 text-indigo-600 dark:bg-zinc-800 dark:text-zinc-100' : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-900'}`}><Sun size={14}/> Light</button>
+							<button onClick={() => { setTheme('dark'); setIsThemeOpen(false); }} className={`w-full text-left px-3 py-2 flex items-center gap-2 rounded-xl text-[13px] font-bold transition-colors ${theme === 'dark' ? 'bg-indigo-50 text-indigo-600 dark:bg-zinc-800 dark:text-zinc-100' : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-900'}`}><Moon size={14}/> Dark</button>
+							<button onClick={() => { setTheme('system'); setIsThemeOpen(false); }} className={`w-full text-left px-3 py-2 flex items-center gap-2 rounded-xl text-[13px] font-bold transition-colors ${theme === 'system' ? 'bg-indigo-50 text-indigo-600 dark:bg-zinc-800 dark:text-zinc-100' : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-900'}`}><Monitor size={14}/> Auto</button>
 						</div>
 					)}
 				</div>
@@ -415,7 +447,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 				<div className="relative" ref={notifRef}>
 					<button
 						onClick={() => setIsNotifOpen(!isNotifOpen)}
-						className={`relative p-2 rounded-xl backdrop-blur-md border transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 focus:outline-none ${isNotifOpen ? 'bg-white/60 border-white shadow-md text-indigo-600' : 'bg-white/30 border-white/50 shadow-sm text-indigo-900/60 hover:text-indigo-700 hover:bg-white/50'}`}
+						className={`relative p-2 rounded-xl backdrop-blur-md border transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 focus:outline-none ${isNotifOpen ? 'bg-white/60 dark:bg-zinc-800 border-white dark:border-zinc-700 shadow-md text-indigo-600 dark:text-zinc-100' : 'bg-white/30 dark:bg-zinc-900/50 border-white/50 dark:border-zinc-800 shadow-sm text-indigo-900/60 dark:text-zinc-400 hover:text-indigo-700 dark:hover:text-zinc-200 hover:bg-white/50 dark:hover:bg-zinc-800'}`}
 					>
 						<Bell size={18} className="transition-transform duration-300 hover:scale-110" />
 						{unreadCount > 0 && (
@@ -426,13 +458,12 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 						)}
 					</button>
 
-					{/* ПАНЕЛЬ УВЕДОМЛЕНИЙ */}
 					{isNotifOpen && (
-						<div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-[76px] sm:top-[calc(100%+12px)] sm:w-80 bg-white/95 backdrop-blur-3xl rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-slate-100 p-2 z-[70] transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
-							<div className="px-4 py-3 border-b border-slate-100/50 flex justify-between items-center">
-								<h3 className="font-black text-slate-800 text-[14px]">События</h3>
+						<div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-[76px] sm:top-[calc(100%+12px)] sm:w-80 bg-white/95 dark:bg-zinc-950 backdrop-blur-3xl rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.9)] border border-slate-100 dark:border-zinc-800 p-2 z-[70] transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
+							<div className="px-4 py-3 border-b border-slate-100/50 dark:border-zinc-800/50 flex justify-between items-center">
+								<h3 className="font-black text-slate-800 dark:text-zinc-100 text-[14px]">{t('auto.t_210_sobytiya')}</h3>
 								{unreadCount > 0 && (
-									<button onClick={markAllAsRead} className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">Прочитать всё</button>
+									<button onClick={markAllAsRead} className="text-[11px] font-bold text-indigo-600 dark:text-zinc-400 hover:text-indigo-800 dark:hover:text-zinc-300 transition-colors">{t('auto.t_81_prochitat_vse')}</button>
 								)}
 							</div>
 
@@ -454,15 +485,15 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 														setIsNotificationModalOpen(true);
 														setIsNotifOpen(false);
 													}}
-													className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-slate-50'}`}
+													className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50 dark:bg-zinc-800/50 dark:hover:bg-zinc-800' : 'hover:bg-slate-50 dark:hover:bg-zinc-900'}`}
 												>
 													<div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isUnread ? 'bg-indigo-500' : 'bg-transparent'}`}></div>
 													<div className="flex-1">
-														<p className={`text-[12px] leading-tight ${isUnread ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
-															<span className="text-indigo-600 font-bold">{item.title}</span>
+														<p className={`text-[12px] leading-tight ${isUnread ? 'font-bold text-slate-800 dark:text-zinc-100' : 'font-medium text-slate-600 dark:text-zinc-400'}`}>
+															<span className="text-indigo-600 dark:text-indigo-400 font-bold">{item.title}</span>
 														</p>
-														<p className="text-[11px] text-slate-600 mt-1 leading-snug truncate max-w-[200px]">{item.message}</p>
-														<p className="text-[9px] font-bold text-slate-400 mt-1.5">{formatTime(item.created_at)}</p>
+														<p className="text-[11px] text-slate-600 dark:text-zinc-500 mt-1 leading-snug truncate max-w-[200px]">{item.message}</p>
+														<p className="text-[9px] font-bold text-slate-400 dark:text-zinc-600 mt-1.5">{formatTime(item.created_at)}</p>
 													</div>
 												</div>
 											);
@@ -477,21 +508,21 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 													setIsNotificationModalOpen(true);
 													setIsNotifOpen(false);
 												}}
-												className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50' : 'hover:bg-slate-50'}`}
+												className={`p-3 rounded-2xl transition-colors cursor-pointer flex gap-3 items-start ${isUnread ? 'bg-indigo-50/50 hover:bg-indigo-50 dark:bg-zinc-800/50 dark:hover:bg-zinc-800' : 'hover:bg-slate-50 dark:hover:bg-zinc-900'}`}
 											>
 												<div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isUnread ? 'bg-indigo-500' : 'bg-transparent'}`}></div>
 												<div className="flex-1">
-													<p className={`text-[12px] leading-tight ${isUnread ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
-														<span className="text-indigo-600 font-bold">{item.student_detail?.first_name} {item.student_detail?.last_name?.[0]}.</span> получил(а) <span className={isPositive ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>{isPositive ? '+' : ''}{item.rule_detail?.points_impact}</span>
+													<p className={`text-[12px] leading-tight ${isUnread ? 'font-bold text-slate-800 dark:text-zinc-100' : 'font-medium text-slate-600 dark:text-zinc-400'}`}>
+														<span className="text-indigo-600 dark:text-indigo-400 font-bold">{item.student_detail?.first_name} {item.student_detail?.last_name?.[0]}.</span> {t('auto.t_207_poluchil_a')} <span className={isPositive ? 'text-green-600 dark:text-green-400 font-bold' : 'text-red-600 dark:text-red-400 font-bold'}>{isPositive ? '+' : ''}{item.rule_detail?.points_impact}</span>
 													</p>
-													<p className="text-[11px] text-slate-500 mt-1 truncate max-w-[200px]">{item.rule_detail?.title}</p>
-													<p className="text-[9px] font-bold text-slate-400 mt-1.5">{formatTime(item.created_at)}</p>
+													<p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-1 truncate max-w-[200px]">{item.rule_detail?.title}</p>
+													<p className="text-[9px] font-bold text-slate-400 dark:text-zinc-600 mt-1.5">{formatTime(item.created_at)}</p>
 												</div>
 											</div>
 										);
 									})
 								) : (
-									<div className="p-4 text-center text-sm font-medium text-slate-400">Нет новых событий</div>
+									<div className="p-4 text-center text-sm font-medium text-slate-400">{t('auto.t_191_net_novyh_sobytiy')}</div>
 								)}
 							</div>
 						</div>
@@ -502,42 +533,50 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 				<div className="relative" ref={profileRef}>
 					<button
 						onClick={() => setIsProfileOpen(!isProfileOpen)}
-						className={`flex items-center gap-2.5 p-1 pr-3 rounded-xl border backdrop-blur-md transition-all duration-300 hover:shadow-md hover:bg-white/50 hover:-translate-y-0.5 focus:outline-none ${isProfileOpen ? 'bg-white/60 border-white shadow-md ring-2 ring-indigo-500/20' : 'bg-white/30 border-white/50 shadow-sm'}`}
+						className={`flex items-center gap-2.5 p-1 pr-3 rounded-xl border backdrop-blur-md transition-all duration-300 hover:shadow-md hover:bg-white/50 dark:hover:bg-zinc-800/80 hover:-translate-y-0.5 focus:outline-none ${isProfileOpen ? 'bg-white/60 dark:bg-zinc-800 border-white dark:border-zinc-700 shadow-md ring-2 ring-indigo-500/20' : 'bg-white/30 dark:bg-zinc-900/50 border-white/50 dark:border-zinc-800 shadow-sm'}`}
 					>
-						<div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-[12px] border border-white shadow-sm">
+						<div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-zinc-800 flex items-center justify-center text-indigo-600 dark:text-zinc-200 font-bold text-[12px] border border-white dark:border-zinc-700 shadow-sm">
 							{user.initials}
 						</div>
 						<div className="text-left hidden sm:block">
-							<p className="font-bold text-slate-800 text-[12px] leading-none">{user.name}</p>
-							<p className="text-[9px] font-black text-indigo-900/50 uppercase tracking-widest mt-1 leading-none">{roleDisplay}</p>
+							<p className="font-bold text-slate-800 dark:text-zinc-100 text-[12px] leading-none">{user.name}</p>
+							<p className="text-[9px] font-black text-indigo-900/50 dark:text-zinc-500 uppercase tracking-widest mt-1 leading-none">{roleDisplay}</p>
 						</div>
-						<ChevronDown size={14} className={`text-indigo-900/40 ml-0.5 transition-transform duration-300 ${isProfileOpen ? 'rotate-180 text-indigo-600' : ''}`} />
+						<ChevronDown size={14} className={`text-indigo-900/40 dark:text-zinc-600 ml-0.5 transition-transform duration-300 ${isProfileOpen ? 'rotate-180 text-indigo-600 dark:text-zinc-300' : ''}`} />
 					</button>
 
 					{isProfileOpen && (
-						<div className="absolute right-0 top-[calc(100%+12px)] w-56 bg-white/95 backdrop-blur-3xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-100 p-2 z-[70] transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
-							<div className="px-3 py-3 bg-slate-50/80 rounded-2xl mb-2">
-								<p className="text-[13px] font-bold text-slate-900 leading-tight">{user.name}</p>
-								<p className="text-[11px] font-medium text-slate-500 truncate mt-1 leading-none">{user.email || 'Нет email'}</p>
+						<div className="absolute right-0 top-[calc(100%+12px)] w-56 bg-white/95 dark:bg-zinc-950 backdrop-blur-3xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-slate-100 dark:border-zinc-800 p-2 z-[70] transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
+							<div className="px-3 py-3 bg-slate-50/80 dark:bg-zinc-900 rounded-2xl mb-2">
+								<p className="text-[13px] font-bold text-slate-900 dark:text-zinc-100 leading-tight">{user.name}</p>
+								<p className="text-[11px] font-medium text-slate-500 dark:text-zinc-500 truncate mt-1 leading-none">{user.email || t('auto.t_161_net_email')}</p>
 							</div>
 							<div className="space-y-0.5">
-								<a href="#profile" className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] font-bold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all duration-200">
-									<User size={16} className="text-slate-400 group-hover:text-indigo-500 transition-colors" /> Мой профиль
+								<a href="#profile" className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] font-bold text-slate-600 dark:text-zinc-400 hover:bg-indigo-50 dark:hover:bg-zinc-800 hover:text-indigo-600 dark:hover:text-zinc-200 transition-all duration-200">
+									<User size={16} className="text-slate-400 dark:text-zinc-500 group-hover:text-indigo-500 dark:group-hover:text-zinc-300 transition-colors" /> Мой профиль
 								</a>
 								{user.role !== 'student' && (
-									<a href="#settings" className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] font-bold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all duration-200">
-										<Settings size={16} className="text-slate-400 group-hover:text-indigo-500 transition-colors" /> Настройки
+									<a href="#settings" className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] font-bold text-slate-600 dark:text-zinc-400 hover:bg-indigo-50 dark:hover:bg-zinc-800 hover:text-indigo-600 dark:hover:text-zinc-200 transition-all duration-200">
+										<Settings size={16} className="text-slate-400 dark:text-zinc-500 group-hover:text-indigo-500 dark:group-hover:text-zinc-300 transition-colors" /> Настройки
 									</a>
 								)}
 							</div>
 
 							{/* Инлайн кнопки выбора языка (ТОЛЬКО ДЛЯ МОБИЛОК) */}
 							<div className="mt-2 pt-2 border-t border-slate-100 block lg:hidden">
-								<p className="text-[10px] font-bold text-slate-400 px-3 uppercase tracking-widest mt-1 mb-2">Язык интерфейса</p>
+								<p className="text-[10px] font-bold text-slate-400 px-3 uppercase tracking-widest mt-1 mb-2">{t('auto.t_114_yazyk_interfeysa')}</p>
 								<div className="flex gap-2 px-2 pb-1">
 									<button onClick={(e) => { e.stopPropagation(); i18n.changeLanguage('en'); setIsProfileOpen(false); }} className={`flex-1 py-2 rounded-xl text-center text-[12px] font-black tracking-wider transition-colors border ${i18n.language === 'en' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 transform scale-[1.02]' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}`}>EN</button>
 									<button onClick={(e) => { e.stopPropagation(); i18n.changeLanguage('tg'); setIsProfileOpen(false); }} className={`flex-1 py-2 rounded-xl text-center text-[12px] font-black tracking-wider transition-colors border ${i18n.language === 'tg' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 transform scale-[1.02]' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}`}>TJ</button>
 									<button onClick={(e) => { e.stopPropagation(); i18n.changeLanguage('ru'); setIsProfileOpen(false); }} className={`flex-1 py-2 rounded-xl text-center text-[12px] font-black tracking-wider transition-colors border ${i18n.language === 'ru' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 transform scale-[1.02]' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}`}>RU</button>
+								</div>
+								
+								{/* Мобильная смена темы */}
+								<p className="text-[10px] font-bold text-slate-400 px-3 uppercase tracking-widest mt-3 mb-2">Тема</p>
+								<div className="flex gap-2 px-2 pb-1">
+									<button onClick={(e) => { e.stopPropagation(); setTheme('light'); setIsProfileOpen(false); }} className={`flex-1 py-2 rounded-xl flex justify-center text-center text-[12px] font-black tracking-wider transition-colors border ${theme === 'light' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 transform scale-[1.02]' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}`}><Sun size={16}/></button>
+									<button onClick={(e) => { e.stopPropagation(); setTheme('dark'); setIsProfileOpen(false); }} className={`flex-1 py-2 rounded-xl flex justify-center text-center text-[12px] font-black tracking-wider transition-colors border ${theme === 'dark' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 transform scale-[1.02]' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}`}><Moon size={16}/></button>
+									<button onClick={(e) => { e.stopPropagation(); setTheme('system'); setIsProfileOpen(false); }} className={`flex-1 py-2 rounded-xl flex justify-center text-center text-[12px] font-black tracking-wider transition-colors border ${theme === 'system' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 transform scale-[1.02]' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}`}><Monitor size={16}/></button>
 								</div>
 							</div>
 
@@ -560,7 +599,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 							type="text"
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							placeholder="Поиск разделов и учеников..."
+							placeholder={t('auto.t_150_poisk_razdelov_i_uchenikov')}
 							autoFocus
 							className="bg-transparent border-none outline-none ml-3 text-[15px] w-full placeholder-slate-400 text-slate-800 font-bold"
 						/>
@@ -575,7 +614,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 									{/* Разделы */}
 									{navResults.length > 0 && (
 										<div>
-											<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Разделы</p>
+											<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">{t('auto.t_115_razdely')}</p>
 											{navResults.map((nav, idx) => (
 												<button key={`mob-nav-${idx}`} onClick={() => goToPage(nav.link)} className="w-full p-3 bg-slate-50/80 active:bg-indigo-50 rounded-2xl flex items-center gap-3 transition-colors mb-1 text-left">
 													<div className="text-indigo-500">{nav.icon}</div>
@@ -588,7 +627,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 									{/* Ученики */}
 									{studentResults.length > 0 && (
 										<div>
-											<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Ученики</p>
+											<p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">{t('auto.t_89_ucheniki')}</p>
 											{studentResults.map(s => (
 												<div key={s.id} onClick={() => openStudentHistory(s.id)} className="p-3 bg-slate-50/80 active:bg-indigo-50 rounded-2xl flex justify-between items-center transition-colors mb-1 relative">
 													{isLoadingHistory && <div className="absolute inset-0 bg-white/50 backdrop-blur-sm rounded-2xl z-10 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={20} /></div>}
@@ -605,7 +644,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 									)}
 								</div>
 							) : (
-								<div className="p-4 text-center text-[13px] font-bold text-slate-500">Ничего не найдено</div>
+								<div className="p-4 text-center text-[13px] font-bold text-slate-500">{t('auto.t_35_nichego_ne_naydeno')}</div>
 							)}
 						</div>
 					)}
@@ -633,7 +672,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 						</div>
 
 						<div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 mt-2">
-							<h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">История изменений</h4>
+							<h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">{t('auto.t_126_istoriya_izmeneniy')}</h4>
 							{selectedStudentHistory.recent_logs?.length > 0 ? (
 								// eslint-disable-next-line @typescript-eslint/no-explicit-any
 								selectedStudentHistory.recent_logs.map((log: any) => {
@@ -650,7 +689,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 														<button
 															onClick={() => handleDeleteLog(log.id)}
 															className="text-slate-400 hover:text-red-500 transition-colors shrink-0"
-															title="Отменить"
+															title={t('auto.t_215_otmenit')}
 														>
 															<X size={16} />
 														</button>
@@ -669,8 +708,8 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 							) : (
 								<div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
 									<Activity size={32} className="mx-auto text-slate-300 mb-3" />
-									<p className="text-sm font-bold text-slate-500">История пуста</p>
-									<p className="text-xs font-medium text-slate-400 mt-1">Никаких событий не зафиксировано</p>
+									<p className="text-sm font-bold text-slate-500">{t('auto.t_205_istoriya_pusta')}</p>
+									<p className="text-xs font-medium text-slate-400 mt-1">{t('auto.t_108_nikakih_sobytiy_ne_zafiksirovano')}</p>
 								</div>
 							)}
 						</div>
@@ -704,25 +743,25 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 								<div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 font-black text-xl ${selectedNotification.rule_detail?.points_impact > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
 									{selectedNotification.rule_detail?.points_impact > 0 ? '+' : ''}{selectedNotification.rule_detail?.points_impact}
 								</div>
-								<h3 className="text-xl font-black text-slate-800 mb-2">Изменение баллов</h3>
+								<h3 className="text-xl font-black text-slate-800 mb-2">{t('auto.t_56_izmenenie_ballov')}</h3>
 
 								<div className="space-y-3 mb-6 mt-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
 									<div>
-										<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Ученик</p>
+										<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{t('auto.t_14_uchenik')}</p>
 										<p className="text-sm font-bold text-slate-800">{selectedNotification.student_detail?.first_name} {selectedNotification.student_detail?.last_name}</p>
 									</div>
 									<div>
-										<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Правило / Нарушение</p>
+										<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{t('auto.t_106_pravilo_narushenie')}</p>
 										<p className="text-sm font-medium text-slate-700">{selectedNotification.rule_detail?.title}</p>
 									</div>
 									{selectedNotification.description && (
 										<div>
-											<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Комментарий</p>
+											<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{t('auto.t_7_kommentariy')}</p>
 											<p className="text-sm text-slate-600 whitespace-pre-wrap">{selectedNotification.description}</p>
 										</div>
 									)}
 									<div>
-										<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Учитель</p>
+										<p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{t('auto.t_18_uchitel')}</p>
 										<p className="text-sm text-slate-600">{selectedNotification.teacher_name}</p>
 									</div>
 								</div>

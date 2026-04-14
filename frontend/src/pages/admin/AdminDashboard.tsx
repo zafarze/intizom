@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, AlertOctagon, ShieldAlert, Download, Award, Loader2 } from 'lucide-react';
+import { Users, TrendingUp, AlertOctagon, ShieldAlert, Download, Award, Loader2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import StatCard from '../../components/ui/StatCard';
@@ -57,9 +57,14 @@ export default function AdminDashboard() {
 	];
 
 	// --- СОСТОЯНИЯ ---
-	const [stats, setStats] = useState<any>(null); // Храним статистику с бэкенда
-	const [logs, setLogs] = useState<ActionLog[]>([]); // Оставляем логи для таблицы
+	const [stats, setStats] = useState<any>(null);
+	const [logs, setLogs] = useState<ActionLog[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
+
+	// Модальные окна для карточек
+	type ModalType = 'risk' | 'violations' | 'students' | null;
+	const [activeModal, setActiveModal] = useState<ModalType>(null);
+	const [atRiskStudents, setAtRiskStudents] = useState<Student[]>([]);
 
 	// --- СОСТОЯНИЯ ДЛЯ СЛАЙДЕРА ---
 	const [currentSlide, setCurrentSlide] = useState(0);
@@ -95,6 +100,16 @@ export default function AdminDashboard() {
 
 		fetchDashboardData();
 	}, []);
+
+	// Подгружаем учеников в зоне риска при открытии модалки
+	useEffect(() => {
+		if (activeModal === 'risk' && atRiskStudents.length === 0) {
+			api.get('students/?ordering=points&page_size=100').then(res => {
+				const all: Student[] = res.data.results || res.data;
+				setAtRiskStudents(all.filter(s => s.points < 50));
+			});
+		}
+	}, [activeModal]);
 
 	// ==========================================
 	// 3. ВЫЧИСЛЕНИЕ СТАТИСТИКИ (Адаптировано)
@@ -147,8 +162,9 @@ export default function AdminDashboard() {
 		);
 	}
 
-	// --- ОСНОВНОЙ ДИЗАЙН (БЕЗ ИЗМЕНЕНИЙ) ---
+	// --- ОСНОВНОЙ ДИЗАЙН ---
 	return (
+		<>
 		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500">
 
 			{/* Шапка дашборда (Premium Media Slider) */}
@@ -241,6 +257,7 @@ export default function AdminDashboard() {
 					subtitle={t('dashboard.in_database')}
 					icon={<Users size={20} />}
 					color="indigo"
+					onClick={() => setActiveModal('students')}
 				/>
 				<StatCard
 					title={t('dashboard.average_score')}
@@ -257,6 +274,7 @@ export default function AdminDashboard() {
 					subtitle={t('dashboard.all_time')}
 					icon={<AlertOctagon size={20} />}
 					color="orange"
+					onClick={() => setActiveModal('violations')}
 				/>
 				<StatCard
 					title={t('dashboard.risk_exclusion')}
@@ -266,6 +284,7 @@ export default function AdminDashboard() {
 					trendDown={atRiskCount > 0}
 					icon={<ShieldAlert size={20} />}
 					color="red"
+					onClick={() => setActiveModal('risk')}
 				/>
 			</div>
 
@@ -383,5 +402,143 @@ export default function AdminDashboard() {
 				</div>
 			</div>
 		</div>
+
+		{/* ============================================
+		     МОДАЛЬНЫЕ ОКНА ДЛЯ КАРТОЧЕК СТАТИСТИКИ
+		============================================ */}
+		{activeModal && (
+			<div
+				className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+				onClick={() => setActiveModal(null)}
+			>
+				<div
+					className="bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200"
+					onClick={e => e.stopPropagation()}
+				>
+					{/* Шапка */}
+					<div className={`p-6 rounded-t-[2rem] flex items-center justify-between ${
+						activeModal === 'risk' ? 'bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-500/10 dark:to-rose-500/5' :
+						activeModal === 'violations' ? 'bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-500/10 dark:to-amber-500/5' :
+						'bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-500/10 dark:to-blue-500/5'
+					}`}>
+						<div className="flex items-center gap-3">
+							<div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+								activeModal === 'risk' ? 'bg-red-100 dark:bg-red-500/20' :
+								activeModal === 'violations' ? 'bg-orange-100 dark:bg-orange-500/20' :
+								'bg-indigo-100 dark:bg-indigo-500/20'
+							}`}>
+								{activeModal === 'risk' && <ShieldAlert size={20} className="text-red-600 dark:text-red-400" />}
+								{activeModal === 'violations' && <AlertOctagon size={20} className="text-orange-600 dark:text-orange-400" />}
+								{activeModal === 'students' && <Users size={20} className="text-indigo-600 dark:text-indigo-400" />}
+							</div>
+							<div>
+								<h3 className="text-lg font-black text-slate-800 dark:text-zinc-50">
+									{activeModal === 'risk' && 'Ученики в зоне риска'}
+									{activeModal === 'violations' && 'Последние нарушения'}
+									{activeModal === 'students' && 'Все ученики'}
+								</h3>
+								<p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+									{activeModal === 'risk' && `${atRiskStudents.length} учеников с баллами ниже 50`}
+									{activeModal === 'violations' && `${violations.length} нарушений всего`}
+									{activeModal === 'students' && `${totalStudents} в базе данных`}
+								</p>
+							</div>
+						</div>
+						<button
+							onClick={() => setActiveModal(null)}
+							className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 rounded-xl transition-all"
+						>
+							<X size={20} />
+						</button>
+					</div>
+
+					{/* Список */}
+					<div className="overflow-y-auto flex-1 p-4">
+
+						{/* Зона риска */}
+						{activeModal === 'risk' && (
+							atRiskStudents.length === 0 ? (
+								<div className="py-12 text-center">
+									<p className="text-4xl mb-3">🎉</p>
+									<p className="font-black text-slate-700 dark:text-zinc-200">Учеников в зоне риска нет!</p>
+									<p className="text-sm text-slate-400 dark:text-zinc-500 mt-1">Отличная дисциплина по всей школе</p>
+								</div>
+							) : (
+								<div className="flex flex-col gap-2">
+									{atRiskStudents.map(s => {
+										const level = s.points >= 25 ? { label: 'Ниже нормы', color: 'orange' } : { label: 'Критично', color: 'red' };
+										return (
+											<div key={s.id} className="flex items-center gap-3 bg-slate-50 dark:bg-zinc-800/60 border border-slate-100 dark:border-zinc-700/60 rounded-2xl p-4">
+												<div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-500/10 flex items-center justify-center shrink-0 font-black text-red-600 dark:text-red-400 text-sm">
+													{s.first_name[0]}{s.last_name[0]}
+												</div>
+												<div className="flex-1 min-w-0">
+													<p className="font-black text-slate-800 dark:text-zinc-100 text-sm truncate">{s.first_name} {s.last_name}</p>
+													<p className="text-xs text-slate-400 dark:text-zinc-500 font-medium">{s.class_name || '—'}</p>
+												</div>
+												<div className="text-right shrink-0">
+													<p className={`text-lg font-black ${s.points < 25 ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400'}`}>{s.points}</p>
+													<span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+														level.color === 'red'
+															? 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400'
+															: 'bg-orange-100 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400'
+													}`}>{level.label}</span>
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							)
+						)}
+
+						{/* Нарушения */}
+						{activeModal === 'violations' && (
+							violations.length === 0 ? (
+								<div className="py-12 text-center">
+									<p className="text-4xl mb-3">✅</p>
+									<p className="font-black text-slate-700 dark:text-zinc-200">Нарушений нет!</p>
+								</div>
+							) : (
+								<div className="flex flex-col gap-2">
+									{violations.slice(0, 30).map(log => (
+										<div key={log.id} className="flex items-center gap-3 bg-slate-50 dark:bg-zinc-800/60 border border-slate-100 dark:border-zinc-700/60 rounded-2xl p-4">
+											<div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center shrink-0 font-black text-orange-600 dark:text-orange-400 text-sm">
+												{log.student_detail?.first_name?.[0]}{log.student_detail?.last_name?.[0]}
+											</div>
+											<div className="flex-1 min-w-0">
+												<p className="font-black text-slate-800 dark:text-zinc-100 text-sm truncate">
+													{log.student_detail?.first_name} {log.student_detail?.last_name}
+												</p>
+												<p className="text-xs text-slate-400 dark:text-zinc-500 font-medium truncate">{log.rule_detail?.title}</p>
+											</div>
+											<div className="text-right shrink-0">
+												<span className="text-sm font-black text-red-600 dark:text-red-400">{log.rule_detail?.points_impact}</span>
+												<p className="text-[10px] text-slate-400 dark:text-zinc-500">{formatDate(log.created_at)}</p>
+											</div>
+										</div>
+									))}
+								</div>
+							)
+						)}
+
+						{/* Все ученики */}
+						{activeModal === 'students' && (
+							<div className="py-8 text-center">
+								<p className="text-4xl mb-3">👥</p>
+								<p className="font-black text-slate-700 dark:text-zinc-200 text-lg">{totalStudents} учеников</p>
+								<p className="text-sm text-slate-400 dark:text-zinc-500 mt-1">Перейдите в раздел Управление для просмотра</p>
+								<button
+									onClick={() => { setActiveModal(null); navigate('/management'); }}
+									className="mt-4 px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-bold transition-all active:scale-95"
+								>
+									Перейти к Управлению
+								</button>
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
+			</>
 	);
 }

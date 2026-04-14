@@ -114,6 +114,17 @@ export const ChatWidget: React.FC = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Contact context menu
+  const [contactCtxMenu, setContactCtxMenu] = useState<{ contact: Contact; x: number; y: number } | null>(null);
+  const contactLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Emoji picker
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // Message reactions: { msgId: emoji[] }
+  const [reactions, setReactions] = useState<Record<number, string[]>>({});
+  const [reactionPickerMsgId, setReactionPickerMsgId] = useState<number | null>(null);
+
   // Image attachment state
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -527,17 +538,21 @@ export const ChatWidget: React.FC = () => {
     }
   };
 
-  const sendVoiceMessage = async (audioBlob: Blob) => {
+  const sendVoiceMessage = async (audioBlob: Blob, mimeType: string) => {
     if (!activeContact) return;
     const formData = new FormData();
     formData.append('content', '');
-    formData.append('audio_file', audioBlob, 'voice.webm');
+    const ext = mimeType.includes('mp4') || mimeType.includes('m4a') ? 'm4a'
+      : mimeType.includes('ogg') ? 'ogg'
+      : 'webm';
+    formData.append('audio_file', audioBlob, `voice.${ext}`);
     try {
       const res = await api.post(`/chat/messages/${activeContact.id}/`, formData);
       setMessages(prev => [...prev, res.data]);
       fetchContacts();
     } catch (error) {
       console.error('Failed to send voice message', error);
+      toast.error('Ошибка при отправке голосового сообщения');
     }
   };
 
@@ -545,12 +560,22 @@ export const ChatWidget: React.FC = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
-      const mr = new MediaRecorder(stream);
+
+      // Detect the best supported format for this device
+      const mimeType = [
+        'audio/mp4',           // iOS Safari / macOS
+        'audio/webm;codecs=opus', // Chrome / Android
+        'audio/webm',          // Chrome fallback
+        'audio/ogg',           // Firefox
+      ].find(t => MediaRecorder.isTypeSupported(t)) || '';
+
+      const options = mimeType ? { mimeType } : {};
+      const mr = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mr;
       mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       mr.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        sendVoiceMessage(blob);
+        const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
+        sendVoiceMessage(blob, mimeType || 'audio/webm');
         stream.getTracks().forEach(t => t.stop());
       };
       mr.start();
@@ -583,6 +608,62 @@ export const ChatWidget: React.FC = () => {
   };
 
   const formatRecordingTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+
+  // ── Contact context menu ──────────────────────────────────────
+  const handleContactContextMenu = (e: React.MouseEvent | React.TouchEvent, contact: Contact) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    setContactCtxMenu({ contact, x: clientX, y: clientY });
+  };
+
+  const handleContactTouchStart = (e: React.TouchEvent, contact: Contact) => {
+    contactLongPressRef.current = setTimeout(() => {
+      handleContactContextMenu(e, contact);
+    }, 500);
+  };
+
+  const handleContactTouchEnd = () => {
+    if (contactLongPressRef.current) clearTimeout(contactLongPressRef.current);
+  };
+
+  const handleContactDelete = async (contact: Contact) => {
+    if (!window.confirm(`Удалить переписку с ${contact.name}?`)) return;
+    try {
+      await api.delete(`/chat/history/${contact.id}/?for_all=false`);
+      if (activeContact?.id === contact.id) setActiveContact(null);
+      fetchContacts();
+      toast.success('Чат удалён');
+    } catch { toast.error('Ошибка при удалении'); }
+    setContactCtxMenu(null);
+  };
+
+  // ── Emoji ─────────────────────────────────────────────────────
+  const EMOJI_LIST = [
+    '😀','😂','🥰','😍','🤔','😎','😅','🥺',
+    '👍','👎','❤️','🔥','🎉','😢','😡','🤯',
+    '👋','🙏','💪','✅','❌','⭐','💯','🚀',
+    '😏','🤩','😴','🤗','😬','🙄','😤','🫡',
+  ];
+  const QUICK_REACTIONS = ['👍','❤️','😂','😮','😢','🔥'];
+
+  const handleEmojiSelect = (emoji: string) => {
+    setInputText(prev => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const toggleReaction = (msgId: number, emoji: string) => {
+    setReactions(prev => {
+      const current = prev[msgId] || [];
+      const has = current.includes(emoji);
+      return {
+        ...prev,
+        [msgId]: has ? current.filter(e => e !== emoji) : [...current, emoji],
+      };
+    });
+    setReactionPickerMsgId(null);
+  };
 
   const handleEditMessage = (msg: Message) => {
     setEditingMessageId(msg.id);
@@ -925,7 +1006,15 @@ export const ChatWidget: React.FC = () => {
                     </div>
                   ) : (
                     filteredContacts.map(c => (
-                      <div key={c.id} className="contact-item" onClick={() => handleSelectContact(c)}>
+                      <div
+                        key={c.id}
+                        className="contact-item"
+                        onClick={() => { setContactCtxMenu(null); handleSelectContact(c); }}
+                        onContextMenu={(e) => handleContactContextMenu(e, c)}
+                        onTouchStart={(e) => handleContactTouchStart(e, c)}
+                        onTouchEnd={handleContactTouchEnd}
+                        onTouchMove={handleContactTouchEnd}
+                      >
                         <div className="contact-avatar">
                           {c.name.charAt(0).toUpperCase()}
                           {isOnline(c.last_seen) && <div className="contact-online-dot"></div>}
@@ -1043,11 +1132,33 @@ export const ChatWidget: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            <button className="msg-dropdown-btn" onClick={(e) => { e.stopPropagation(); setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id); }}>
+
+                            {/* Реакции */}
+                            {reactions[msg.id] && reactions[msg.id].length > 0 && (
+                              <div className="msg-reactions">
+                                {reactions[msg.id].map(emoji => (
+                                  <button key={emoji} className="reaction-badge" onClick={(e) => { e.stopPropagation(); toggleReaction(msg.id, emoji); }}>
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Быстрый пикер реакций */}
+                            {reactionPickerMsgId === msg.id && (
+                              <div className="quick-reaction-picker" onClick={e => e.stopPropagation()}>
+                                {QUICK_REACTIONS.map(emoji => (
+                                  <button key={emoji} onClick={() => toggleReaction(msg.id, emoji)}>{emoji}</button>
+                                ))}
+                              </div>
+                            )}
+
+                            <button className="msg-dropdown-btn" onClick={(e) => { e.stopPropagation(); setDropdownMessageId(dropdownMessageId === msg.id ? null : msg.id); setReactionPickerMsgId(null); }}>
                               <MoreVertical size={16} />
                             </button>
                             {dropdownMessageId === msg.id && (
                               <div className="msg-dropdown-menu tg-style">
+                                <button onClick={() => { setReactionPickerMsgId(msg.id); setDropdownMessageId(null); }}>&#128578; Реакция</button>
                                 <button onClick={() => handleReplyMessage(msg)}><Reply size={16} /> Ответить</button>
                                 {msg.can_edit && <button onClick={() => handleEditMessage(msg)}><Edit2 size={16} /> Изменить</button>}
                                 <button onClick={() => handlePinMessage(msg)}><Pin size={16} /> {msg.is_pinned ? 'Открепить' : 'Закрепить'}</button>
@@ -1137,29 +1248,71 @@ export const ChatWidget: React.FC = () => {
                     </div>
                   ) : (
                     <form className={`chat-input-area ${(editingMessageId || replyingMessage) ? 'attached-mode' : ''}`} onSubmit={handleSendMessage}>
-                      <div className="attach-dropdown" style={{ position: 'relative' }}>
-                        <button type="button" className="chat-attach-btn" onClick={() => {
-                          const dropdown = document.getElementById('attach-menu');
-                          if (dropdown) dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-                        }}>
-                          <Paperclip size={20} />
+
+                      {/* 😊 Emoji button — LEFT */}
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          className="tg-emoji-btn"
+                          onClick={() => { setShowEmojiPicker(v => !v); }}
+                          title="Эмодзи"
+                        >
+                          😊
                         </button>
-                        <div id="attach-menu" className="msg-dropdown-menu tg-style" style={{ display: 'none', bottom: '100%', top: 'auto', left: 0, right: 'auto', transformOrigin: 'bottom left' }}>
-                          <button type="button" onClick={() => { document.getElementById('attach-menu')!.style.display = 'none'; imageInputRef.current?.click(); }}>Фото/Изображение</button>
-                          <button type="button" onClick={() => { document.getElementById('attach-menu')!.style.display = 'none'; documentInputRef.current?.click(); }}>Документ/Файл</button>
-                        </div>
+                        {showEmojiPicker && (
+                          <div className="emoji-picker-panel" onClick={e => e.stopPropagation()}>
+                            {EMOJI_LIST.map(e => (
+                              <button key={e} type="button" className="emoji-btn" onClick={() => handleEmojiSelect(e)}>{e}</button>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <input type="text" className="chat-input" placeholder="Написать сообщение..." value={inputText} onChange={(e) => {
-                        setInputText(e.target.value);
-                        if (activeContact && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                          wsRef.current.send(JSON.stringify({ action: 'typing', recipient_id: activeContact.id }));
-                        }
-                      }} onPaste={handlePaste} />
-                      {(!inputText.trim() && !selectedImage) ? (
-                        <button type="button" className="chat-mic-btn" onClick={startRecording} disabled={isSending}><Mic size={20} /></button>
+
+                      {/* Text input — CENTER */}
+                      <input
+                        type="text"
+                        className="chat-input tg-input"
+                        placeholder="Сообщение"
+                        value={inputText}
+                        onChange={(e) => {
+                          setInputText(e.target.value);
+                          if (activeContact && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                            wsRef.current.send(JSON.stringify({ action: 'typing', recipient_id: activeContact.id }));
+                          }
+                          setShowEmojiPicker(false);
+                        }}
+                        onPaste={handlePaste}
+                      />
+
+                      {/* 📎 Attach — RIGHT (only when input empty) */}
+                      {(!inputText.trim() && !selectedImage && !selectedDocument) && (
+                        <div className="attach-dropdown tg-attach" style={{ position: 'relative', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            className="tg-attach-icon-btn"
+                            onClick={() => {
+                              const dropdown = document.getElementById('attach-menu');
+                              if (dropdown) dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                              setShowEmojiPicker(false);
+                            }}
+                          >
+                            <Paperclip size={20} />
+                          </button>
+                          <div id="attach-menu" className="msg-dropdown-menu tg-style" style={{ display: 'none', bottom: '100%', top: 'auto', right: 0, left: 'auto', transformOrigin: 'bottom right' }}>
+                            <button type="button" onClick={() => { document.getElementById('attach-menu')!.style.display = 'none'; imageInputRef.current?.click(); }}>Фото/Изображение</button>
+                            <button type="button" onClick={() => { document.getElementById('attach-menu')!.style.display = 'none'; documentInputRef.current?.click(); }}>Документ/Файл</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 🎤 / ➤ — Big blue round button RIGHT */}
+                      {(!inputText.trim() && !selectedImage && !selectedDocument) ? (
+                        <button type="button" className="tg-action-btn tg-mic-btn" onClick={startRecording} disabled={isSending}>
+                          <Mic size={22} />
+                        </button>
                       ) : (
-                        <button type="submit" className={`chat-send-btn ${editingMessageId ? 'edit-btn' : ''}`} disabled={isSending}>
-                          {isSending ? <Loader size={18} className="loader-pulse" /> : editingMessageId ? <CheckCircle2 size={18} /> : <Send size={18} />}
+                        <button type="submit" className={`tg-action-btn tg-send-btn ${editingMessageId ? 'tg-edit-btn' : ''}`} disabled={isSending}>
+                          {isSending ? <Loader size={20} className="loader-pulse" /> : editingMessageId ? <CheckCircle2 size={20} /> : <Send size={20} />}
                         </button>
                       )}
                     </form>
@@ -1454,6 +1607,34 @@ export const ChatWidget: React.FC = () => {
             <X size={24} />
           </button>
           <img src={fullScreenImage} alt="Fullscreen" className="chat-fullscreen-img" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+
+      {/* Contact Context Menu */}
+      {contactCtxMenu && (
+        <div
+          className="contact-ctx-backdrop"
+          onClick={() => setContactCtxMenu(null)}
+        >
+          <div
+            className="contact-ctx-menu"
+            style={{
+              top: Math.min(contactCtxMenu.y, window.innerHeight - 160),
+              left: Math.min(contactCtxMenu.x, window.innerWidth - 180),
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="contact-ctx-name">{contactCtxMenu.contact.name}</div>
+            <button onClick={() => { setContactCtxMenu(null); handleSelectContact(contactCtxMenu.contact); }}>
+              💬 Открыть чат
+            </button>
+            <button onClick={() => handleContactDelete(contactCtxMenu.contact)} style={{ color: '#EF4444' }}>
+              🗑️ Удалить чат
+            </button>
+            <button onClick={() => setContactCtxMenu(null)}>
+              ✕ Закрыть
+            </button>
+          </div>
         </div>
       )}
     </div>

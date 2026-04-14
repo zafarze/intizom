@@ -10,10 +10,10 @@ interface StatCardProps {
 	trendDown?: boolean;
 	icon?: React.ReactNode;
 	color?: 'indigo' | 'purple' | 'red' | 'orange' | 'green';
+	onClick?: () => void;
 }
 
-export default function StatCard({ title, value, subtitle, trend, trendUp, trendDown, icon, color = 'indigo' }: StatCardProps) {
-	// Цветовые схемы для иконок
+export default function StatCard({ title, value, subtitle, trend, trendUp, trendDown, icon, color = 'indigo', onClick }: StatCardProps) {
 	const colorStyles = {
 		indigo: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400',
 		purple: 'bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400',
@@ -23,7 +23,10 @@ export default function StatCard({ title, value, subtitle, trend, trendUp, trend
 	};
 
 	return (
-		<div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-white dark:border-slate-700/60 rounded-[1.5rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 group">
+		<div
+			onClick={onClick}
+			className={`bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-white dark:border-slate-700/60 rounded-[1.5rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 group ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400/40 dark:hover:ring-indigo-500/30 active:scale-[0.98]' : ''}`}
+		>
 			<div className="flex justify-between items-start mb-4">
 				<div>
 					<p className="text-[13px] font-bold text-slate-500 dark:text-slate-400 mb-1">{title}</p>
@@ -38,8 +41,11 @@ export default function StatCard({ title, value, subtitle, trend, trendUp, trend
 
 			<div className="flex items-center gap-2 mt-4">
 				{(trendUp || trendDown) && (
-					<span className={`flex items-center text-[12px] font-bold px-2 py-1 rounded-lg border ${trendUp ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border-green-100 dark:border-green-500/20' : 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20'
-						}`}>
+					<span className={`flex items-center text-[12px] font-bold px-2 py-1 rounded-lg border ${
+						trendUp
+							? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 border-green-100 dark:border-green-500/20'
+							: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20'
+					}`}>
 						{trendUp ? <ArrowUpRight size={14} className="mr-1" /> : <ArrowDownRight size={14} className="mr-1" />}
 						{trend}
 					</span>
@@ -50,6 +56,11 @@ export default function StatCard({ title, value, subtitle, trend, trendUp, trend
 					</span>
 				)}
 				<span className="text-[12px] font-medium text-slate-400 dark:text-slate-500 ml-auto">{subtitle}</span>
+				{onClick && (
+					<span className="text-[11px] font-bold text-indigo-500 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+						Смотреть →
+					</span>
+				)}
 			</div>
 		</div>
 	);

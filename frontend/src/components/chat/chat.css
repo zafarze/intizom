@@ -891,36 +891,143 @@
 }
 
 .chat-input-area {
-  padding: 16px;
+  padding: 8px 12px;
   background: white;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
   border-top: 1px solid rgba(0,0,0,0.05);
   flex-shrink: 0;
 }
 
 .chat-input-area.attached-mode {
   border-top: none;
-  padding-top: 8px;
+  padding-top: 4px;
 }
 
+/* Telegram-style input pill */
 .chat-input {
   flex: 1;
-  border: 1px solid #E5E7EB;
-  border-radius: 20px;
-  padding: 12px 16px;
+  border: none;
+  border-radius: 24px;
+  padding: 11px 14px;
   font-size: 14px;
   outline: none;
-  background: #F9FAFB;
-  transition: border-color 0.2s, background 0.2s;
+  background: transparent;
+  transition: background 0.2s;
+  color: inherit;
+  min-width: 0;
 }
 
-.chat-input:focus {
-  border-color: #7C3AED;
-  background: white;
+.chat-input.tg-input {
+  background: #F3F4F6;
+  border-radius: 22px;
+  padding: 10px 14px;
 }
 
+.chat-input.tg-input:focus {
+  background: #EEEBFF;
+  outline: none;
+}
+
+/* Emoji button — left pill */
+.tg-emoji-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.tg-emoji-btn:hover {
+  background: rgba(124,58,237,0.08);
+  transform: scale(1.1);
+}
+
+/* Paperclip icon — flat */
+.tg-attach-icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #9CA3AF;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.tg-attach-icon-btn:hover {
+  background: rgba(0,0,0,0.05);
+  color: #7C3AED;
+}
+
+/* Big blue round action button (mic / send) */
+.tg-action-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+  color: white;
+}
+
+.tg-mic-btn {
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  box-shadow: 0 4px 14px rgba(59,130,246,0.4);
+}
+
+.tg-mic-btn:hover:not(:disabled) {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(59,130,246,0.55);
+}
+
+.tg-send-btn {
+  background: linear-gradient(135deg, #7C3AED, #4F46E5);
+  box-shadow: 0 4px 14px rgba(124,58,237,0.4);
+  /* Animate in from mic size */
+  animation: tg-btn-pop 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+.tg-send-btn:hover:not(:disabled) {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(124,58,237,0.55);
+}
+
+.tg-edit-btn {
+  background: linear-gradient(135deg, #10B981, #059669) !important;
+  box-shadow: 0 4px 14px rgba(16,185,129,0.4) !important;
+}
+
+.tg-action-btn:disabled {
+  background: #D1D5DB;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+@keyframes tg-btn-pop {
+  from { transform: scale(0.7) rotate(-20deg); opacity: 0.5; }
+  to   { transform: scale(1) rotate(0deg);   opacity: 1; }
+}
+
+/* Old buttons kept for AI chat etc */
 .chat-send-btn {
   background: #7C3AED;
   color: white;
@@ -952,6 +1059,31 @@
   background: #D1D5DB;
   cursor: not-allowed;
 }
+
+/* Dark mode */
+.dark .chat-input-area {
+  background: #18181b;
+  border-color: rgba(255,255,255,0.06);
+}
+
+.dark .chat-input.tg-input {
+  background: #27272a;
+  color: #f4f4f5;
+}
+
+.dark .chat-input.tg-input:focus {
+  background: #3f3f46;
+}
+
+.dark .tg-attach-icon-btn {
+  color: #71717a;
+}
+
+.dark .tg-attach-icon-btn:hover {
+  background: rgba(255,255,255,0.06);
+  color: #a78bfa;
+}
+
 
 /* Loading state */
 .chat-loader {
@@ -1478,4 +1610,172 @@
   border-radius: 8px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.5);
   cursor: default;
+}
+
+/* ── Contact Context Menu ─────────────────────────────────── */
+.contact-ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0,0,0,0.25);
+  backdrop-filter: blur(2px);
+}
+
+.contact-ctx-menu {
+  position: fixed;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  min-width: 180px;
+  overflow: hidden;
+  animation: slide-up 0.15s ease-out;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.contact-ctx-name {
+  padding: 12px 16px 8px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #111827;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.contact-ctx-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 16px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.contact-ctx-menu button:hover {
+  background: #F3F4F6;
+}
+
+/* ── Emoji Picker ─────────────────────────────────────────── */
+.emoji-picker-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  border: 1px solid rgba(0,0,0,0.06);
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 10px;
+  z-index: 200;
+  width: 260px;
+  animation: slide-up 0.15s ease-out;
+}
+
+.emoji-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  padding: 4px;
+  border-radius: 8px;
+  transition: background 0.15s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji-btn:hover {
+  background: rgba(124,58,237,0.08);
+  transform: scale(1.2);
+}
+
+/* ── Message Reactions ────────────────────────────────────── */
+.msg-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.reaction-badge {
+  background: rgba(124,58,237,0.08);
+  border: 1px solid rgba(124,58,237,0.15);
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.reaction-badge:hover {
+  background: rgba(124,58,237,0.15);
+  transform: scale(1.1);
+}
+
+.quick-reaction-picker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border-radius: 30px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  border: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  gap: 2px;
+  padding: 6px 10px;
+  z-index: 200;
+  animation: slide-up 0.15s ease-out;
+}
+
+.quick-reaction-picker button {
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.quick-reaction-picker button:hover {
+  background: rgba(0,0,0,0.06);
+  transform: scale(1.3);
+}
+
+/* Dark mode overrides */
+.dark .contact-ctx-menu,
+.dark .emoji-picker-panel,
+.dark .quick-reaction-picker {
+  background: #1e1e2e;
+  border-color: rgba(255,255,255,0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.dark .contact-ctx-name {
+  color: #f4f4f5;
+  border-color: rgba(255,255,255,0.06);
+}
+
+.dark .contact-ctx-menu button {
+  color: #d4d4d8;
+}
+
+.dark .contact-ctx-menu button:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.dark .reaction-badge {
+  background: rgba(139,92,246,0.15);
+  border-color: rgba(139,92,246,0.25);
 }

@@ -28,10 +28,11 @@ interface ActionLog {
 	rule_detail: Rule;
 	created_at: string;
 	teacher_id: number;
+	teacher_name?: string;
 }
 
 export default function TeacherDashboard() {
-  const { t } = useTranslation();
+	const { t } = useTranslation();
 
 	// Метаданные для UI (цвета и иконки для категорий)
 	const CATEGORY_UI_CONFIG: Record<string, any> = {
@@ -60,6 +61,12 @@ export default function TeacherDashboard() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [successMessage, setSuccessMessage] = useState('');
 	const [showMobileHistory, setShowMobileHistory] = useState(false);
+
+	const [deleteModalInfo, setDeleteModalInfo] = useState<{ isOpen: boolean; logId: number | null; error: string | null }>({
+		isOpen: false,
+		logId: null,
+		error: null
+	});
 
 	const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -169,13 +176,34 @@ export default function TeacherDashboard() {
 	// ==========================================
 	// 4. ОТМЕНА ОЦЕНКИ (DELETE LOG)
 	// ==========================================
-	const handleDeleteLog = async (logId: number) => {
-		if (!window.confirm(t('auto.t_144_vy_uvereny_chto_hotite'))) return;
+	const handleDeleteLogClick = (log: ActionLog) => {
+		if (log.teacher_id !== user.id) {
+			setDeleteModalInfo({
+				isOpen: true,
+				logId: null,
+				error: 'У вас нет прав для удаления этой оценки, так как она была выставлена другим учителем.'
+			});
+		} else {
+			setDeleteModalInfo({
+				isOpen: true,
+				logId: log.id,
+				error: null
+			});
+		}
+	};
+
+	const confirmDeleteLog = async () => {
+		if (!deleteModalInfo.logId) {
+			setDeleteModalInfo({ isOpen: false, logId: null, error: null });
+			return;
+		}
 
 		try {
-			await api.delete(`logs/${logId}/`);
+			await api.delete(`logs/${deleteModalInfo.logId}/`);
 			setSuccessMessage(t('auto.t_177_deystvie_uspeshno_otmeneno'));
 			await fetchData(); // Обновляем списки
+
+			setDeleteModalInfo({ isOpen: false, logId: null, error: null });
 
 			setTimeout(() => {
 				setSuccessMessage('');
@@ -183,6 +211,7 @@ export default function TeacherDashboard() {
 		} catch (error) {
 			console.error(t('auto.t_76_oshibka_pri_udalenii'), error);
 			alert(t('auto.t_82_proizoshla_oshibka_pri_otmene'));
+			setDeleteModalInfo({ isOpen: false, logId: null, error: null });
 		}
 	};
 
@@ -538,7 +567,7 @@ export default function TeacherDashboard() {
 													{isPositive ? '+' : ''}{log.rule_detail.points_impact}
 												</span>
 												<button
-													onClick={() => handleDeleteLog(log.id)}
+													onClick={() => handleDeleteLogClick(log)}
 													className="text-slate-400 hover:text-red-500 transition-colors"
 													title={t('auto.t_215_otmenit')}
 												>
@@ -547,9 +576,14 @@ export default function TeacherDashboard() {
 											</div>
 										</div>
 										<p className="text-[11px] font-medium text-slate-500 mb-2">{log.rule_detail.title}</p>
-										<p className="text-[9px] font-bold text-slate-400 uppercase">
-											{new Date(log.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-										</p>
+										<div className="flex justify-between items-center">
+											<p className="text-[9px] font-bold text-slate-400 uppercase">
+												{new Date(log.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+											</p>
+											<p className="text-[10px] font-bold text-indigo-400/80 bg-indigo-50/50 px-2 py-0.5 rounded-md">
+												{log.teacher_name || 'Неизвестно'}
+											</p>
+										</div>
 									</div>
 								);
 							})
@@ -562,6 +596,58 @@ export default function TeacherDashboard() {
 				</div>
 
 			</div>
+
+			{/* МОДАЛЬНОЕ ОКНО УДАЛЕНИЯ ОЦЕНКИ */}
+			{deleteModalInfo.isOpen && (
+				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+					<div
+						className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+						onClick={() => setDeleteModalInfo({ isOpen: false, logId: null, error: null })}
+					></div>
+
+					<div className="relative w-full max-w-sm bg-white rounded-[2rem] shadow-2xl p-6 animate-in zoom-in-95 duration-300">
+						{deleteModalInfo.error ? (
+							<div className="text-center">
+								<div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4 text-red-500">
+									<XCircle size={32} />
+								</div>
+								<h3 className="text-xl font-black text-slate-800 mb-2">Отказано в доступе</h3>
+								<p className="text-slate-500 font-medium mb-6">{deleteModalInfo.error}</p>
+								<button
+									onClick={() => setDeleteModalInfo({ isOpen: false, logId: null, error: null })}
+									className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+								>
+									Понятно
+								</button>
+							</div>
+						) : (
+							<div className="text-center">
+								<div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4 text-orange-500">
+									<XCircle size={32} />
+								</div>
+								<h3 className="text-xl font-black text-slate-800 mb-2">Отмена действия</h3>
+								<p className="text-slate-500 font-medium mb-6">
+									Вы уверены, что хотите отменить это действие? Баллы будут пересчитаны.
+								</p>
+								<div className="flex gap-3">
+									<button
+										onClick={() => setDeleteModalInfo({ isOpen: false, logId: null, error: null })}
+										className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+									>
+										Назад
+									</button>
+									<button
+										onClick={confirmDeleteLog}
+										className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors shadow-lg shadow-red-500/30"
+									>
+										Отменить
+									</button>
+								</div>
+							</div>
+						)}
+					</div>
+				</div>
+			)}
 
 			{/* МОДАЛЬНОЕ ОКНО ИСТОРИИ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ */}
 			{showMobileHistory && (
@@ -606,7 +692,7 @@ export default function TeacherDashboard() {
 														{isPositive ? '+' : ''}{log.rule_detail.points_impact}
 													</span>
 													<button
-														onClick={() => handleDeleteLog(log.id)}
+														onClick={() => handleDeleteLogClick(log)}
 														className="text-slate-400 hover:text-red-500 transition-colors"
 														title={t('auto.t_215_otmenit')}
 													>
@@ -615,9 +701,14 @@ export default function TeacherDashboard() {
 												</div>
 											</div>
 											<p className="text-[12px] font-medium text-slate-500 mb-2">{log.rule_detail.title}</p>
-											<p className="text-[10px] font-bold text-slate-400 uppercase">
-												{new Date(log.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-											</p>
+											<div className="flex justify-between items-center">
+												<p className="text-[10px] font-bold text-slate-400 uppercase">
+													{new Date(log.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+												</p>
+												<p className="text-[11px] font-bold text-indigo-400/80 bg-indigo-50/50 px-2 py-0.5 rounded-md">
+													{log.teacher_name || 'Неизвестно'}
+												</p>
+											</div>
 										</div>
 									);
 								})

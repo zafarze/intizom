@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { PieChart, BarChart3, TrendingUp, Award, Loader2, ShieldAlert, TrendingDown, Activity, X } from 'lucide-react';
 import api from '../../api/axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -39,7 +40,7 @@ interface LogModalData {
 }
 
 export default function Statistics() {
-  const { t } = useTranslation();
+	const { t } = useTranslation();
 
 	const [stats, setStats] = useState<StatisticsData | null>(null);
 	const [modalData, setModalData] = useState<LogModalData>({ isOpen: false, title: '', type: 'category', filterValue: '' });
@@ -123,8 +124,8 @@ export default function Statistics() {
 	return (
 		<div className="space-y-6 max-w-7xl mx-auto pb-8 animate-in fade-in duration-500 relative">
 			{/* МОДАЛЬНОЕ ОКНО */}
-			{modalData.isOpen && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+			{modalData.isOpen && createPortal(
+				<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
 					<div className="absolute inset-0 bg-slate-900/60 dark:bg-zinc-950/80 backdrop-blur-sm" onClick={() => setModalData({ ...modalData, isOpen: false })}></div>
 					<div className="relative bg-white dark:bg-zinc-950 border dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
 						<div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-zinc-800">
@@ -150,12 +151,15 @@ export default function Statistics() {
 									{modalData.type === 'category' ? (
 										// Рендер логов нарушений
 										// eslint-disable-next-line @typescript-eslint/no-explicit-any
-										modalLogs.map((log: any) => (
+										modalLogs.map((log: any, idx: number) => (
 											<div key={log.id} className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm flex items-center justify-between gap-4">
-												<div>
-													<p className="font-bold text-slate-800 dark:text-zinc-100">{log.student_detail?.first_name} {log.student_detail?.last_name} <span className="text-slate-400 dark:text-zinc-500 font-normal text-sm ml-2">{log.student_detail?.class_name}</span></p>
-													<p className="text-sm text-slate-600 dark:text-zinc-400 mt-1">{log.rule_detail?.title || t('auto.t_197_narushenie')}</p>
-													<p className="text-xs text-slate-400 dark:text-zinc-500 mt-1">{new Date(log.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} • {t('stats.teacher')}: {log.teacher_name || t('stats.unknown')}</p>
+												<div className="flex gap-3">
+													<span className="font-bold text-slate-400 dark:text-zinc-500 mt-0.5">{idx + 1}.</span>
+													<div>
+														<p className="font-bold text-slate-800 dark:text-zinc-100">{log.student_detail?.first_name} {log.student_detail?.last_name} <span className="text-slate-400 dark:text-zinc-500 font-normal text-sm ml-2">{log.student_detail?.class_name}</span></p>
+														<p className="text-sm text-slate-600 dark:text-zinc-400 mt-1">{log.rule_detail?.title || t('auto.t_197_narushenie')}</p>
+														<p className="text-xs text-slate-400 dark:text-zinc-500 mt-1">{new Date(log.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} • {t('stats.teacher')}: {log.teacher_name || t('stats.unknown')}</p>
+													</div>
 												</div>
 												<div className="font-black text-red-500 bg-red-50 dark:bg-rose-500/10 dark:text-rose-400 px-3 py-1.5 rounded-lg shrink-0 border dark:border-rose-500/20">
 													{log.rule_detail?.points_impact} {t('stats.points_short')}
@@ -165,11 +169,14 @@ export default function Statistics() {
 									) : (
 										// Рендер студентов
 										// eslint-disable-next-line @typescript-eslint/no-explicit-any
-										modalLogs.map((student: any) => (
+										modalLogs.map((student: any, idx: number) => (
 											<div key={student.id} className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm flex items-center justify-between gap-4">
-												<div>
-													<p className="font-bold text-slate-800 dark:text-zinc-100">{student.first_name} {student.last_name}</p>
-													<p className="text-sm text-slate-500 dark:text-zinc-400">{student.school_class?.name || student.class_name || t('stats.class_not_specified')}</p>
+												<div className="flex gap-3 items-center">
+													<span className="font-bold text-slate-400 dark:text-zinc-500">{idx + 1}.</span>
+													<div>
+														<p className="font-bold text-slate-800 dark:text-zinc-100">{student.first_name} {student.last_name}</p>
+														<p className="text-sm text-slate-500 dark:text-zinc-400">{student.school_class?.name || student.class_name || t('stats.class_not_specified')}</p>
+													</div>
 												</div>
 												<div className={`font-black px-3 py-1.5 rounded-lg shrink-0 border ${student.points >= 90 ? 'text-green-600 bg-green-50 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :
 													student.points >= 70 ? 'text-yellow-600 bg-yellow-50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20' :
@@ -185,7 +192,8 @@ export default function Statistics() {
 							)}
 						</div>
 					</div>
-				</div>
+				</div>,
+				document.body
 			)}
 
 			{/* ШАПКА */}

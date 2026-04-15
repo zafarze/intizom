@@ -56,8 +56,8 @@ class DashboardStatsView(APIView):
         avg_score_dict = Student.objects.aggregate(avg=Avg('points'))
         avg_score = avg_score_dict['avg'] or 100
         
-        # Сколько учеников в зоне риска (< 45 баллов)
-        at_risk_count = Student.objects.filter(points__lt=45).count()
+        # Сколько учеников в зоне риска (< 25 баллов)
+        at_risk_count = Student.objects.filter(points__lt=25).count()
 
         # 2. Рейтинг классов (Топ-5 лучших)
         # Django сам сгруппирует учеников по классам и посчитает средний балл

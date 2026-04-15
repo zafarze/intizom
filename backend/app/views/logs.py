@@ -11,6 +11,7 @@ from django.db.models import Q
 class ActionLogViewSet(viewsets.ModelViewSet):
     """API для журнала активности (кто кому поставил минус/плюс)"""
     
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
     # 👇 ДОБАВИЛИ ЭТУ СТРОКУ (Она нужна Роутеру для генерации ссылок)
     queryset = ActionLog.objects.all() 
     
@@ -38,6 +39,12 @@ class ActionLogViewSet(viewsets.ModelViewSet):
             
         # Ученик: видит только свои логи
         return qs.filter(student__user=user)
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        if not user.is_superuser and instance.teacher != user:
+            raise ValidationError({"detail": "Шумо наметавонед баҳои мондаи дигар омӯзгорро нест кунед."})
+        instance.delete()
 
     def perform_create(self, serializer):
         # 1. Проверяем правило: один минус по одному правилу в день (если это нарушение)

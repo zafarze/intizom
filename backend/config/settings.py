@@ -174,6 +174,21 @@ else:
         }
     }
 
+# --- Кеш (Redis в проде, LocMem в локальной разработке) ---
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+
 # --- НАСТРОЙКИ ДЛЯ GOOGLE CLOUD RUN ---
 CSRF_TRUSTED_ORIGINS = ['https://intizom-backend-776689431155.europe-west3.run.app']
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

@@ -237,11 +237,11 @@ class StudentViewSet(viewsets.ModelViewSet):
                 if not student.user:
                     username, password = create_user_for_student(student)
                 else:
-                    # Иначе просто сбрасываем пароль
-                    password = generate_random_password()
+                    # Иначе сбрасываем пароль на рандомный
+                    username = student.user.username
+                    password = generate_random_password(8)
                     student.user.set_password(password)
                     student.user.save()
-                    username = student.user.username
 
                 generated_accounts.append({
                     "id": student.id,

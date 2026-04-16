@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
-import { Search, ChevronLeft, ChevronRight, Plus, FileUp, Filter, X, AlertCircle, Key, Download, FileText, Eye, Activity, Loader2 } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Plus, FileUp, Filter, X, AlertCircle, Key, Download, FileText, Eye, Activity, Loader2, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import api from '../../../api/axios';
@@ -64,11 +64,53 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 		}, 50);
 	};
 
-	// 👇 ДОБАВИЛИ new_username И new_password В ФОРМУ
+	// 👇 ДОБАВИЛИ new_username И new_password В ФОРМУ, а также мультиязычные поля
 	const [formData, setFormData] = useState({
-		first_name: '', last_name: '', school_class: '',
-		new_username: '', new_password: ''
+		first_name_ru: '', first_name_tg: '', first_name_en: '',
+		last_name_ru: '', last_name_tg: '', last_name_en: '',
+		school_class: '', new_username: '', new_password: ''
 	});
+	const [activeLang, setActiveLang] = useState<'ru' | 'tg' | 'en'>('ru');
+	const [isTranslating, setIsTranslating] = useState(false);
+
+	const handleAITranslate = async () => {
+		const currentFirstName = formData[('first_name_' + activeLang) as keyof typeof formData];
+		const currentLastName = formData[('last_name_' + activeLang) as keyof typeof formData];
+		if (!currentFirstName && !currentLastName) return;
+
+		setIsTranslating(true);
+		try {
+			// Переводим Имя
+			if (currentFirstName) {
+				const resFirst = await api.post('ai/translate/', { text: currentFirstName, source_lang: activeLang });
+				if (resFirst.data) {
+					setFormData(prev => ({
+						...prev,
+						first_name_ru: resFirst.data.ru || prev.first_name_ru,
+						first_name_tg: resFirst.data.tg || prev.first_name_tg,
+						first_name_en: resFirst.data.en || prev.first_name_en,
+					}));
+				}
+			}
+			// Переводим Фамилию
+			if (currentLastName) {
+				const resLast = await api.post('ai/translate/', { text: currentLastName, source_lang: activeLang });
+				if (resLast.data) {
+					setFormData(prev => ({
+						...prev,
+						last_name_ru: resLast.data.ru || prev.last_name_ru,
+						last_name_tg: resLast.data.tg || prev.last_name_tg,
+						last_name_en: resLast.data.en || prev.last_name_en,
+					}));
+				}
+			}
+		} catch (error) {
+			console.error(t('auto.t_130_oshibka_perevoda'), error);
+			toast.error(t('mgmt.t_8'));
+		} finally {
+			setIsTranslating(false);
+		}
+	};
 
 	// Состояния для генерации аккаунтов
 	const [isGenerating, setIsGenerating] = useState(false);
@@ -85,6 +127,8 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 				setGeneratedAccounts(res.data.accounts);
 				toast.success(res.data.detail);
 				refresh();
+				// Автоматически скачиваем PDF после генерации
+				_autoPrintAccountsPDF(res.data.accounts);
 			} else {
 				toast.success(res.data.detail || t('mgmt.t_10'));
 			}
@@ -93,6 +137,69 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 		} finally {
 			setIsGenerating(false);
 		}
+	};
+
+	const _buildAccountsPDF = (accounts: any[]) => {
+		const now = new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+		return `
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Intizom — Доступы учеников</title>
+	<style>
+		@page { margin: 15mm; }
+		body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; }
+		.header { text-align: center; margin-bottom: 24px; }
+		.header .logo { font-size: 28px; font-weight: 900; color: #4f46e5; letter-spacing: -1px; }
+		.header .subtitle { color: #64748b; font-size: 14px; margin-top: 4px; }
+		.header .date { color: #94a3b8; font-size: 12px; margin-top: 2px; }
+		table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 16px; }
+		th { background: #4f46e5; color: #fff; padding: 10px 14px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+		td { border-bottom: 1px solid #e2e8f0; padding: 10px 14px; }
+		tr:nth-child(even) td { background: #f8fafc; }
+		.num { color: #94a3b8; font-weight: bold; text-align: center; width: 36px; }
+		.name { font-weight: 700; color: #1e293b; }
+		.cls { color: #64748b; font-weight: 600; }
+		.login { font-family: monospace; font-weight: 700; color: #4f46e5; font-size: 14px; }
+		.password { font-family: monospace; font-weight: 900; color: #dc2626; font-size: 15px; }
+		.footer { margin-top: 28px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+	</style>
+</head>
+<body>
+	<div class="header">
+		<div class="logo">🎓 Intizom</div>
+		<div class="subtitle">Доступы учеников — Логины и пароли (${accounts.length} аккаунтов)</div>
+		<div class="date">Сгенерировано: ${now}</div>
+	</div>
+	<table>
+		<thead>
+			<tr>
+				<th class="num">№</th>
+				<th>ФИО ученика</th>
+				<th>Класс</th>
+				<th>Логин</th>
+				<th>Пароль</th>
+			</tr>
+		</thead>
+		<tbody>
+			${accounts.map((acc: any, idx: number) => `
+			<tr>
+				<td class="num">${idx + 1}</td>
+				<td class="name">${acc.first_name} ${acc.last_name}</td>
+				<td class="cls">${acc.class_name || '—'}</td>
+				<td class="login">${acc.username}</td>
+				<td class="password">${acc.password}</td>
+			</tr>`).join('')}
+		</tbody>
+	</table>
+	<div class="footer">Распечатано из системы управления школой Intizom · Храните в надёжном месте</div>
+</body>
+</html>`;
+	};
+
+	const _autoPrintAccountsPDF = (accounts: any[]) => {
+		printHtml(_buildAccountsPDF(accounts));
 	};
 
 	const downloadPasswordsExcel = () => {
@@ -108,49 +215,24 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 		toast.success(t('auto.t_16_excel_fayl_uspeshno_skachan'));
 	};
 
-	// 👇 НОВАЯ ФУНКЦИЯ: ИДЕАЛЬНЫЙ ЭКСПОРТ В PDF (С поддержкой любых шрифтов)
 	const downloadPasswordsPDF = () => {
 		if (!generatedAccounts) return;
-
-		const html = `
-			<html>
-			<head>
-				<title>{t('auto.t_69_dostupy_uchenikov_intizom')}</title>
-				<style>
-					body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #333; }
-					h2 { text-align: center; color: #4f46e5; margin-bottom: 30px; }
-					table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
-					th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
-					th { background-color: #f8fafc; color: #64748b; font-weight: bold; text-transform: uppercase; font-size: 12px;}
-					td.mono { font-family: monospace; font-weight: bold; font-size: 15px; color: #4f46e5; }
-					.footer { margin-top: 30px; text-align: center; font-size: 12px; color: #94a3b8; }
-				</style>
-			</head>
-			<body>
-				<h2>{t('auto.t_137_sistema_intizom_dostupy_uchenikov')}</h2>
-				<table>
-					<tr><th>{t('auto.t_29_fio_uchenika')}</th><th>{t('auto.t_10_klass')}</th><th>{t('auto.t_98_login')}</th><th>{t('auto.t_195_parol')}</th></tr>
-					${generatedAccounts.map(acc => `
-						<tr>
-							<td>${acc.first_name} ${acc.last_name}</td>
-							<td>${acc.class_name || '—'}</td>
-							<td class="mono">${acc.username}</td>
-							<td class="mono" style="color: #000;">${acc.password}</td>
-						</tr>
-					`).join('')}
-				</table>
-				<div class="footer">{t('auto.t_78_raspechatano_iz_sistemy_upravleniya')}</div>
-			</body>
-			</html>
-		`;
-		printHtml(html);
+		printHtml(_buildAccountsPDF(generatedAccounts));
 	};
 
 	// ИМПОРТ EXCEL
 	const downloadTemplate = () => {
 		const wsData = [
-			{ [t('auto.t_172_imya')]: t('auto.t_168_ivan'), [t('auto.t_131_familiya')]: t('auto.t_181_ivanov'), [t('auto.t_10_klass')]: t('auto.t_209_10a') },
-			{ [t('auto.t_172_imya')]: t('auto.t_54_anna'), [t('auto.t_131_familiya')]: t('auto.t_111_smirnova'), [t('auto.t_10_klass')]: t('auto.t_209_10a') }
+			{ 
+				'Имя (RU)': 'Иван', 'Имя (TG)': 'Иван', 'Имя (EN)': 'Ivan',
+				'Фамилия (RU)': 'Иванов', 'Фамилия (TG)': 'Иванов', 'Фамилия (EN)': 'Ivanov',
+				[t('auto.t_10_klass')]: t('auto.t_209_10a') 
+			},
+			{ 
+				'Имя (RU)': 'Анна', 'Имя (TG)': 'Анна', 'Имя (EN)': 'Anna',
+				'Фамилия (RU)': 'Смирнова', 'Фамилия (TG)': 'Смирнова', 'Фамилия (EN)': 'Smirnova',
+				[t('auto.t_10_klass')]: t('auto.t_209_10a') 
+			}
 		];
 		const ws = XLSX.utils.json_to_sheet(wsData);
 		const wb = XLSX.utils.book_new();
@@ -173,10 +255,16 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 				const wb = XLSX.read(evt.target?.result, { type: 'binary' });
 				const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
 				const formattedData = data.map((row: any) => ({
-					first_name: row[t('auto.t_172_imya')] || row['first_name'] || '',
-					last_name: row[t('auto.t_131_familiya')] || row['last_name'] || '',
+					first_name_ru: row['Имя (RU)'] || row[t('auto.t_172_imya')] || row['first_name'] || '',
+					first_name_tg: row['Имя (TG)'] || row['first_name_tg'] || '',
+					first_name_en: row['Имя (EN)'] || row['first_name_en'] || '',
+					last_name_ru: row['Фамилия (RU)'] || row[t('auto.t_131_familiya')] || row['last_name'] || '',
+					last_name_tg: row['Фамилия (TG)'] || row['last_name_tg'] || '',
+					last_name_en: row['Фамилия (EN)'] || row['last_name_en'] || '',
+					first_name: row['Имя (RU)'] || row[t('auto.t_172_imya')] || row['first_name'] || '', // fallback
+					last_name: row['Фамилия (RU)'] || row[t('auto.t_131_familiya')] || row['last_name'] || '', // fallback
 					class_name: String(row[t('auto.t_10_klass')] || row['class_name'] || '').trim()
-				})).filter(item => item.first_name && item.last_name);
+				})).filter(item => item.first_name_ru && item.last_name_ru);
 
 				if (formattedData.length === 0) { toast.error(t('mgmt.t_14')); return; }
 				toast.loading(`Загружаем ${formattedData.length} учеников...`, { id: 'import' });
@@ -276,55 +364,7 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 				try {
 					setIsSubmitting(true);
 					const res = await api.post('students/bulk_reset_passwords/', { student_ids: selectedStudents });
-					
-					const html = `
-						<html>
-						<head>
-							<title>{t('auto.t_222_sbroshennye_dostupy_uchenikov_intizom')}</title>
-							<style>
-								@page { margin: 15mm; }
-								body { font-family: 'Segoe UI', Arial, sans-serif; color: #333; }
-								h2 { text-align: center; color: #4f46e5; margin-bottom: 20px; font-size: 24px; }
-								.subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 30px; }
-								table { width: 100%; border-collapse: collapse; font-size: 14px; }
-								th, td { border: 1px solid #e2e8f0; padding: 10px 12px; text-align: left; }
-								th { background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; font-size: 12px;}
-								td.mono { font-family: monospace; font-weight: bold; font-size: 16px; color: #4f46e5; }
-								.footer { margin-top: 30px; text-align: center; font-size: 12px; color: #94a3b8; }
-								.highlight { color: #dc2626; font-weight: bold; }
-							</style>
-						</head>
-						<body>
-							<h2>{t('auto.t_0_sistema_intizom')}</h2>
-							<div class="subtitle">Новые доступы для входа в кабинет учеников (${res.data.accounts.length} шт.)</div>
-							<table>
-								<thead>
-									<tr>
-										<th style="width: 40px; text-align: center;">№</th>
-										<th>{t('auto.t_29_fio_uchenika')}</th>
-										<th style="width: 80px;">{t('auto.t_10_klass')}</th>
-										<th>{t('auto.t_98_login')}</th>
-										<th>{t('auto.t_184_novyy_parol')}</th>
-									</tr>
-								</thead>
-								<tbody>
-									${res.data.accounts.map((acc: any, idx: number) => `
-										<tr>
-											<td style="text-align: center; color: #94a3b8;">${idx + 1}</td>
-											<td style="font-weight: bold;">${acc.first_name} ${acc.last_name}</td>
-											<td style="font-weight: bold; color: #64748b;">${acc.class_name || '—'}</td>
-											<td class="mono">${acc.username}</td>
-											<td class="mono highlight">${acc.password}</td>
-										</tr>
-									`).join('')}
-								</tbody>
-							</table>
-							<div class="footer">{t('auto.t_216_raspechatano_administratorom_shkoly_hranite')}</div>
-						</body>
-						</html>
-					`;
-					printHtml(html);
-
+					printHtml(_buildAccountsPDF(res.data.accounts));
 					toast.success(res.data.detail);
 					setSelectedStudents([]); refresh();
 				} catch (err) { toast.error(t('auto.t_80_oshibka_pri_generatsii_paroley')); }
@@ -388,8 +428,14 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 
 		// Отфильтруем пустые поля логина/пароля, чтобы не сломать бэкенд
 		const payload: any = {
-			first_name: formData.first_name,
-			last_name: formData.last_name,
+			first_name_ru: formData.first_name_ru,
+			first_name_tg: formData.first_name_tg,
+			first_name_en: formData.first_name_en,
+			last_name_ru: formData.last_name_ru,
+			last_name_tg: formData.last_name_tg,
+			last_name_en: formData.last_name_en,
+			first_name: formData.first_name_ru || formData.first_name_en || formData.first_name_tg, // Фолбэк
+			last_name: formData.last_name_ru || formData.last_name_en || formData.last_name_tg, // Фолбэк
 			school_class: formData.school_class
 		};
 		if (formData.new_username) payload.new_username = formData.new_username;
@@ -408,9 +454,25 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 	const openModal = (item?: any) => {
 		setEditingId(item ? item.id : null); setError('');
 		setFormData(item
-			? { first_name: item.first_name, last_name: item.last_name, school_class: item.school_class, new_username: item.username || '', new_password: '' }
-			: { first_name: '', last_name: '', school_class: '', new_username: '', new_password: '' }
+			? { 
+				first_name_ru: item.first_name_ru || item.first_name || '', 
+				first_name_tg: item.first_name_tg || '', 
+				first_name_en: item.first_name_en || '', 
+				last_name_ru: item.last_name_ru || item.last_name || '', 
+				last_name_tg: item.last_name_tg || '', 
+				last_name_en: item.last_name_en || '', 
+				school_class: item.school_class, 
+				new_username: item.username || '', 
+				new_password: '' 
+			}
+			: { 
+				first_name_ru: '', first_name_tg: '', first_name_en: '', 
+				last_name_ru: '', last_name_tg: '', last_name_en: '', 
+				school_class: '', 
+				new_username: '', new_password: '' 
+			}
 		);
+		setActiveLang('ru');
 		setIsModalOpen(true);
 	};
 
@@ -675,9 +737,43 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 						{error && (<div className="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-bold flex items-center gap-2"><AlertCircle size={16} /> {error}</div>)}
 
 						<form onSubmit={handleSubmit} className="space-y-3">
-							<input placeholder={t('auto.t_172_imya')} required value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 dark:text-zinc-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 text-sm font-medium transition-all" />
-							<input placeholder={t('auto.t_131_familiya')} required value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 dark:text-zinc-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 text-sm font-medium transition-all" />
-							<select required value={formData.school_class} onChange={e => setFormData({ ...formData, school_class: e.target.value })} className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 dark:text-zinc-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 text-sm font-medium transition-all">
+							<div className="flex gap-2 mb-4 bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl">
+								<button type="button" onClick={() => setActiveLang('ru')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${activeLang === 'ru' ? 'bg-white dark:bg-zinc-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'}`}>{t('mgmt.t_103')}</button>
+								<button type="button" onClick={() => setActiveLang('tg')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${activeLang === 'tg' ? 'bg-white dark:bg-zinc-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'}`}>{t('mgmt.t_114')}</button>
+								<button type="button" onClick={() => setActiveLang('en')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${activeLang === 'en' ? 'bg-white dark:bg-zinc-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'}`}>English</button>
+							</div>
+
+							<div className="relative space-y-3">
+								<input 
+									placeholder={t('auto.t_172_imya')} 
+									required={activeLang === 'ru'} 
+									value={formData[('first_name_' + activeLang) as keyof typeof formData] || ''} 
+									onChange={e => setFormData({ ...formData, ['first_name_' + activeLang]: e.target.value })} 
+									className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 dark:text-zinc-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 text-sm font-medium transition-all pr-12" 
+								/>
+								<input 
+									placeholder={t('auto.t_131_familiya')} 
+									required={activeLang === 'ru'} 
+									value={formData[('last_name_' + activeLang) as keyof typeof formData] || ''} 
+									onChange={e => setFormData({ ...formData, ['last_name_' + activeLang]: e.target.value })} 
+									className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 dark:text-zinc-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 text-sm font-medium transition-all pr-12" 
+								/>
+								
+								{/* Кнопка AI перевода */}
+								<div className="absolute right-3 top-[30px] -translate-y-1/2">
+									<button
+										type="button"
+										onClick={handleAITranslate}
+										disabled={isTranslating}
+										className={`transition-colors flex flex-col gap-4 items-center justify-center -ml-2 ${isTranslating ? 'text-indigo-300' : 'text-indigo-500 hover:text-indigo-700'} ${(!formData[('first_name_' + activeLang) as keyof typeof formData] && !formData[('last_name_' + activeLang) as keyof typeof formData]) && 'opacity-50 cursor-not-allowed'}`}
+										title={t('mgmt.t_43')}
+									>
+										{isTranslating ? <Loader2 size={24} className="animate-spin" /> : <Sparkles size={24} />}
+									</button>
+								</div>
+							</div>
+
+							<select required value={formData.school_class} onChange={e => setFormData({ ...formData, school_class: e.target.value })} className="w-full bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 dark:text-zinc-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-500/20 outline-none rounded-xl px-4 py-3 text-sm font-medium transition-all mt-3">
 								<option value="" disabled>{t('mgmt.t_58')}</option>
 								{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
 							</select>

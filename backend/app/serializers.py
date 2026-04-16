@@ -91,7 +91,9 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = [
-            'id', 'first_name', 'last_name', 'class_name', 'school_class', 
+            'id', 'first_name', 'first_name_ru', 'first_name_tg', 'first_name_en',
+            'last_name', 'last_name_ru', 'last_name_tg', 'last_name_en',
+            'class_name', 'school_class', 
             'points', 'status_info', 'username', 'new_username', 'new_password'
         ]
 

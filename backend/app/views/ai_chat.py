@@ -146,15 +146,27 @@ class AIChatView(APIView):
 
             system_prompt = get_system_prompt(request.user)
 
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=chat_history + [
-                    types.Content(role='user', parts=[types.Part(text=user_message)])
-                ],
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                )
-            )
+            contents = chat_history + [
+                types.Content(role='user', parts=[types.Part(text=user_message)])
+            ]
+            config = types.GenerateContentConfig(system_instruction=system_prompt)
+
+            # Пробуем самую мощную модель, потом fallback
+            response = None
+            last_err = None
+            for model_name in ['gemini-2.5-pro', 'gemini-2.5-flash']:
+                try:
+                    response = client.models.generate_content(model=model_name, contents=contents, config=config)
+                    break
+                except Exception as e:
+                    err_str = str(e).lower()
+                    last_err = e
+                    if '503' in err_str or 'unavailable' in err_str or '429' in err_str or 'quota' in err_str or 'resource_exhausted' in err_str:
+                        continue
+                    raise e
+
+            if response is None:
+                raise last_err
 
             ai_reply = response.text
 
@@ -209,13 +221,43 @@ class AITranslateView(APIView):
     "en": "перевод на английский"
 }}
 """
-        try:
+        # Список моделей: самая мощная → запасная
+        MODEL_PRIORITY = ['gemini-2.5-pro', 'gemini-2.5-flash']
+
+        def _call_gemini(model_name: str):
             client = genai.Client(api_key=api_key)
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=prompt
+            return client.models.generate_content(model=model_name, contents=prompt)
+
+        last_error = None
+        response = None
+        for model_name in MODEL_PRIORITY:
+            try:
+                response = _call_gemini(model_name)
+                break  # Успех — выходим из цикла
+            except Exception as e:
+                err_str = str(e).lower()
+                last_error = e
+                # Продолжаем к следующей модели только при временных ошибках
+                if '503' in err_str or 'unavailable' in err_str or '429' in err_str or 'quota' in err_str or 'resource_exhausted' in err_str:
+                    continue
+                # При других ошибках — сразу прерываем
+                raise e
+
+        if response is None:
+            import traceback
+            traceback.print_exc()
+            err_str = str(last_error).lower() if last_error else ''
+            if '429' in err_str or 'quota' in err_str or 'resource_exhausted' in err_str:
+                return Response(
+                    {'error': 'Лимит запросов к ИИ исчерпан. Проверьте тарифный план в Google AI Studio.'},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS
+                )
+            return Response(
+                {'error': 'ИИ-сервис временно недоступен. Попробуйте позже.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
-            
+
+        try:
             ai_reply = response.text.strip()
             if ai_reply.startswith('```json'):
                 ai_reply = ai_reply[7:]
@@ -223,13 +265,14 @@ class AITranslateView(APIView):
                 ai_reply = ai_reply[3:]
             if ai_reply.endswith('```'):
                 ai_reply = ai_reply[:-3]
-                
+
             result = json.loads(ai_reply.strip())
-            
+
             # Keep original text for the source lang
             result[source_lang] = text
-                
+
             return Response(result)
+
         except Exception as e:
             import traceback
             traceback.print_exc()

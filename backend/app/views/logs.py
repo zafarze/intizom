@@ -2,11 +2,14 @@ from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.exceptions import ValidationError
 from django.utils import timezone
+from django.core.cache import cache
 from app.models import ActionLog, Quarter, AppNotification
 from app.serializers import ActionLogSerializer, AppNotificationSerializer
 from app.permissions import IsTeacherOrAdmin
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
+
+_STATS_CACHE_KEYS = ['dashboard_stats', 'statistics_view']
 
 class ActionLogViewSet(viewsets.ModelViewSet):
     """API для журнала активности (кто кому поставил минус/плюс)"""
@@ -45,12 +48,13 @@ class ActionLogViewSet(viewsets.ModelViewSet):
         if not user.is_superuser and instance.teacher != user:
             raise ValidationError({"detail": "Шумо наметавонед баҳои мондаи дигар омӯзгорро нест кунед."})
         instance.delete()
+        cache.delete_many(_STATS_CACHE_KEYS)
 
     def perform_create(self, serializer):
         # 1. Проверяем правило: один минус по одному правилу в день (если это нарушение)
         rule = serializer.validated_data['rule']
         student = serializer.validated_data['student']
-        
+
         # Если это нарушение (points_impact < 0) и оно не многократное (is_multiple=False), проверяем были ли сегодня такие же
         if rule.points_impact < 0 and not rule.is_multiple:
             today = timezone.localdate()
@@ -59,16 +63,17 @@ class ActionLogViewSet(viewsets.ModelViewSet):
                 rule=rule,
                 created_at__date=today
             ).exists()
-            
+
             if already_exists:
                 raise ValidationError({"detail": f"Омӯзгори дигар аллакай барои '{rule.title}' ба ин хонанда имрӯз минус мондааст."})
-        
+
         # 2. Находим активную четверть (умный выбор по дате)
         active_quarter = Quarter.get_current_quarter()
 
         # 3. Автоматически подставляем текущего учителя и четверть при создании записи
         teacher = self.request.user if self.request.user.is_authenticated else None
         serializer.save(teacher=teacher, quarter=active_quarter)
+        cache.delete_many(_STATS_CACHE_KEYS)
 
 class AppNotificationViewSet(viewsets.ReadOnlyModelViewSet):
     """API для системных уведомлений"""

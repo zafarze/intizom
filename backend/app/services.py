@@ -15,29 +15,30 @@ def transliterate(text):
     text = text.lower()
     return ''.join(mapping.get(c, c) for c in text if c.isalpha())
 
-def generate_random_password(length=6):
-    """Генерирует простой цифровой пароль из 6 символов"""
-    return ''.join(random.choices(string.digits, k=length))
+def generate_random_password(length=8):
+    """Генерирует пароль из букв и цифр"""
+    chars = string.ascii_lowercase + string.digits
+    return ''.join(random.choices(chars, k=length))
 
 def create_user_for_student(student):
     """Создает аккаунт для ученика, если его еще нет"""
     if student.user:
         return None, None # У ученика уже есть аккаунт
     
-    # Генерируем логин по формату f.last_name (например, a.jomii)
-    first_letter = transliterate(student.first_name)[0] if student.first_name else 's'
-    last_name_trans = transliterate(student.last_name) or f"student{student.id}"
+    # Генерируем логин по формату имя.фамилия (например, alisher.jomii)
+    first_name_trans = transliterate(student.first_name) if student.first_name else 'student'
+    last_name_trans = transliterate(student.last_name) or str(student.id)
     
-    base_username = f"{first_letter}.{last_name_trans}"
+    base_username = f"{first_name_trans}.{last_name_trans}"
     username = base_username
     
-    # Защита от одинаковых логинов (если в школе два А. Ҷомӣ)
+    # Защита от одинаковых логинов
     counter = 1
     while User.objects.filter(username=username).exists():
         username = f"{base_username}{counter}"
         counter += 1
         
-    password = generate_random_password()
+    password = username
     
     # Создаем пользователя в Django
     user = User.objects.create_user(

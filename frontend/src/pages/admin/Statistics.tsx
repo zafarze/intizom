@@ -109,7 +109,8 @@ export default function Statistics() {
 					if (filterValue === 'exemplary') return s.points >= 90;
 					if (filterValue === 'verbal') return s.points >= 70 && s.points <= 89;
 					if (filterValue === 'written') return s.points >= 45 && s.points <= 69;
-					if (filterValue === 'risk') return s.points < 45;
+					if (filterValue === 'labor') return s.points >= 30 && s.points <= 44;
+					if (filterValue === 'risk') return s.points < 30;
 					return false;
 				});
 				setModalLogs(filtered);
@@ -181,7 +182,8 @@ export default function Statistics() {
 												<div className={`font-black px-3 py-1.5 rounded-lg shrink-0 border ${student.points >= 90 ? 'text-green-600 bg-green-50 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :
 													student.points >= 70 ? 'text-yellow-600 bg-yellow-50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20' :
 														student.points >= 45 ? 'text-orange-600 bg-orange-50 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20' :
-															'text-red-600 bg-red-50 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
+															student.points >= 30 ? 'text-red-500 bg-red-50 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20' :
+																'text-red-700 bg-red-100 dark:bg-rose-600/10 dark:text-rose-500 dark:border-rose-600/20'
 													}`}>
 													{student.points} {t('stats.points_short')}
 												</div>
@@ -240,6 +242,15 @@ export default function Statistics() {
 							count={stats.violations.D.count}
 							onClick={() => openModal('Группа Г (Особо тяжкие)', 'category', 'D')}
 						/>
+						{stats.violations.BONUS && (
+							<StatBar
+								label="Ҳавасмандкунӣ (Бонус)"
+								value={stats.violations.BONUS.percent}
+								color="bg-emerald-500"
+								count={stats.violations.BONUS.count}
+								onClick={() => openModal('Ҳавасмандкунӣ (Бонус)', 'category', 'BONUS')}
+							/>
+						)}
 					</div>
 				</div>
 
@@ -274,9 +285,16 @@ export default function Statistics() {
 							onClick={() => openModal(t('stats.risk_written'), 'risk', 'written')}
 						/>
 						<StatBar
+							label={t('stats.risk_labor')}
+							value={stats.risk_levels.labor.percent}
+							color="bg-red-500"
+							count={stats.risk_levels.labor.count}
+							onClick={() => openModal(t('stats.risk_labor'), 'risk', 'labor')}
+						/>
+						<StatBar
 							label={t('stats.risk_expulsion')}
 							value={stats.risk_levels.risk.percent}
-							color="bg-red-500"
+							color="bg-red-700"
 							count={stats.risk_levels.risk.count}
 							onClick={() => openModal(t('stats.risk_expulsion'), 'risk', 'risk')}
 						/>

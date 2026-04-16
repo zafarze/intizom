@@ -1,11 +1,20 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Avg, Count, Q, Sum
+from django.db.models import Avg, Count, Q, Sum, Case, When, IntegerField
+from django.db.models.functions import TruncMonth
 from django.utils import timezone
+from django.core.cache import cache
+from dateutil.relativedelta import relativedelta
 
-# 👇 ДОБАВЛЕН ИМПОРТ QuarterResult ДЛЯ СТАТИСТИКИ ОТЛИЧНИКОВ
 from app.models import Student, SchoolClass, ActionLog, Rule, QuarterResult, Quarter
+
+# Ключи и TTL кеша
+DASHBOARD_CACHE_KEY = 'dashboard_stats'
+DASHBOARD_CACHE_TTL = 60 * 2   # 2 минуты
+
+STATISTICS_CACHE_KEY = 'statistics_view'
+STATISTICS_CACHE_TTL = 60 * 5  # 5 минут
 
 class MyClassMatrixView(APIView):
     """
@@ -49,13 +58,17 @@ class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        cached = cache.get(DASHBOARD_CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
+
         # 1. Базовые метрики
         total_students = Student.objects.count()
-        
+
         # Считаем средний балл по всей школе (если учеников нет, вернем 100)
         avg_score_dict = Student.objects.aggregate(avg=Avg('points'))
         avg_score = avg_score_dict['avg'] or 100
-        
+
         # Сколько учеников в зоне риска (< 25 баллов)
         at_risk_count = Student.objects.filter(points__lt=25).count()
 
@@ -67,9 +80,9 @@ class DashboardStatsView(APIView):
 
         classes_data = [
             {
-                "name": c.name, 
+                "name": c.name,
                 "avg_points": round(c.avg_points, 1) if c.avg_points else 100
-            } 
+            }
             for c in top_classes
         ]
 
@@ -79,75 +92,88 @@ class DashboardStatsView(APIView):
             {
                 "id": log.id,
                 "text": f"{log.student.last_name} ({'+' if log.rule.points_impact > 0 else ''}{log.rule.points_impact}) - {log.rule.title}",
-                "time": log.created_at.strftime("%H:%M"), # Можно отформатировать красивее
+                "time": log.created_at.strftime("%H:%M"),
                 "is_positive": log.rule.points_impact > 0
             }
             for log in recent_logs
         ]
 
         # Формируем итоговый ответ
-        return Response({
+        result = {
             "total_students": total_students,
             "average_score": round(avg_score, 1),
             "at_risk_count": at_risk_count,
             "top_classes": classes_data,
-            "recent_logs": logs_data
-        })
+            "recent_logs": logs_data,
+        }
+        cache.set(DASHBOARD_CACHE_KEY, result, DASHBOARD_CACHE_TTL)
+        return Response(result)
 
 
 class StatisticsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        cached = cache.get(STATISTICS_CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
+
         # 1. СТАТИСТИКА НАРУШЕНИЙ ПО ГРУППАМ (A, B, C, D)
-        # Считаем, сколько раз нарушали правила каждой категории
         logs_by_category = ActionLog.objects.filter(rule__points_impact__lt=0).values('rule__category').annotate(count=Count('id'))
-        
-        # Считаем общее количество нарушений, чтобы вычислить проценты (or 1, чтобы не было деления на ноль)
-        total_violations = sum(item['count'] for item in logs_by_category) or 1 
-        
+
+        total_violations = sum(item['count'] for item in logs_by_category) or 1
+
         violations_data = {
             'A': {'count': 0, 'percent': 0},
             'B': {'count': 0, 'percent': 0},
             'C': {'count': 0, 'percent': 0},
             'D': {'count': 0, 'percent': 0},
+            'BONUS': {'count': 0, 'percent': 0},
         }
-        
+
         for item in logs_by_category:
             cat = item['rule__category']
             if cat in violations_data:
                 violations_data[cat]['count'] = item['count']
                 violations_data[cat]['percent'] = round((item['count'] / total_violations) * 100)
 
+        # Считаем бонусы отдельно (points_impact > 0)
+        bonus_logs = ActionLog.objects.filter(rule__category='BONUS').values('rule__category').annotate(count=Count('id'))
+        total_bonus = sum(item['count'] for item in bonus_logs) or 0
+        if total_bonus:
+            violations_data['BONUS']['count'] = total_bonus
+            violations_data['BONUS']['percent'] = 100
+
         # 2. УРОВНИ РИСКА УЧЕНИКОВ
         total_students = Student.objects.count() or 1
-        
-        # Разбиваем учеников по корзинам баллов
+
         risk_levels = Student.objects.aggregate(
             exemplary=Count('id', filter=Q(points__gte=90)),
             verbal=Count('id', filter=Q(points__gte=70, points__lt=90)),
             written=Count('id', filter=Q(points__gte=45, points__lt=70)),
-            risk=Count('id', filter=Q(points__lt=45)),
+            labor=Count('id', filter=Q(points__gte=30, points__lt=45)),
+            risk=Count('id', filter=Q(points__lt=30)),
         )
-        
+
         risk_data = {
             'exemplary': {'count': risk_levels['exemplary'], 'percent': round((risk_levels['exemplary'] / total_students) * 100)},
-            'verbal': {'count': risk_levels['verbal'], 'percent': round((risk_levels['verbal'] / total_students) * 100)},
-            'written': {'count': risk_levels['written'], 'percent': round((risk_levels['written'] / total_students) * 100)},
-            'risk': {'count': risk_levels['risk'], 'percent': round((risk_levels['risk'] / total_students) * 100)},
+            'verbal':    {'count': risk_levels['verbal'],    'percent': round((risk_levels['verbal']    / total_students) * 100)},
+            'written':   {'count': risk_levels['written'],   'percent': round((risk_levels['written']   / total_students) * 100)},
+            'labor':     {'count': risk_levels['labor'],     'percent': round((risk_levels['labor']     / total_students) * 100)},
+            'risk':      {'count': risk_levels['risk'],      'percent': round((risk_levels['risk']      / total_students) * 100)},
         }
 
         # 3. ПООЩРЕНИЯ (БОНУСЫ ЗА ЭТОТ МЕСЯЦ)
         now = timezone.now()
         bonuses = ActionLog.objects.filter(
-            rule__points_impact__gt=0, # Только плюсовые баллы
+            rule__points_impact__gt=0,
             created_at__year=now.year,
             created_at__month=now.month
         ).aggregate(total=Sum('rule__points_impact'))
-        
+
         total_bonuses = bonuses['total'] or 0
 
-        # 👇 4. НОВЫЙ КОД: СУПЕР-УЧЕНИКИ (300+ БАЛЛОВ ЗА ГОД ПО ИТОГАМ ЧЕТВЕРТЕЙ)
+        # 4. СУПЕР-УЧЕНИКИ (300+ БАЛЛОВ ЗА ГОД ПО ИТОГАМ ЧЕТВЕРТЕЙ)
         top_quarter_students = QuarterResult.objects.values(
             'student__id', 'student__first_name', 'student__last_name', 'student__school_class__name'
         ).annotate(total_points=Sum('final_points')).filter(total_points__gte=300).order_by('-total_points')
@@ -162,35 +188,42 @@ class StatisticsView(APIView):
             for s in top_quarter_students
         ]
 
-        # 5. ТРЕНД ПОВЕДЕНИЯ ПО МЕСЯЦАМ (За последние 6 месяцев)
-        from dateutil.relativedelta import relativedelta
-        import calendar
+        # 5. ТРЕНД ПОВЕДЕНИЯ ПО МЕСЯЦАМ — 1 запрос вместо 12
+        month_names = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
+        six_months_ago = now - relativedelta(months=5)
+        month_start_6 = six_months_ago.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        monthly_agg = (
+            ActionLog.objects
+            .filter(created_at__gte=month_start_6)
+            .annotate(month=TruncMonth('created_at'))
+            .values('month')
+            .annotate(
+                bonuses=Sum(Case(
+                    When(rule__points_impact__gt=0, then='rule__points_impact'),
+                    default=0,
+                    output_field=IntegerField(),
+                )),
+                violations=Sum(Case(
+                    When(rule__points_impact__lt=0, then='rule__points_impact'),
+                    default=0,
+                    output_field=IntegerField(),
+                )),
+            )
+            .order_by('month')
+        )
+
+        agg_by_month = {row['month'].strftime('%Y-%m'): row for row in monthly_agg}
 
         trend_data = []
-        # Вычисляем за последние 6 месяцев
         for i in range(5, -1, -1):
             target_date = now - relativedelta(months=i)
-            month_start = target_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            # month end
-            _, last_day = calendar.monthrange(target_date.year, target_date.month)
-            month_end = target_date.replace(day=last_day, hour=23, minute=59, second=59)
-
-            logs_in_month = ActionLog.objects.filter(created_at__gte=month_start, created_at__lte=month_end)
-            
-            # Сумма плюсов
-            bonuses_sum = logs_in_month.filter(rule__points_impact__gt=0).aggregate(Sum('rule__points_impact'))['rule__points_impact__sum'] or 0
-            
-            # Сумма минусов (в абсолютном значении)
-            violations_sum = logs_in_month.filter(rule__points_impact__lt=0).aggregate(Sum('rule__points_impact'))['rule__points_impact__sum'] or 0
-            violations_sum = abs(violations_sum)
-
-            month_names = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
-            month_str = month_names[target_date.month - 1]
-
+            key = target_date.strftime('%Y-%m')
+            row = agg_by_month.get(key, {})
             trend_data.append({
-                "month": month_str,
-                "bonuses": bonuses_sum,
-                "violations": violations_sum
+                "month": month_names[target_date.month - 1],
+                "bonuses": row.get('bonuses') or 0,
+                "violations": abs(row.get('violations') or 0),
             })
 
         # 6. ТОП-10 ЛУЧШИХ И ТОП-10 ХУДШИХ УЧЕНИКОВ
@@ -209,15 +242,17 @@ class StatisticsView(APIView):
         top_10_best = [format_student(s) for s in best_students_qs]
         top_10_worst = [format_student(s) for s in worst_students_qs]
 
-        return Response({
+        result = {
             'violations': violations_data,
             'risk_levels': risk_data,
             'monthly_bonuses': total_bonuses,
             'super_students': super_students,
             'trend_data': trend_data,
             'top_10_best': top_10_best,
-            'top_10_worst': top_10_worst
-        })
+            'top_10_worst': top_10_worst,
+        }
+        cache.set(STATISTICS_CACHE_KEY, result, STATISTICS_CACHE_TTL)
+        return Response(result)
 
 class MonitoringView(APIView):
     permission_classes = [IsAuthenticated]

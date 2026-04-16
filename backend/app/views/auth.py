@@ -32,5 +32,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         
         return data
 
+from rest_framework.throttling import ScopedRateThrottle
+
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'

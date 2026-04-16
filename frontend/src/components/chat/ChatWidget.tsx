@@ -151,6 +151,7 @@ export const ChatWidget: React.FC = () => {
 
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : { id: 0, role: 'unknown' };
+  const isStudent = user?.role === 'student' || !!user?.student_profile;
 
   useEffect(() => {
     if ((user.role === 'admin' || user.is_superuser) && isBroadcastModalOpen && schoolClasses.length === 0) {
@@ -353,10 +354,14 @@ export const ChatWidget: React.FC = () => {
         wsUrl = `${wsProtocol}//127.0.0.1:8000/ws/chat/`;
       }
 
-      const ws = new WebSocket(`${wsUrl}?token=${token}`);
+      const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         console.log('Chat WebSocket connected');
+        ws.send(JSON.stringify({
+          action: 'auth',
+          token: token
+        }));
       };
 
       ws.onmessage = (event) => {
@@ -598,8 +603,8 @@ export const ChatWidget: React.FC = () => {
     }
   };
 
-  const sendVoiceMessage = async (audioBlob: Blob, mimeType: string) => {
-    if (!activeContact) return;
+  const sendVoiceMessage = async (audioBlob: Blob, mimeType: string, contact: typeof activeContact) => {
+    if (!contact) return;
     const formData = new FormData();
     formData.append('content', '');
     const ext = mimeType.includes('mp4') || mimeType.includes('m4a') ? 'm4a'
@@ -607,8 +612,11 @@ export const ChatWidget: React.FC = () => {
         : 'webm';
     formData.append('audio_file', audioBlob, `voice.${ext}`);
     try {
-      const res = await api.post(`/chat/messages/${activeContact.id}/`, formData);
-      setMessages(prev => [...prev, res.data]);
+      const res = await api.post(`/chat/messages/${contact.id}/`, formData);
+      // Only update messages list if the user is still viewing this conversation
+      if (activeContactRef.current?.id === contact.id) {
+        setMessages(prev => [...prev, res.data]);
+      }
       fetchContacts();
     } catch (error) {
       console.error('Failed to send voice message', error);
@@ -617,29 +625,42 @@ export const ChatWidget: React.FC = () => {
   };
 
   const startRecording = async () => {
+    // Snapshot the target contact NOW, before any async work.
+    // onstop fires asynchronously — by then activeContact may have changed (stale
+    // closure), which would route the voice message to the wrong recipient.
+    const targetContact = activeContact;
+    if (!targetContact) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
 
-      // Detect the best supported format for this device
-      const mimeType = [
+      // Detect the best supported format. Do NOT include 'audio/mp4' here — on iOS
+      // Safari, explicitly setting mimeType:'audio/mp4' triggers a browser bug where
+      // all subsequent recordings return the cached data from the first recording.
+      // Letting iOS fall through to '' causes Safari to pick its own format correctly.
+      const preferredMimeType = [
         'audio/webm;codecs=opus', // Chrome / Android / Safari 16+
-        'audio/webm',          // Chrome fallback
-        'audio/mp4',           // iOS Safari 14-15 (Note: has a known bug returning first recording)
-        'audio/ogg',           // Firefox
+        'audio/webm',             // Chrome fallback
+        'audio/ogg',              // Firefox
       ].find(t => MediaRecorder.isTypeSupported(t)) || '';
 
-      const options = mimeType ? { mimeType } : {};
+      const options = preferredMimeType ? { mimeType: preferredMimeType } : {};
       const mr = new MediaRecorder(stream, options);
+      const actualMimeType = mr.mimeType || preferredMimeType || 'audio/webm';
       mediaRecorderRef.current = mr;
       mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       mr.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
-        sendVoiceMessage(blob, mimeType || 'audio/webm');
+        // Snapshot and clear immediately so a concurrent startRecording can't race
+        const chunks = audioChunksRef.current.splice(0);
+        const blob = new Blob(chunks, { type: actualMimeType });
+        sendVoiceMessage(blob, actualMimeType, targetContact);
         stream.getTracks().forEach(t => t.stop());
-        mediaRecorderRef.current = null; // Clear reference to avoid Safari caching issues
+        mediaRecorderRef.current = null;
       };
-      mr.start();
+      // timeslice=250ms forces ondataavailable to fire during recording, not only at
+      // stop. On mobile PWA (Android Chrome / iOS Safari) ondataavailable can fire
+      // AFTER onstop without a timeslice → empty blob for every recording after first.
+      mr.start(250);
       setIsRecording(true);
       setRecordingSeconds(0);
       recordingTimerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000);
@@ -1297,7 +1318,7 @@ export const ChatWidget: React.FC = () => {
                   <button onClick={() => { setEditingMessageId(null); setInputText(''); }}><X size={16} /></button>
                 </div>
               )}
-              {!isSelectMode && (
+              {!isSelectMode && (!isStudent || activeContact?.is_admin) && (
                 <div className="chat-input-wrapper">
                   {previewImage && (
                     <div className="image-preview-container">
@@ -1588,7 +1609,7 @@ export const ChatWidget: React.FC = () => {
                   <button onClick={() => { setEditingMessageId(null); setInputText(''); }}><X size={16} /></button>
                 </div>
               )}
-              {!isSelectMode && (
+              {!isSelectMode && (!isStudent || activeContact?.is_admin) && (
                 <div className="chat-input-wrapper">
                   {previewImage && (
                     <div className="image-preview-container">

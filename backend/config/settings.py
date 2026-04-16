@@ -13,7 +13,16 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
-ALLOWED_HOSTS = ['*']
+
+# Безопасность: в продакшне задайте ALLOWED_HOSTS в .env через запятую
+# Пример: ALLOWED_HOSTS=intizom.com,www.intizom.com,intizom-backend-776689431155.europe-west3.run.app
+if DEBUG:
+    ALLOWED_HOSTS = ['*']
+else:
+    # Безопасность: в продакшне обязательно задайте ALLOWED_HOSTS через запятую
+    ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[
+        'intizom-backend-776689431155.europe-west3.run.app',
+    ])
 
 # Приложения
 INSTALLED_APPS = [
@@ -29,6 +38,7 @@ INSTALLED_APPS = [
     # 3rd party
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',  # Блокировка устаревших JWT токенов
     'corsheaders',
     'storages',
     'channels',
@@ -117,13 +127,31 @@ MODELTRANSLATION_FALLBACK_LANGUAGES = ('ru', 'tg', 'en')
 
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-CORS_ALLOW_ALL_ORIGINS = True
+
+# Безопасность CORS: в продакшне задайте CORS_ALLOWED_ORIGINS в .env через запятую
+# Пример: CORS_ALLOWED_ORIGINS=https://intizom.com,https://www.intizom.com
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
+
+CORS_ALLOW_CREDENTIALS = True  # Разрешить куки/токены в cross-site запросах
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'authorization',
+    'content-type',
+    'x-csrftoken',
+]
 
 # Настройки Django REST Framework и JWT
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '10/minute',  # Ограничение брутфорса паролей (10 попыток в минуту)
+    }
 }
 
 from datetime import timedelta
@@ -153,7 +181,7 @@ STORAGES = {
 
 
 # --- Настройки OpenAI ---
-OPENAI_API_KEY = env('OPENAI_API_KEY', default=None)
+GEMINI_API_KEY = env('GEMINI_API_KEY', default=None)
 
 # --- Настройки Channels (Redis) ---
 REDIS_URL = env('REDIS_URL', default=None)
@@ -190,8 +218,18 @@ else:
     }
 
 # --- НАСТРОЙКИ ДЛЯ GOOGLE CLOUD RUN ---
-CSRF_TRUSTED_ORIGINS = ['https://intizom-backend-776689431155.europe-west3.run.app']
+# В .env задайте: CSRF_TRUSTED_ORIGINS=https://intizom.com,https://intizom-backend-776689431155.europe-west3.run.app
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# --- SECURE HEADERS (только в продакшне) ---
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000          # 1 год
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
 
 # --- МЕДИА ФАЙЛЫ (голосовые, фото) ---
 GS_BUCKET_NAME = env('GS_BUCKET_NAME', default=None)

@@ -16,6 +16,9 @@ DASHBOARD_CACHE_TTL = 60 * 2   # 2 минуты
 STATISTICS_CACHE_KEY = 'statistics_view'
 STATISTICS_CACHE_TTL = 60 * 5  # 5 минут
 
+MONITORING_CACHE_KEY = 'monitoring_view'
+MONITORING_CACHE_TTL = 30  # 30 секунд
+
 class MyClassMatrixView(APIView):
     """
     Панель классного руководителя.
@@ -258,6 +261,10 @@ class MonitoringView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        cached = cache.get(MONITORING_CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
+
         # 1. Рейтинг всех классов
         classes = SchoolClass.objects.annotate(
             avg_points=Avg('students__points')
@@ -292,10 +299,12 @@ class MonitoringView(APIView):
                 "type": "positive" if impact > 0 else "negative"
             })
 
-        return Response({
+        result = {
             "classes": classes_data,
             "live_logs": logs_data
-        })
+        }
+        cache.set(MONITORING_CACHE_KEY, result, MONITORING_CACHE_TTL)
+        return Response(result)
 
 class ComparisonMetadataView(APIView):
     permission_classes = [IsAuthenticated]
@@ -316,7 +325,12 @@ class ComparisonMetadataView(APIView):
             })
             
         classes = list(SchoolClass.objects.values('id', 'name').order_by('name'))
-        students = list(Student.objects.values('id', 'first_name', 'last_name', 'school_class__name').order_by('school_class__name', 'last_name'))
+        
+        class_id = request.query_params.get('class_id')
+        if class_id:
+            students = list(Student.objects.filter(school_class_id=class_id).values('id', 'first_name', 'last_name', 'school_class__name').order_by('last_name'))
+        else:
+            students = []
         
         return Response({
             "quarters": formatted_quarters,

@@ -3,28 +3,25 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.user = self.scope["user"]
-        if self.user.is_anonymous:
-            await self.close()
-            return
+        self.user = self.scope.get("user")
+        self.user_group_name = None
 
-        self.user_group_name = f"user_{self.user.id}"
-
-        # Join personal group for receiving messages
-        await self.channel_layer.group_add(
-            self.user_group_name,
-            self.channel_name
-        )
         await self.accept()
         
-        # Send a connection success message (optional)
-        await self.send(text_data=json.dumps({
-            'type': 'system',
-            'message': 'Connected to chat'
-        }))
+        # If user is already authenticated via middleware (e.g. fallback)
+        if self.user and not self.user.is_anonymous:
+            self.user_group_name = f"user_{self.user.id}"
+            await self.channel_layer.group_add(
+                self.user_group_name,
+                self.channel_name
+            )
+            await self.send(text_data=json.dumps({
+                'type': 'system',
+                'message': 'Connected to chat'
+            }))
 
     async def disconnect(self, close_code):
-        if not self.user.is_anonymous:
+        if self.user_group_name:
             await self.channel_layer.group_discard(
                 self.user_group_name,
                 self.channel_name
@@ -36,6 +33,38 @@ class ChatConsumer(AsyncWebsocketConsumer):
             data = json.loads(text_data)
             action = data.get('action')
             
+            if action == 'auth':
+                token = data.get('token')
+                if token:
+                    from app.middleware import get_user_from_token
+                    user = await get_user_from_token(token)
+                    if user and not user.is_anonymous:
+                        self.user = user
+                        self.user_group_name = f"user_{self.user.id}"
+                        await self.channel_layer.group_add(
+                            self.user_group_name,
+                            self.channel_name
+                        )
+                        await self.send(text_data=json.dumps({
+                            'type': 'system',
+                            'message': 'Authenticated and connected to chat'
+                        }))
+                    else:
+                        await self.send(text_data=json.dumps({
+                            'type': 'error',
+                            'message': 'Invalid token'
+                        }))
+                        await self.close()
+                return
+
+            # Reject other actions if not authenticated
+            if not self.user or self.user.is_anonymous:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Not authenticated'
+                }))
+                return
+
             if action == 'typing':
                 # User is typing to someone
                 recipient_id = data.get('recipient_id')

@@ -1,19 +1,99 @@
-План исправления (4 файла)
-1. settings.py — подключить Django Cache Framework к Redis
-Redis уже есть как REDIS_URL, просто добавить блок CACHES по тому же паттерну. Никаких новых зависимостей.
+Анализ проекта Intizom — критические моменты и недостатки
+КРИТИЧЕСКИЕ (Безопасность)
+1. Пароль администратора захардкожен в исходном коде
+entrypoint.sh:15-18 — admin_intizom_2026 находится прямо в git-репозитории. Любой, кто имеет доступ к коду, знает пароль директора.
+Фикс: вынести в .env, убрать из entrypoint.sh.
 
-2. analytics.py — оптимизировать тренд: 12 запросов → 1
-Заменить цикл одним запросом через TruncMonth + условный Sum (стандартный Django ORM).
+2. Начальный пароль ученика = логин
+services.py:41 — password = username. Ученик получает пароль alisher.jomii, что полностью предсказуемо. Достаточно знать имя — и можно войти в любой аккаунт.
+Фикс: password = generate_random_password(8).
 
-3. analytics.py — кешировать ответы
-StatisticsView → 5 минут TTL
-DashboardStatsView → 2 минуты TTL
-4. logs.py — инвалидировать кеш
-При добавлении/удалении нарушения → cache.delete_many(...) — данные сразу актуальны.
+3. BLACKLIST_AFTER_ROTATION = True, но приложение blacklist не подключено
+settings.py:137 — BLACKLIST_AFTER_ROTATION = True есть, но rest_framework_simplejwt.token_blacklist отсутствует в INSTALLED_APPS. Старые refresh-токены НЕ блокируются на самом деле — украденный токен будет работать вечно.
+Фикс: добавить rest_framework_simplejwt.token_blacklist в INSTALLED_APPS + migrate.
 
-Ожидаемый результат
-До	После
-Запросов на Statistics	~20	0 (кеш) / 7–8 (первый раз)
-Запросов на тренд	12	1
-Время загрузки Statistics	2–5 с	< 100 мс
-Приступить к реализации?
+4. JWT токен передаётся в URL WebSocket
+middleware.py:29 — ?token=... в query params попадает в логи nginx, Cloud Run, браузерную историю.
+Фикс: передавать токен в первом WebSocket-сообщении после подключения.
+
+5. ALLOWED_HOSTS = ['*'] и CORS_ALLOW_ALL_ORIGINS = True
+settings.py:16, settings.py:120 — в продакшне это открывает дверь для host-header атак и кросс-сайтовых запросов с любого домена.
+
+6. Нет rate-limit на /api/login/ — брутфорс пароля ничем не ограничен.
+
+7. Нет валидации типов файлов в чате
+chat.py:145-148 — audio_file, image_file, document_file принимаются без проверки MIME/расширения. Можно загрузить .php, .exe, скрипт.
+
+КРИТИЧЕСКИЕ (Производительность)
+8. DB-запись на КАЖДЫЙ HTTP-запрос
+middleware.py:46-51 — UpdateLastActivityMiddleware делает update_or_create при каждом запросе любого авторизованного пользователя. 10 учителей, постоянно опрашивающих аналитику каждые 30 секунд = 20 лишних записей в БД в минуту только на "last_seen".
+Фикс: обновлять только если прошло >1 минуты (сравнение с кэшем или last_seen).
+
+9. N+1 в закрытии четверти
+students.py:153 — в цикле по всем ученикам (for student in students) делается отдельный запрос student.actions.filter(...).exists() и student.save() на каждого. Для 500 учеников = 1000+ запросов в одной транзакции.
+Фикс: annotate(has_minuses=Exists(...)) одним запросом + bulk_update.
+
+10. N+1 в удалении истории чата
+chat.py:263-270 — for m in msgs: m.save() — по одному UPDATE на каждое сообщение. Для 200 сообщений = 200 запросов.
+Фикс: msgs.update(visible_to_sender=False) одним запросом.
+
+11. N+1 в push-уведомлениях сигналов
+signals.py:23-32 — при каждой записи в журнал: N отдельных FCM-запросов (по одному на каждого классного руководителя + каждого администратора). FCM поддерживает multicast до 500 токенов за раз.
+
+12. ComparisonMetadataView возвращает ВСЕХ учеников без пагинации
+analytics.py:318-320 — list(Student.objects.values(...)) без .only() или лимита. При 500+ учениках это большой JSON.
+
+13. MonitoringView без кэша
+analytics.py:257-298 — делает annotate по всем классам и 20 последних логов при каждом запросе. Нет cache.get/set.
+
+14. Отсутствуют DB-индексы на горячих полях
+
+ActionLog: нет индексов на (student, quarter), created_at, rule__category
+Message: нет индексов на (sender, recipient), is_read, created_at
+Student.points: нет индекса, но постоянно фильтруется
+15. ChatContactsView загружает ВСЕХ пользователей системы
+chat.py:29-35 — User.objects.exclude(id=user.id) без ограничений. Ученик видит список всех учителей, учеников, персонала.
+
+16. AIConversation растёт неограниченно
+ai_chat.py:106-107 — история диалогов никогда не очищается автоматически. Таблица будет расти бесконечно.
+
+СТРУКТУРНЫЕ НЕДОСТАТКИ
+17. Переменная OPENAI_API_KEY используется для Google Gemini
+ai_chat.py:118 — os.environ.get('OPENAI_API_KEY') хранит ключ от Gemini. Это вводит в заблуждение и может привести к случайной путанице при смене AI-провайдера.
+
+18. CSRF_TRUSTED_ORIGINS с захардкоженным URL Cloud Run
+settings.py:193 — URL продакшн-сервера прямо в коде. Должно быть через .env.
+
+19. Firebase Admin SDK инициализируется лениво в каждом вызове
+fcm_utils.py:19-26 — проверка if not firebase_admin._apps не является потокобезопасной. При параллельных запросах возможна двойная инициализация. Должно быть в AppConfig.ready().
+
+20. Daphne запускается без воркеров
+entrypoint.sh:21 — daphne -b 0.0.0.0 -p 8000 — один процесс, одна нить. Под нагрузкой все запросы встанут в очередь. Cloud Run автомасштабирует контейнеры, но каждый контейнер всё равно однопоточный.
+
+21. Скрипты разработки в корне репозитория
+fix_jsx.py, extract_i18n.py, translate_auto.py и т.д. — не в .gitignore, попадут в Docker image.
+
+22. Firebase fallback-строки в firebase.ts
+firebase.ts:8 — || "YOUR_API_KEY" — если .env не настроен, приложение тихо продолжит работу с фиктивной конфигурацией, а не выдаст явную ошибку.
+
+23. Нет ни одного теста
+В проекте нет tests.py (кроме дефолтного пустого), нет pytest конфигурации, нет тестов на фронте. Критическая логика (пересчёт баллов, закрытие четверти, авторизация) не покрыта.
+
+24. Синхронный цикл WebSocket-уведомлений в broadcast
+chat.py:462-492 — for msg in created_messages: async_to_sync(channel_layer.group_send)(...) — синхронный вызов async_to_sync в цикле для каждого из 300+ получателей блокирует HTTP-поток на несколько секунд. Нужно собирать все group_send в один asyncio.gather.
+
+Итоговая таблица приоритетов
+Приоритет	Проблема	Файл
+🔴 КРИТИЧНО	Пароль = логин у учеников	services.py:41
+🔴 КРИТИЧНО	Захардкоженный пароль admin	entrypoint.sh:17
+🔴 КРИТИЧНО	Blacklist не работает (токены не блокируются)	settings.py:137
+🔴 КРИТИЧНО	JWT в URL WebSocket	middleware.py:29
+🟠 ВАЖНО	DB-запись на каждый запрос	middleware.py:47
+🟠 ВАЖНО	N+1 при закрытии четверти	students.py:153
+🟠 ВАЖНО	Нет индексов на ActionLog/Message	models.py
+🟠 ВАЖНО	Firebase lazy init не потокобезопасен	fcm_utils.py:19
+🟡 СРЕДНЕ	ALLOWED_HOSTS/CORS = *	settings.py:16,120
+🟡 СРЕДНЕ	Нет rate limit на login	urls.py
+🟡 СРЕДНЕ	MonitoringView без кэша	analytics.py:257
+🟡 СРЕДНЕ	Нет тестов	везде
+🟡 СРЕДНЕ	OPENAI_API_KEY для Gemini	ai_chat.py:118

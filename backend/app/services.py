@@ -38,7 +38,7 @@ def create_user_for_student(student):
         username = f"{base_username}{counter}"
         counter += 1
         
-    password = username
+    password = generate_random_password(8)  # Случайный 8-значный пароль
     
     # Создаем пользователя в Django
     user = User.objects.create_user(

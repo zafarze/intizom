@@ -26,7 +26,18 @@ class ChatContactsView(APIView):
             sender=OuterRef('pk'), recipient=user, is_read=False, visible_to_recipient=True
         ).values('sender').annotate(c=Count('*')).values('c')
 
-        users = User.objects.exclude(id=user.id).select_related(
+        users_query = User.objects.exclude(id=user.id)
+
+        if hasattr(user, 'student_profile'):
+            # Ученики видят только админов и тех, с кем уже есть сообщения
+            users_query = users_query.filter(
+                Q(is_superuser=True) | 
+                Q(is_staff=True) | 
+                Q(sent_messages__recipient=user) | 
+                Q(received_messages__sender=user)
+            ).distinct()
+
+        users = users_query.select_related(
             'student_profile', 'student_profile__school_class', 'teacher_profile', 'activity'
         ).annotate(
             latest_msg_content=Subquery(latest_message_subquery.values('content')[:1]),
@@ -135,11 +146,54 @@ class ChatMessagesView(APIView):
             "current_page": page_obj.number
         })
 
+    # Allowed file types for chat uploads
+    ALLOWED_AUDIO_TYPES = {'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/aac', 'audio/mp4', 'audio/x-m4a'}
+    ALLOWED_AUDIO_EXTENSIONS = {'.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4'}
+    ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp'}
+    ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'}
+    ALLOWED_DOCUMENT_TYPES = {
+        'application/pdf', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/plain', 'text/csv',
+        'application/zip', 'application/x-rar-compressed',
+    }
+    ALLOWED_DOCUMENT_EXTENSIONS = {
+        '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+        '.txt', '.csv', '.zip', '.rar',
+    }
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+    @staticmethod
+    def _validate_file(file, allowed_types, allowed_extensions, label):
+        """Validate uploaded file by MIME type, extension, and size."""
+        import os
+        if file is None:
+            return None
+        # Check file size
+        if file.size > ChatMessagesView.MAX_FILE_SIZE:
+            return f"{label}: файл слишком большой (макс. 10 МБ)"
+        # Check extension
+        _, ext = os.path.splitext(file.name)
+        if ext.lower() not in allowed_extensions:
+            return f"{label}: недопустимый тип файла ({ext})"
+        # Check MIME type
+        if file.content_type and file.content_type not in allowed_types:
+            return f"{label}: недопустимый MIME-тип ({file.content_type})"
+        return None
+
     def post(self, request, user_id):
         try:
             other_user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=404)
+            
+        if hasattr(request.user, 'student_profile'):
+            if not (other_user.is_staff or other_user.is_superuser):
+                return Response({"error": "Ученики могут писать только администратору."}, status=403)
             
         content = request.data.get('content', '').strip()
         audio_file = request.FILES.get('audio_file')
@@ -149,6 +203,16 @@ class ChatMessagesView(APIView):
         
         if not content and not audio_file and not image_file and not document_file:
             return Response({"error": "Message is empty"}, status=400)
+
+        # Validate file types
+        for file, types, exts, label in [
+            (audio_file, self.ALLOWED_AUDIO_TYPES, self.ALLOWED_AUDIO_EXTENSIONS, "Аудио"),
+            (image_file, self.ALLOWED_IMAGE_TYPES, self.ALLOWED_IMAGE_EXTENSIONS, "Изображение"),
+            (document_file, self.ALLOWED_DOCUMENT_TYPES, self.ALLOWED_DOCUMENT_EXTENSIONS, "Документ"),
+        ]:
+            error = self._validate_file(file, types, exts, label)
+            if error:
+                return Response({"error": error}, status=400)
             
         reply_to_id = request.data.get('reply_to_id')
         forwarded_from_id = request.data.get('forwarded_from_id')
@@ -260,14 +324,14 @@ class ChatHistoryDeleteView(APIView):
         if for_all:
             msgs.filter(sender=request.user).delete()
         else:
-            for m in msgs:
-                if m.sender == request.user:
-                    m.visible_to_sender = False
-                elif m.recipient == request.user:
-                    m.visible_to_recipient = False
-                m.save()
-                if not m.visible_to_sender and not m.visible_to_recipient:
-                    m.delete()
+            # Массово скрываем сообщения, в которых инициатор был отправителем
+            msgs.filter(sender=request.user).update(visible_to_sender=False)
+            
+            # Массово скрываем сообщения, в которых инициатор был получателем
+            msgs.filter(recipient=request.user).update(visible_to_recipient=False)
+            
+            # Удаляем сообщения, которые не видит ни отправитель, ни получатель
+            msgs.filter(visible_to_sender=False, visible_to_recipient=False).delete()
                     
         return Response({"status": "chat history cleared"})
 
@@ -328,6 +392,17 @@ class ChatBroadcastView(APIView):
 
         content = request.data.get('content', '').strip()
         image_file = request.FILES.get('image_file')
+
+        # Validate image file type
+        if image_file:
+            error = ChatMessagesView._validate_file(
+                image_file,
+                ChatMessagesView.ALLOWED_IMAGE_TYPES,
+                ChatMessagesView.ALLOWED_IMAGE_EXTENSIONS,
+                "Изображение"
+            )
+            if error:
+                return Response({"error": error}, status=400)
 
         if not content and not image_file:
             return Response({"error": "Сообщение не может быть пустым."}, status=400)
@@ -458,24 +533,47 @@ class ChatBroadcastView(APIView):
             visible_to_recipient=False
         )
 
-        # Рассылаем WS уведомления
-        for msg in created_messages:
-            # Если bulk_create не вернул ID, WS будет без ID, это не страшно,
-            # клиент перезапросит при открытии чата. Но лучше достать последние:
-            if not getattr(msg, 'id', None):
-                # Fallback, но обычно WS триггеры достаточно просто дать
-                pass
-                
-            response_data = {
-                'id': getattr(msg, 'id', 0),
+        import asyncio
+
+        async def send_all_ws_messages():
+            tasks = []
+            for msg in created_messages:
+                response_data = {
+                    'id': getattr(msg, 'id', 0),
+                    'sender_id': request.user.id,
+                    'recipient_id': msg.recipient_id,
+                    'content': msg.content,
+                    'is_read': False,
+                    'is_edited': False,
+                    'is_pinned': False,
+                    'audio_file': None,
+                    'image_file': msg.image_file.url if getattr(msg, 'image_file', None) else None,
+                    'document_file': None,
+                    'document_name': None,
+                    'reply_to_id': None,
+                    'created_at': timezone.now().isoformat(),
+                    'can_edit': True,
+                    'can_delete_for_all': True
+                }
+                tasks.append(channel_layer.group_send(
+                    f"user_{msg.recipient_id}",
+                    {
+                        "type": "chat.message",
+                        "message": response_data
+                    }
+                ))
+
+            # WS уведомление самому админу об успешной истории
+            history_response = {
+                'id': getattr(history_msg, 'id', 0),
                 'sender_id': request.user.id,
-                'recipient_id': msg.recipient_id,
-                'content': msg.content,
+                'recipient_id': sys_broadcast.id,
+                'content': history_msg.content,
                 'is_read': False,
                 'is_edited': False,
                 'is_pinned': False,
                 'audio_file': None,
-                'image_file': msg.image_file.url if getattr(msg, 'image_file', None) else None,
+                'image_file': history_msg.image_file.url if getattr(history_msg, 'image_file', None) else None,
                 'document_file': None,
                 'document_name': None,
                 'reply_to_id': None,
@@ -483,38 +581,18 @@ class ChatBroadcastView(APIView):
                 'can_edit': True,
                 'can_delete_for_all': True
             }
-            async_to_sync(channel_layer.group_send)(
-                f"user_{msg.recipient_id}",
+            tasks.append(channel_layer.group_send(
+                f"user_{request.user.id}",
                 {
                     "type": "chat.message",
-                    "message": response_data
+                    "message": history_response
                 }
-            )
+            ))
 
-        # Рассылаем WS уведомление самому админу об успешной истории
-        history_response = {
-            'id': getattr(history_msg, 'id', 0),
-            'sender_id': request.user.id,
-            'recipient_id': sys_broadcast.id,
-            'content': history_msg.content,
-            'is_read': False,
-            'is_edited': False,
-            'is_pinned': False,
-            'audio_file': None,
-            'image_file': history_msg.image_file.url if getattr(history_msg, 'image_file', None) else None,
-            'document_file': None,
-            'document_name': None,
-            'reply_to_id': None,
-            'created_at': timezone.now().isoformat(),
-            'can_edit': True,
-            'can_delete_for_all': True
-        }
-        async_to_sync(channel_layer.group_send)(
-            f"user_{request.user.id}",
-            {
-                "type": "chat.message",
-                "message": history_response
-            }
-        )
+            if tasks:
+                await asyncio.gather(*tasks)
+
+        # Запускаем все WS рассылки асинхронно, без блокировки на каждом пользователе
+        async_to_sync(send_all_ws_messages)()
 
         return Response({"status": "success", "sent_count": len(recipients)})

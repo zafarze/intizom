@@ -316,7 +316,7 @@ function ClassesComparison({ classes, quarters, activeTab, setActiveTab }: { cla
 // ==========================================
 // 2. КОМПОНЕНТ СРАВНЕНИЯ УЧЕНИКОВ (TIMELINE)
 // ==========================================
-function StudentsComparison({ classes, students, quarters, activeTab, setActiveTab }: { classes: SClass[], students: Student[], quarters: Quarter[], activeTab: string, setActiveTab: any }) {
+function StudentsComparison({ classes, quarters, activeTab, setActiveTab }: { classes: SClass[], students: Student[], quarters: Quarter[], activeTab: string, setActiveTab: (tab: 'classes' | 'students') => void }) {
     const { t } = useTranslation();
     const [selectedClassId, setSelectedClassId] = useState<number | ''>('');
     const [selectedStudentId, setSelectedStudentId] = useState<number | ''>('');
@@ -326,9 +326,15 @@ function StudentsComparison({ classes, students, quarters, activeTab, setActiveT
 
     const [timeline, setTimeline] = useState<(CompareData & { quarter: Quarter })[]>([]);
     const [loading, setLoading] = useState(false);
+    const [classStudents, setClassStudents] = useState<Student[]>([]);
 
-    // Сбрасываем выбранного ученика и поиск, если меняется класс
+    // Загружаем учеников и сбрасываем выбранного ученика/поиск, если меняется класс
     useEffect(() => {
+        if (selectedClassId) {
+            api.get(`comparison-metadata/?class_id=${selectedClassId}`).then(res => setClassStudents(res.data.students)).catch(() => setClassStudents([]));
+        } else {
+            setClassStudents([]);
+        }
         setSelectedStudentId('');
         setStudentSearch('');
     }, [selectedClassId]);
@@ -356,7 +362,7 @@ function StudentsComparison({ classes, students, quarters, activeTab, setActiveT
         });
     }, [selectedStudentId, quarters]);
 
-    const activeStudent = students.find(s => s.id === selectedStudentId);
+    const activeStudent = classStudents.find(s => s.id === selectedStudentId);
 
     return (
         <div className="flex flex-col xl:flex-row gap-6 items-start">
@@ -571,8 +577,7 @@ function StudentsComparison({ classes, students, quarters, activeTab, setActiveT
                                 {isDropdownOpen && (
                                     <div className="absolute z-50 w-full mt-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-white/60 dark:border-zinc-800/60 shadow-xl rounded-2xl overflow-hidden max-h-64 overflow-y-auto">
                                         {(() => {
-                                            const selectedClassName = classes.find(c => c.id === selectedClassId)?.name;
-                                            const filtered = students.filter(s => s.class_name === selectedClassName && s.name.toLowerCase().includes(studentSearch.toLowerCase()));
+                                            const filtered = classStudents.filter(s => s.name.toLowerCase().includes(studentSearch.toLowerCase()));
                                             return filtered.length > 0 ? (
                                                 filtered.map(s => (
                                                     <button

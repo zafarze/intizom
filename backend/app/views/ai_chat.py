@@ -103,7 +103,9 @@ class AIChatView(APIView):
 
     def get(self, request):
         """Get conversation history for this user."""
-        history = AIConversation.objects.filter(user=request.user).order_by('created_at')
+        # Keep only the last 50 messages to prevent infinite growth on the client
+        history = list(AIConversation.objects.filter(user=request.user).order_by('-created_at')[:50])
+        history.reverse()
         messages = [{'role': m.role, 'content': m.content, 'created_at': m.created_at.isoformat()} for m in history]
         return Response({'messages': messages})
 
@@ -115,10 +117,10 @@ class AIChatView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-        api_key = os.environ.get('OPENAI_API_KEY') or getattr(settings, 'OPENAI_API_KEY', None)
+        api_key = os.environ.get('GEMINI_API_KEY') or getattr(settings, 'GEMINI_API_KEY', None)
         if not api_key:
             return Response(
-                {'error': 'OPENAI_API_KEY (Google API Key) не настроен в .env файле'},
+                {'error': 'GEMINI_API_KEY не настроен в .env файле'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
@@ -129,7 +131,11 @@ class AIChatView(APIView):
         # Save user message to DB
         AIConversation.objects.create(user=request.user, role='user', content=user_message)
 
-        # Build conversation history (last 20 messages)
+        # Cleanup old messages to prevent infinite growth (keep last 50)
+        messages_to_keep = list(AIConversation.objects.filter(user=request.user).order_by('-created_at').values_list('id', flat=True)[:50])
+        AIConversation.objects.filter(user=request.user).exclude(id__in=messages_to_keep).delete()
+
+        # Build conversation history
         history_qs = AIConversation.objects.filter(user=request.user).order_by('created_at')
         history = list(history_qs)
 
@@ -196,10 +202,10 @@ class AITranslateView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-        api_key = os.environ.get('OPENAI_API_KEY') or getattr(settings, 'OPENAI_API_KEY', None)
+        api_key = os.environ.get('GEMINI_API_KEY') or getattr(settings, 'GEMINI_API_KEY', None)
         if not api_key:
             return Response(
-                {'error': 'OPENAI_API_KEY (Google API Key) не настроен в .env файле'},
+                {'error': 'GEMINI_API_KEY не настроен в .env файле'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 

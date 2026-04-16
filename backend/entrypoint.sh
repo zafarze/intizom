@@ -11,11 +11,11 @@ for i in {1..15}; do
     sleep 3
 done
 
-# Автоматически создаем админа (если его еще нет)
-export DJANGO_SUPERUSER_USERNAME=admin
-export DJANGO_SUPERUSER_EMAIL=admin@example.com
-export DJANGO_SUPERUSER_PASSWORD=admin_intizom_2026
-python manage.py createsuperuser --noinput || true
-
-# Запускаем Daphne (для поддержки WebSocket и HTTP)
-exec daphne -b 0.0.0.0 -p ${PORT:-8000} config.asgi:application
+# Автоматически создаем админа (если задан пароль в переменных окружения)
+if [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
+    export DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-admin}
+    export DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
+    python manage.py createsuperuser --noinput || true
+fi
+# Запускаем сервер с 4 воркерами для параллельной обработки запросов
+exec uvicorn config.asgi:application --host 0.0.0.0 --port ${PORT:-8000} --workers 4 --proxy-headers

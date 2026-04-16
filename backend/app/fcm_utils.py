@@ -15,15 +15,9 @@ def send_push_notification(user, title, body, data=None):
 
     tokens = list(devices.values_list('token', flat=True))
 
-    # Инициализация Firebase (один раз)
     if not firebase_admin._apps:
-        cred_path = os.path.join(settings.BASE_DIR, 'firebase-adminsdk.json')
-        if os.path.exists(cred_path):
-            cred = credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred)
-        else:
-            print("FIREBASE ADMIN SDK KEY NOT FOUND! Cannot send push.")
-            return
+        print("FIREBASE ADMIN SDK is not initialized! Cannot send push.")
+        return
 
     message = messaging.MulticastMessage(
         notification=messaging.Notification(

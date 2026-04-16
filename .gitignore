@@ -67,3 +67,10 @@ frontend/node_modules/.vite/
 *.sw?
 .DS_Store
 Thumbs.db
+# Dev scripts
+script.py
+extract_*.py
+fix_*.py
+replace_*.py
+translate_*.py
+*.json

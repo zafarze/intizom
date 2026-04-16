@@ -82,7 +82,7 @@ class Student(models.Model):
     )
     
     # Лимит в 100 убран, теперь баллы могут расти!
-    points = models.IntegerField(default=100, verbose_name="Холҳо (Баллы)") 
+    points = models.IntegerField(default=100, db_index=True, verbose_name="Холҳо (Баллы)") 
     carryover_bonus = models.IntegerField(default=0, verbose_name="Бонуси гузаронидашуда")
 
     class Meta:
@@ -147,7 +147,7 @@ class Rule(models.Model):
         BONUS = 'BONUS', 'Ҳавасмандкунӣ (Бонус)'  
 
     title = models.CharField(max_length=255, verbose_name="Қоидавайронкунӣ / Амали наҷиб")
-    category = models.CharField(max_length=10, choices=Category.choices, verbose_name="Гурӯҳ")
+    category = models.CharField(max_length=10, choices=Category.choices, db_index=True, verbose_name="Гурӯҳ")
     points_impact = models.IntegerField(verbose_name="Минус ё Плюс хол", help_text="Минус барои вайронкунӣ, Плюс барои бонус")
     is_multiple = models.BooleanField(default=False, verbose_name="Многократное (Multiple)", help_text="Можно ли применять это правило несколько раз в день")
 
@@ -169,13 +169,16 @@ class ActionLog(models.Model):
     teacher = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='recorded_actions', verbose_name="Омӯзгор")
     quarter = models.ForeignKey(Quarter, on_delete=models.SET_NULL, null=True, blank=True, related_name='actions', verbose_name="Чоряк")
     
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Сана (Дата)")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Сана (Дата)")
     description = models.TextField(blank=True, null=True, verbose_name="Шарҳ (Комментарий)")
 
     class Meta:
         verbose_name = "Сабти амал"
         verbose_name_plural = "Журнали интизом"
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['student', 'quarter']),
+        ]
 
     def __str__(self):
         return f"{self.student.last_name} | {self.rule.title} | {self.created_at.strftime('%d.%m.%Y')}"
@@ -265,7 +268,7 @@ class Message(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages', verbose_name="Отправитель")
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages', verbose_name="Получатель")
     content = models.TextField(verbose_name="Сообщение")
-    is_read = models.BooleanField(default=False, verbose_name="Прочитано")
+    is_read = models.BooleanField(default=False, db_index=True, verbose_name="Прочитано")
     is_edited = models.BooleanField(default=False, verbose_name="Изменено")
     is_pinned = models.BooleanField(default=False, verbose_name="Закреплено")
     reply_to = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='replies', verbose_name="Ответ на")
@@ -276,13 +279,16 @@ class Message(models.Model):
     document_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="Имя документа")
     visible_to_sender = models.BooleanField(default=True, verbose_name="Видно отправителю")
     visible_to_recipient = models.BooleanField(default=True, verbose_name="Видно получателю")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата отправки")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Дата отправки")
     read_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата прочтения")
 
     class Meta:
         verbose_name = "Сообщение"
         verbose_name_plural = "Сообщения"
         ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['sender', 'recipient']),
+        ]
 
     def __str__(self):
         return f"От {self.sender.username} к {self.recipient.username} ({self.created_at.strftime('%d.%m.%Y %H:%M')})"

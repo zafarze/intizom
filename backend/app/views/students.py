@@ -135,8 +135,21 @@ class StudentViewSet(viewsets.ModelViewSet):
             )
 
         # Берем только активных учеников (у которых есть класс)
-        students = Student.objects.filter(school_class__isnull=False)
+        from django.db.models import Exists, OuterRef
+        from app.models import ActionLog
+
+        students = Student.objects.filter(school_class__isnull=False).annotate(
+            has_minuses=Exists(
+                ActionLog.objects.filter(
+                    student=OuterRef('pk'),
+                    quarter=quarter,
+                    rule__points_impact__lt=0
+                )
+            )
+        )
+        
         results_to_create = []
+        students_to_update = []
 
         with transaction.atomic():
             # 1. Готовим данные для архива и считаем бонусы
@@ -150,9 +163,7 @@ class StudentViewSet(viewsets.ModelViewSet):
                 ))
                 
                 # 2. Проверяем, были ли у ученика минусы (нарушения) в этой четверти
-                has_minuses = student.actions.filter(quarter=quarter, rule__points_impact__lt=0).exists()
-                
-                if not has_minuses:
+                if not student.has_minuses:
                     # У кого никаких минусов не было, их накопленные сверху баллы (points - 100)
                     # добавляются к их бонусному счету на следующую четверть
                     extra_points = max(0, student.points - 100)
@@ -161,10 +172,10 @@ class StudentViewSet(viewsets.ModelViewSet):
                     # Если были минусы, бонус сгорает
                     student.carryover_bonus = 0
                     
-                # 3. Минусы "обнулятся" автоматически, потому что мы закроем четверть,
-                # и recalculate_points перестанет учитывать старые ActionLog.
-                # Сброс points мы не делаем руками — они пересчитаются по-новому.
-                student.save(update_fields=['carryover_bonus'])
+                students_to_update.append(student)
+            
+            # Обновляем бонусы всем студентам ОДНИМ запросом
+            Student.objects.bulk_update(students_to_update, ['carryover_bonus'])
             
             # 4. Сохраняем весь архив ОДНИМ запросом
             QuarterResult.objects.bulk_create(results_to_create)

@@ -4,16 +4,21 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { registerSW } from 'virtual:pwa-register';
 import './index.css';
-import i18n from './i18n';
 import App from './App.tsx';
+import UpdatePrompt from './components/UpdatePrompt.tsx';
 
-// Register service worker and handle auto-update
 const updateSW = registerSW({
   onNeedRefresh() {
-    // Automatically refresh the page when a new version is available
-    if (confirm(i18n.t('common.update_app_confirm'))) {
-      updateSW(true);
-    }
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const destroy = () => { root.unmount(); document.body.removeChild(container); };
+    root.render(
+      <UpdatePrompt
+        onUpdate={() => { destroy(); updateSW(true); }}
+        onDismiss={destroy}
+      />
+    );
   },
   onOfflineReady() {
     console.log('App ready to work offline');

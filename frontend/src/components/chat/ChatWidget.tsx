@@ -889,6 +889,10 @@ export const ChatWidget: React.FC = () => {
   const filteredContacts = React.useMemo(() => {
     let result = Array.isArray(contacts) ? contacts : [];
 
+    if (isStudent) {
+      result = result.filter(c => c.role_subtitle === 'Администратор');
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const variants = getSearchVariants(q);
@@ -909,7 +913,7 @@ export const ChatWidget: React.FC = () => {
     }
 
     return result;
-  }, [contacts, activeTab, searchQuery]);
+  }, [contacts, activeTab, searchQuery, isStudent, t]);
 
   // Return out if not logged in
   if (!localStorage.getItem('access_token')) return null;
@@ -1028,18 +1032,22 @@ export const ChatWidget: React.FC = () => {
                 >
                   Чаты
                 </button>
-                <button
-                  className={`chat-tab ${activeTab === 'teachers' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('teachers')}
-                >
-                  Учителя
-                </button>
-                <button
-                  className={`chat-tab ${activeTab === 'students' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('students')}
-                >
-                  Ученики
-                </button>
+                {!isStudent && (
+                  <button
+                    className={`chat-tab ${activeTab === 'teachers' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('teachers')}
+                  >
+                    Учителя
+                  </button>
+                )}
+                {!isStudent && (
+                  <button
+                    className={`chat-tab ${activeTab === 'students' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('students')}
+                  >
+                    Ученики
+                  </button>
+                )}
                 <button
                   className={`chat-tab ${activeTab === 'ai' ? 'active' : ''}`}
                   onClick={() => setActiveTab('ai')}

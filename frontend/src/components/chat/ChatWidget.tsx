@@ -904,7 +904,7 @@ export const ChatWidget: React.FC = () => {
       });
     } else {
       if (activeTab === 'chats') {
-        result = result.filter(c => c.last_message !== null);
+        result = result.filter(c => c.last_message !== null || c.is_admin);
       } else if (activeTab === 'teachers') {
         result = result.filter(c => c.role_subtitle === t('auto.t_18_uchitel') || c.role_subtitle === 'Администратор' || c.role_subtitle === 'Сотрудник');
       } else if (activeTab === 'students') {

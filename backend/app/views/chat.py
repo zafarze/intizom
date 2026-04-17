@@ -29,11 +29,10 @@ class ChatContactsView(APIView):
         users_query = User.objects.exclude(id=user.id)
 
         if hasattr(user, 'student_profile'):
-            # Ученики видят только админов и тех, с кем уже есть сообщения
+            # Ученики видят только суперадминов и тех, с кем уже есть сообщения
             users_query = users_query.filter(
-                Q(is_superuser=True) | 
-                Q(is_staff=True) | 
-                Q(sent_messages__recipient=user) | 
+                Q(is_superuser=True) |
+                Q(sent_messages__recipient=user) |
                 Q(received_messages__sender=user)
             ).distinct()
 
@@ -67,7 +66,7 @@ class ChatContactsView(APIView):
                 name = u.username
                 role_subtitle = "Пользователь"
                 
-            is_admin = u.is_superuser or u.is_staff
+            is_admin = u.is_superuser
             if is_admin:
                 role_subtitle = "Администратор"
                 
@@ -192,7 +191,7 @@ class ChatMessagesView(APIView):
             return Response({"error": "User not found"}, status=404)
             
         if hasattr(request.user, 'student_profile'):
-            if not (other_user.is_staff or other_user.is_superuser):
+            if not other_user.is_superuser:
                 return Response({"error": "Ученики могут писать только администратору."}, status=403)
             
         content = request.data.get('content', '').strip()

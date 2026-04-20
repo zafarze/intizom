@@ -15,6 +15,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             role = 'admin'
         elif hasattr(user, 'student_profile'):
             role = 'student'
+        elif user.groups.filter(name='secretary').exists():
+            role = 'secretary'
         elif user.is_staff:
             role = 'teacher'
         else:

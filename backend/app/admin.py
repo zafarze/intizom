@@ -1,6 +1,6 @@
 from django.contrib import admin
 from modeltranslation.admin import TranslationAdmin
-from .models import SchoolClass, Student, Rule, ActionLog, Quarter, Subject
+from .models import SchoolClass, Student, Rule, ActionLog, Quarter, Subject, AttendanceRecord
 
 @admin.register(SchoolClass)
 class SchoolClassAdmin(admin.ModelAdmin):
@@ -54,3 +54,12 @@ class ActionLogAdmin(admin.ModelAdmin):
     def points_impact(self, obj):
         impact = obj.rule.points_impact
         return f"+{impact}" if impact > 0 else str(impact)
+
+
+@admin.register(AttendanceRecord)
+class AttendanceRecordAdmin(admin.ModelAdmin):
+    list_display = ('student', 'date', 'is_absent', 'marked_by', 'updated_at')
+    list_filter = ('date', 'is_absent')
+    search_fields = ('student__first_name', 'student__last_name')
+    list_select_related = ('student', 'marked_by')
+    date_hierarchy = 'date'

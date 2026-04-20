@@ -8,6 +8,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import TeacherMyClass from './pages/teacher/TeacherMyClass';
 import StudentDashboard from './pages/student/StudentDashboard';
+import SecretaryAttendance from './pages/secretary/SecretaryAttendance';
 import Statistics from './pages/admin/Statistics';
 import Monitoring from './pages/admin/Monitoring';
 import Comparison from './pages/admin/Comparison';
@@ -22,6 +23,7 @@ const RoleBasedRedirect = () => {
 
   if (role === 'student') return <Navigate to="/student" replace />;
   if (role === 'teacher') return <Navigate to="/teacher" replace />;
+  if (role === 'secretary') return <Navigate to="/secretary" replace />;
   // По умолчанию или если админ
   return <Navigate to="/admin" replace />;
 };
@@ -128,6 +130,13 @@ export default function App() {
           <Route path="student" element={
             <ProtectedRoute allowedRoles={['student']}>
               <StudentDashboard />
+            </ProtectedRoute>
+          } />
+
+          {/* ================= ЗОНА СЕКРЕТАРЯ ================= */}
+          <Route path="secretary" element={
+            <ProtectedRoute allowedRoles={['secretary', 'admin']}>
+              <SecretaryAttendance />
             </ProtectedRoute>
           } />
 

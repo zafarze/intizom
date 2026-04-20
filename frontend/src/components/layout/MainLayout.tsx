@@ -7,9 +7,11 @@ import Header from './Header';
 import { syncOfflineData } from '../../api/syncQueue'; // 👈 Импорт функции синхронизации
 import toast from 'react-hot-toast'; // 👈 Импорт уведомлений
 import { ChatWidget } from '../chat/ChatWidget';
+import { useBackButtonGuard } from '../../hooks/useBackButtonGuard';
 
 export default function MainLayout() {
   const { t } = useTranslation();
+  useBackButtonGuard();
 
 	const [isMobileOpen, setIsMobileOpen] = useState(false);
 	const [pullProgress, setPullProgress] = useState(0);

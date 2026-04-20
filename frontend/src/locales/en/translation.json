@@ -3,6 +3,7 @@
     "main_section": "MAIN",
     "my_class_section": "MY CLASS",
     "my_class": "My Class",
+    "attendance": "Attendance",
     "dashboard": "Dashboard",
     "students": "Students",
     "teachers": "Teachers",
@@ -179,7 +180,16 @@
       "classes": "Classes",
       "teachers": "Teachers",
       "students": "Students",
-      "rules": "Rules (SIN)"
+      "rules": "Rules (SIN)",
+      "users": "Users"
+    },
+    "users": {
+      "add": "Add user",
+      "edit": "Edit user",
+      "role": "Role",
+      "role_admin": "Admin",
+      "role_secretary": "Secretary",
+      "email_placeholder": "Email (optional)"
     },
     "common": {
       "create": "Create",
@@ -650,9 +660,9 @@
     "group_d": "Group D (Severe)",
     "risk_levels_title": "Student risk levels",
     "risk_exemplary": "Exemplary (90-100 points)",
-    "risk_verbal": "Verbal warning (70-80 points)",
+    "risk_verbal": "Verbal warning (70-89 points)",
     "risk_written": "Written warning (45-69 points)",
-    "risk_labor": "Labor punishment (30-45 points)",
+    "risk_labor": "Labor punishment (30-44 points)",
     "risk_expulsion": "Risk of expulsion (<30 points)",
     "bonuses_title": "Rewards (Bonuses)",
     "bonuses_desc_1": "Accrued this month",
@@ -802,5 +812,18 @@
     "t_126": "Archive",
     "t_127": "lesson",
     "t_128": "LESSON"
+  },
+  "secretary": {
+    "title": "Attendance",
+    "subtitle": "Tap a class, then tap a student to mark them as absent",
+    "no_classes": "No classes found",
+    "no_students": "No students in this class",
+    "back_to_classes": "Back to classes",
+    "students_count": "students",
+    "absent_short": "absent",
+    "absent": "Absent",
+    "present": "Present",
+    "load_error": "Failed to load attendance",
+    "toggle_error": "Failed to save, try again"
   }
 }

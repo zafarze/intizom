@@ -295,6 +295,27 @@ class Message(models.Model):
 
 
 # ==========================================
+# ПОСЕЩАЕМОСТЬ (Attendance)
+# ==========================================
+class AttendanceRecord(models.Model):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendance_records', verbose_name="Хонанда")
+    date = models.DateField(db_index=True, verbose_name="Сана")
+    is_absent = models.BooleanField(default=True, verbose_name="Ғоиб аст")
+    marked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='attendance_marked', verbose_name="Қайдкунанда")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Иштирок"
+        verbose_name_plural = "Иштирок дар дарс"
+        unique_together = ('student', 'date')
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.student} - {self.date} - {'Ғоиб' if self.is_absent else 'Ҳозир'}"
+
+
+# ==========================================
 # AI CHAT
 # ==========================================
 class AIConversation(models.Model):

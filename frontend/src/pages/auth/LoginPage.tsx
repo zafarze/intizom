@@ -82,6 +82,8 @@ export default function LoginPage() {
 					navigate('/teacher');
 				} else if (userToSave.role === 'student') {
 					navigate('/student');
+				} else if (userToSave.role === 'secretary') {
+					navigate('/secretary');
 				} else {
 					navigate('/dashboard');
 				}

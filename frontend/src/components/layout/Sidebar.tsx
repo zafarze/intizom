@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
 	LayoutDashboard, BarChart2, Activity, Users,
-	Settings, LogOut, PanelLeftClose, PanelLeftOpen, RefreshCw, GitCompare
+	Settings, LogOut, PanelLeftClose, PanelLeftOpen, RefreshCw, GitCompare,
+	ClipboardCheck
 } from 'lucide-react';
 import logoUrl from '../../assets/logo.png';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +28,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 	const role = user?.role?.toLowerCase() || '';
 	const isAdmin = role === 'admin';
 	const isTeacher = role === 'teacher';
+	const isSecretary = role === 'secretary';
 
 	useEffect(() => {
 		const handleResize = () => {
@@ -110,11 +112,22 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }: SidebarProps)
 								{/* 1. Дашборд видят все */}
 								<NavItem
 									expanded={expanded}
-									to={isAdmin ? "/admin" : isTeacher ? "/teacher" : "/student"}
+									to={isAdmin ? "/admin" : isTeacher ? "/teacher" : isSecretary ? "/secretary" : "/student"}
 									icon={<LayoutDashboard size={20} />}
 									label={t('sidebar.dashboard')}
 									onClick={handleNavClick}
 								/>
+
+								{/* Посещаемость — для секретаря и админа */}
+								{(isSecretary || isAdmin) && (
+									<NavItem
+										expanded={expanded}
+										to="/secretary"
+										icon={<ClipboardCheck size={20} />}
+										label={t('sidebar.attendance')}
+										onClick={handleNavClick}
+									/>
+								)}
 
 								{/* 2. Статистику видят Админ и Учитель */}
 								{(isAdmin || isTeacher) && (

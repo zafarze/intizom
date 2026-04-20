@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
-import { Users, Calendar, GraduationCap, BookOpen, ClipboardList, Library, Loader2, Clock } from 'lucide-react';
+import { Users, Calendar, GraduationCap, BookOpen, ClipboardList, Library, Loader2, Clock, ShieldCheck } from 'lucide-react';
 import api from '../../api/axios';
 
 import StudentsTab from './management_tabs/StudentsTab';
@@ -10,11 +10,12 @@ import ClassesTab from './management_tabs/ClassesTab';
 import SubjectsTab from './management_tabs/SubjectsTab';
 import YearsTab from './management_tabs/YearsTab';
 import TimeTableTab from './management_tabs/TimeTableTab';
+import UsersTab from './management_tabs/UsersTab';
 
 export default function Management() {
 	const { t } = useTranslation();
 
-	const validTabs = ['years', 'timetable', 'subjects', 'classes', 'teachers', 'students', 'rules'];
+	const validTabs = ['years', 'timetable', 'subjects', 'classes', 'teachers', 'students', 'rules', 'users'];
 	const [activeTab, setActiveTab] = useState(() => {
 		const saved = localStorage.getItem('management_active_tab');
 		return saved && validTabs.includes(saved) ? saved : 'students';
@@ -35,6 +36,7 @@ export default function Management() {
 		{ id: 'teachers', name: t('management.tabs.teachers'), icon: <Users size={18} /> },
 		{ id: 'students', name: t('management.tabs.students'), icon: <GraduationCap size={18} /> },
 		{ id: 'rules', name: t('management.tabs.rules'), icon: <ClipboardList size={18} /> },
+		{ id: 'users', name: t('management.tabs.users'), icon: <ShieldCheck size={18} /> },
 	];
 
 	const fetchData = async () => {
@@ -87,6 +89,7 @@ export default function Management() {
 					{activeTab === 'subjects' && <SubjectsTab data={data.subjects} teachers={data.teachers} refresh={fetchData} />}
 					{activeTab === 'years' && <YearsTab data={data.years} refresh={fetchData} />}
 					{activeTab === 'timetable' && <TimeTableTab data={data.timetable} refresh={fetchData} />}
+					{activeTab === 'users' && <UsersTab />}
 				</div>
 			)}
 		</div>

@@ -64,6 +64,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 		case 'admin': roleDisplay = t('auto.t_143_admin'); break;
 		case 'teacher': roleDisplay = t('auto.t_18_uchitel'); break;
 		case 'student': roleDisplay = t('auto.t_14_uchenik'); break;
+		case 'secretary': roleDisplay = t('management.users.role_secretary'); break;
 		default: roleDisplay = t('auto.t_86_polzovatel');
 	}
 

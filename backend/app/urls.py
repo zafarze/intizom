@@ -31,6 +31,9 @@ from .views import (
     AIChatView,
     AITranslateView,
     MyClassMatrixView,
+    SecretaryClassesView,
+    AttendanceToggleView,
+    SystemUserViewSet,
 )
 from .views.fcm import FCMTokenRegisterView
 
@@ -45,6 +48,7 @@ router.register(r'teachers', TeacherViewSet)
 router.register(r'subjects', SubjectViewSet)
 router.register(r'quarters', QuarterViewSet)
 router.register(r'timetable', BellScheduleViewSet)
+router.register(r'system-users', SystemUserViewSet, basename='system-users')
 
 urlpatterns = [
     # 👇 ПОДКЛЮЧИЛИ КАСТОМНЫЙ ЛОГИН СЮДА
@@ -63,6 +67,10 @@ urlpatterns = [
 
     # Панель классного руководителя
     path('teacher/my-class/', MyClassMatrixView.as_view(), name='teacher-my-class'),
+
+    # Панель секретаря (посещаемость)
+    path('secretary/classes/', SecretaryClassesView.as_view(), name='secretary-classes'),
+    path('secretary/attendance/toggle/', AttendanceToggleView.as_view(), name='attendance-toggle'),
 
     # Chat
     path('chat/broadcast/', ChatBroadcastView.as_view(), name='chat_broadcast'),

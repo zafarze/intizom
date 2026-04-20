@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PieChart, BarChart3, TrendingUp, Award, Loader2, ShieldAlert, TrendingDown, Activity, X } from 'lucide-react';
 import api from '../../api/axios';
@@ -49,11 +49,20 @@ export default function Statistics() {
 	const [isModalLoading, setIsModalLoading] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const studentsRef = useRef<any[] | null>(null);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const logsCacheRef = useRef<Record<string, any[]>>({});
+
 	useEffect(() => {
-		const fetchStatistics = async () => {
+		const fetchAll = async () => {
 			try {
-				const response = await api.get('statistics/');
-				setStats(response.data);
+				const [statsRes, studentsRes] = await Promise.all([
+					api.get('statistics/'),
+					api.get('students/?limit=2000'),
+				]);
+				setStats(statsRes.data);
+				studentsRef.current = studentsRes.data.results || studentsRes.data;
 			} catch (error) {
 				console.error(t('auto.t_203_oshibka_zagruzki_statistiki'), error);
 			} finally {
@@ -61,7 +70,7 @@ export default function Statistics() {
 			}
 		};
 
-		fetchStatistics();
+		fetchAll();
 	}, []);
 
 	// Показываем спиннер, пока данные грузятся
@@ -91,18 +100,34 @@ export default function Statistics() {
 
 	const openModal = async (title: string, type: 'category' | 'risk', filterValue: string) => {
 		setModalData({ isOpen: true, title, type, filterValue });
+
+		const cacheKey = `${type}:${filterValue}`;
+		const cached = logsCacheRef.current[cacheKey];
+		if (cached) {
+			setModalLogs(cached);
+			setIsModalLoading(false);
+			return;
+		}
+
 		setIsModalLoading(true);
 		setModalLogs([]);
 
 		try {
 			if (type === 'category') {
 				const response = await api.get(`logs/?rule__category=${filterValue}&limit=500`);
-				setModalLogs(response.data.results || response.data);
+				const data = response.data.results || response.data;
+				logsCacheRef.current[cacheKey] = data;
+				setModalLogs(data);
 			} else {
-				// Fetch students by risk level
-				// For now we might not have a direct endpoint, but we can fetch students and filter them
-				const response = await api.get(`students/?limit=1000`);
-				const students = response.data.results || response.data;
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				let students: any[];
+				if (studentsRef.current) {
+					students = studentsRef.current;
+				} else {
+					const response = await api.get(`students/?limit=2000`);
+					students = response.data.results || response.data;
+					studentsRef.current = students;
+				}
 
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				const filtered = students.filter((s: any) => {
@@ -113,6 +138,7 @@ export default function Statistics() {
 					if (filterValue === 'risk') return s.points < 25;
 					return false;
 				});
+				logsCacheRef.current[cacheKey] = filtered;
 				setModalLogs(filtered);
 			}
 		} catch (error) {

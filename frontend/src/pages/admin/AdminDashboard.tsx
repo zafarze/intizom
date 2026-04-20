@@ -58,13 +58,13 @@ export default function AdminDashboard() {
 
 	// --- СОСТОЯНИЯ ---
 	const [stats, setStats] = useState<any>(null);
-	const [logs, setLogs] = useState<ActionLog[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 
 	// Модальные окна для карточек
 	type ModalType = 'risk' | 'violations' | 'students' | null;
 	const [activeModal, setActiveModal] = useState<ModalType>(null);
 	const [atRiskStudents, setAtRiskStudents] = useState<Student[]>([]);
+	const [violationsModalData, setViolationsModalData] = useState<ActionLog[]>([]);
 
 	// --- СОСТОЯНИЯ ДЛЯ СЛАЙДЕРА ---
 	const [currentSlide, setCurrentSlide] = useState(0);
@@ -82,15 +82,8 @@ export default function AdminDashboard() {
 	useEffect(() => {
 		const fetchDashboardData = async () => {
 			try {
-				// Запрашиваем новую статистику и логи (для таблицы) параллельно
-				const [statsRes, logsRes] = await Promise.all([
-					api.get('dashboard-stats/'),
-					api.get('logs/')
-				]);
-
+				const statsRes = await api.get('dashboard-stats/');
 				setStats(statsRes.data);
-				// Поддержка пагинации DRF
-				setLogs(logsRes.data.results || logsRes.data);
 			} catch (error) {
 				console.error("Ошибка при загрузке данных дашборда:", error);
 			} finally {
@@ -111,6 +104,16 @@ export default function AdminDashboard() {
 		}
 	}, [activeModal]);
 
+	// Лениво подгружаем полный список нарушений только при открытии модалки
+	useEffect(() => {
+		if (activeModal === 'violations' && violationsModalData.length === 0) {
+			api.get('logs/?page_size=30').then(res => {
+				const all: ActionLog[] = res.data.results || res.data;
+				setViolationsModalData(all.filter(l => l.rule_detail && l.rule_detail.points_impact < 0));
+			}).catch(err => console.error('Failed to load violations:', err));
+		}
+	}, [activeModal, violationsModalData.length]);
+
 	// ==========================================
 	// 3. ВЫЧИСЛЕНИЕ СТАТИСТИКИ (Адаптировано)
 	// ==========================================
@@ -121,12 +124,10 @@ export default function AdminDashboard() {
 	const atRiskCount = stats?.at_risk_count || 0;
 	const absentTodayCount = stats?.absent_today_count || 0;
 
-	// Считаем сколько всего было нарушений (оставляем фильтр по логам, чтобы таблица работала как раньше)
-	const violations = logs.filter(log => log.rule_detail && log.rule_detail.points_impact < 0);
-	const violationsCount = violations.length;
-
-	// Берем только 5 последних нарушений для красивой таблицы
-	const recentViolations = violations.slice(0, 5);
+	// Все эти цифры приходят готовыми из dashboard-stats — без отдельного вызова logs/
+	const violationsCount: number = stats?.violations_count || 0;
+	const recentViolations: ActionLog[] = stats?.recent_violations || [];
+	const violations: ActionLog[] = violationsModalData;
 
 	// Утилита для красивого отображения даты
 	const formatDate = (isoString: string) => {

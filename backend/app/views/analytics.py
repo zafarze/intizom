@@ -107,6 +107,32 @@ class DashboardStatsView(APIView):
             for log in recent_logs
         ]
 
+        # 4. Нарушения для дашборда (счётчик + 5 последних с деталями)
+        violations_qs = (
+            ActionLog.objects
+            .filter(rule__points_impact__lt=0)
+            .select_related('student', 'student__school_class', 'rule')
+        )
+        violations_count = violations_qs.count()
+        recent_violations = [
+            {
+                "id": log.id,
+                "created_at": log.created_at.isoformat(),
+                "student_detail": {
+                    "id": log.student_id,
+                    "first_name": log.student.first_name,
+                    "last_name": log.student.last_name,
+                    "class_name": log.student.school_class.name if log.student.school_class_id else None,
+                    "points": log.student.points,
+                },
+                "rule_detail": {
+                    "title": log.rule.title,
+                    "points_impact": log.rule.points_impact,
+                },
+            }
+            for log in violations_qs.order_by('-created_at')[:5]
+        ]
+
         # Формируем итоговый ответ
         result = {
             "total_students": total_students,
@@ -115,6 +141,8 @@ class DashboardStatsView(APIView):
             "absent_today_count": absent_today_count,
             "top_classes": classes_data,
             "recent_logs": logs_data,
+            "violations_count": violations_count,
+            "recent_violations": recent_violations,
         }
         cache.set(DASHBOARD_CACHE_KEY, result, DASHBOARD_CACHE_TTL)
         return Response(result)
@@ -158,11 +186,11 @@ class StatisticsView(APIView):
         total_students = Student.objects.count() or 1
 
         risk_levels = Student.objects.aggregate(
-            exemplary=Count('id', filter=Q(points__gte=90)),
-            verbal=Count('id', filter=Q(points__gte=70, points__lt=90)),
+            exemplary=Count('id', filter=Q(points__gte=81)),
+            verbal=Count('id', filter=Q(points__gte=70, points__lt=81)),
             written=Count('id', filter=Q(points__gte=45, points__lt=70)),
             labor=Count('id', filter=Q(points__gte=30, points__lt=45)),
-            risk=Count('id', filter=Q(points__lt=30)),
+            risk=Count('id', filter=Q(points__lt=25)),
         )
 
         risk_data = {

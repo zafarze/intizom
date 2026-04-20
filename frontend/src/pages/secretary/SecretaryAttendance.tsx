@@ -155,8 +155,7 @@ export default function SecretaryAttendance() {
 		if (pressTimerRef.current) window.clearTimeout(pressTimerRef.current);
 		pressTimerRef.current = window.setTimeout(() => {
 			longPressedRef.current = true;
-			setLateMinutesInput(student.late_minutes ? String(student.late_minutes) : '');
-			setSheetStudent(student);
+			openSheet(student);
 		}, 500);
 	};
 	const cancelPress = () => {
@@ -174,10 +173,41 @@ export default function SecretaryAttendance() {
 		toggleShortTap(student);
 	};
 
-	const closeSheet = () => {
+	const closeSheet = useCallback(() => {
 		setSheetStudent(null);
 		setLateMinutesInput('');
-	};
+	}, []);
+
+	const openSheet = useCallback((student: StudentRow) => {
+		setLateMinutesInput(student.late_minutes ? String(student.late_minutes) : '');
+		setSheetStudent(student);
+	}, []);
+
+	// Close sheet on ESC (desktop) and back button (mobile PWA).
+	useEffect(() => {
+		if (!sheetStudent) return;
+
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') closeSheet();
+		};
+		window.addEventListener('keydown', onKey);
+
+		// Push a synthetic history entry so the hardware / browser back
+		// closes the sheet instead of navigating away.
+		const SHEET_MARK = '__attendance_sheet__';
+		window.history.pushState({ [SHEET_MARK]: true }, '');
+		const onPop = () => closeSheet();
+		window.addEventListener('popstate', onPop);
+
+		return () => {
+			window.removeEventListener('keydown', onKey);
+			window.removeEventListener('popstate', onPop);
+			// If we unmount while our synthetic entry is still on top, pop it.
+			if (window.history.state && window.history.state[SHEET_MARK]) {
+				window.history.back();
+			}
+		};
+	}, [sheetStudent, closeSheet]);
 
 	const pickSheetStatus = async (nextStatus: AttendanceStatus) => {
 		if (!sheetStudent) return;
@@ -337,7 +367,7 @@ export default function SecretaryAttendance() {
 											onTouchStart={() => startPress(s)}
 											onTouchEnd={(e) => endPress(s, e)}
 											onTouchCancel={cancelPress}
-											onContextMenu={(e) => e.preventDefault()}
+											onContextMenu={(e) => { e.preventDefault(); cancelPress(); longPressedRef.current = true; openSheet(s); }}
 											disabled={togglingId === s.id}
 											className={`flex items-center gap-3 p-4 rounded-2xl border transition-all text-left select-none ${style.card} ${togglingId === s.id ? 'opacity-60' : ''}`}
 										>

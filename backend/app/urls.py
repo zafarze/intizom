@@ -37,6 +37,7 @@ from .views import (
     SystemUserViewSet,
 )
 from .views.fcm import FCMTokenRegisterView
+from .views.cron import RunMonthlyBonusView
 
 router = DefaultRouter()
 router.register(r'classes', SchoolClassViewSet)
@@ -73,6 +74,9 @@ urlpatterns = [
     path('secretary/classes/', SecretaryClassesView.as_view(), name='secretary-classes'),
     path('secretary/attendance/toggle/', AttendanceToggleView.as_view(), name='attendance-toggle'),
     path('secretary/stats/', AdminAttendanceStatsView.as_view(), name='secretary-stats'),
+
+    # Cloud Scheduler target
+    path('cron/monthly-bonus/', RunMonthlyBonusView.as_view(), name='cron-monthly-bonus'),
 
     # Chat
     path('chat/broadcast/', ChatBroadcastView.as_view(), name='chat_broadcast'),

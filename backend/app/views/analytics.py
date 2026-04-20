@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.core.cache import cache
 from dateutil.relativedelta import relativedelta
 
-from app.models import Student, SchoolClass, ActionLog, Rule, QuarterResult, Quarter
+from app.models import Student, SchoolClass, ActionLog, Rule, QuarterResult, Quarter, AttendanceRecord
 
 # Ключи и TTL кеша
 DASHBOARD_CACHE_KEY = 'dashboard_stats'
@@ -75,6 +75,12 @@ class DashboardStatsView(APIView):
         # Сколько учеников в зоне риска (< 25 баллов)
         at_risk_count = Student.objects.filter(points__lt=25).count()
 
+        # Сколько учеников отсутствуют сегодня
+        today = timezone.localdate()
+        absent_today_count = AttendanceRecord.objects.filter(
+            date=today, is_absent=True
+        ).count()
+
         # 2. Рейтинг классов (Топ-5 лучших)
         # Django сам сгруппирует учеников по классам и посчитает средний балл
         top_classes = SchoolClass.objects.annotate(
@@ -106,6 +112,7 @@ class DashboardStatsView(APIView):
             "total_students": total_students,
             "average_score": round(avg_score, 1),
             "at_risk_count": at_risk_count,
+            "absent_today_count": absent_today_count,
             "top_classes": classes_data,
             "recent_logs": logs_data,
         }

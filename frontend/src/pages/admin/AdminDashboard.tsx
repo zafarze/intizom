@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, AlertOctagon, ShieldAlert, Download, Award, Loader2, X } from 'lucide-react';
+import { Users, TrendingUp, AlertOctagon, ShieldAlert, Download, Award, Loader2, X, UserX } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import StatCard from '../../components/ui/StatCard';
@@ -119,6 +119,7 @@ export default function AdminDashboard() {
 	const totalStudents = stats?.total_students || 0;
 	const averageScore = stats?.average_score || '0';
 	const atRiskCount = stats?.at_risk_count || 0;
+	const absentTodayCount = stats?.absent_today_count || 0;
 
 	// Считаем сколько всего было нарушений (оставляем фильтр по логам, чтобы таблица работала как раньше)
 	const violations = logs.filter(log => log.rule_detail && log.rule_detail.points_impact < 0);
@@ -248,7 +249,7 @@ export default function AdminDashboard() {
 				</div>
 
 				{/* Карточки статистики (ЖИВЫЕ ДАННЫЕ ИЗ НОВОГО API) */}
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
 					<StatCard
 						title={t('dashboard.total_students')}
 						value={totalStudents.toString()}
@@ -286,6 +287,14 @@ export default function AdminDashboard() {
 						icon={<ShieldAlert size={20} />}
 						color="red"
 						onClick={() => setActiveModal('risk')}
+					/>
+					<StatCard
+						title={t('dashboard.absent_today')}
+						value={absentTodayCount.toString()}
+						subtitle={t('dashboard.absent_today_subtitle')}
+						icon={<UserX size={20} />}
+						color="orange"
+						onClick={() => navigate('/secretary')}
 					/>
 				</div>
 

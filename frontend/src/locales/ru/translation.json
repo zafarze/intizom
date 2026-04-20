@@ -93,6 +93,8 @@
     "risk_exclusion": "Риск исключения",
     "council_needed": "Нужен педсовет",
     "points_under_25": "Баллы < 25",
+    "absent_today": "Отсутствуют сегодня",
+    "absent_today_subtitle": "Не пришли на занятия",
     "recent_violations": "Последние серьезные нарушения",
     "view_all": "Смотреть все",
     "table_student": "УЧЕНИК",

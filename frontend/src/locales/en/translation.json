@@ -93,6 +93,8 @@
     "risk_exclusion": "Exclusion Risk",
     "council_needed": "Council Required",
     "points_under_25": "Points < 25",
+    "absent_today": "Absent today",
+    "absent_today_subtitle": "Did not attend",
     "recent_violations": "Recent Severe Violations",
     "view_all": "View All",
     "table_student": "STUDENT",

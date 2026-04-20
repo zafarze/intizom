@@ -497,6 +497,35 @@ export const ChatWidget: React.FC = () => {
     }, 300); // Matches animation duration
   };
 
+  // Hardware/browser back button:
+  // fullscreen image -> broadcast modal -> active dialog -> close widget.
+  useEffect(() => {
+    if (!isOpen && !fullScreenImage && !isBroadcastModalOpen && !activeContact) return;
+
+    const MARK = '__chat_back_guard__';
+    window.history.pushState({ [MARK]: true }, '');
+
+    const onPop = () => {
+      if (fullScreenImage) {
+        setFullScreenImage(null);
+      } else if (isBroadcastModalOpen) {
+        setIsBroadcastModalOpen(false);
+      } else if (activeContact) {
+        setActiveContact(null);
+      } else if (isOpen) {
+        handleClose();
+      }
+    };
+    window.addEventListener('popstate', onPop);
+
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (window.history.state && window.history.state[MARK]) {
+        window.history.back();
+      }
+    };
+  }, [isOpen, activeContact, fullScreenImage, isBroadcastModalOpen]);
+
   const handleSelectContact = async (contact: Contact) => {
     setActiveContact(contact);
     setIsLoading(true);
@@ -1224,7 +1253,7 @@ export const ChatWidget: React.FC = () => {
                             )}
                             {msg.image_file ? (
                               <div className="chat-image-container">
-                                <img src={getMediaUrl(msg.image_file)} alt="attachment" className="chat-message-image" onClick={() => setFullScreenImage(getMediaUrl(msg.image_file))} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="chat-file-deleted"><X size={16}/> Файл удалён</div>'; }} />
+                                <img src={getMediaUrl(msg.image_file)} alt="attachment" className="chat-message-image" onClick={() => setFullScreenImage(getMediaUrl(msg.image_file))} onError={(e) => { const img = e.currentTarget; const parent = img.parentElement; img.style.display = 'none'; if (parent && !parent.querySelector('.chat-file-deleted')) { const div = document.createElement('div'); div.className = 'chat-file-deleted'; div.textContent = '✕ Файл удалён'; parent.appendChild(div); } }} />
                                 {msg.content && <span className="image-caption">{msg.content}</span>}
                               </div>
                             ) : msg.audio_file ? (
@@ -1529,7 +1558,7 @@ export const ChatWidget: React.FC = () => {
                             {msg.reply_to_content && <div className="message-quoted"><div className="quoted-bar"></div><p>{msg.reply_to_content}</p></div>}
                             {msg.image_file ? (
                               <div className="chat-image-container">
-                                <img src={getMediaUrl(msg.image_file)} alt="attachment" className="chat-message-image" onClick={() => setFullScreenImage(getMediaUrl(msg.image_file))} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="chat-file-deleted"><X size={16} style="display:inline;vertical-align:middle;margin-right:4px;"/> Файл удалён</div>'; }} />
+                                <img src={getMediaUrl(msg.image_file)} alt="attachment" className="chat-message-image" onClick={() => setFullScreenImage(getMediaUrl(msg.image_file))} onError={(e) => { const img = e.currentTarget; const parent = img.parentElement; img.style.display = 'none'; if (parent && !parent.querySelector('.chat-file-deleted')) { const div = document.createElement('div'); div.className = 'chat-file-deleted'; div.textContent = '✕ Файл удалён'; parent.appendChild(div); } }} />
                                 {msg.content && <span className="image-caption">{msg.content}</span>}
                               </div>
                             ) : msg.audio_file ? (

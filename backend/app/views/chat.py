@@ -344,7 +344,10 @@ class ChatPinMessageView(APIView):
             msg = Message.objects.get(id=message_id)
         except Message.DoesNotExist:
             return Response({"error": "Message not found"}, status=404)
-            
+
+        if msg.sender_id != request.user.id and msg.recipient_id != request.user.id:
+            return Response({"error": "Forbidden"}, status=403)
+
         msg.is_pinned = not msg.is_pinned
         msg.save()
         return Response({"is_pinned": msg.is_pinned})

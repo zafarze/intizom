@@ -190,7 +190,7 @@ export const ChatWidget: React.FC = () => {
       setBroadcastUsers([]);
       setBroadcastTarget('all');
     } catch (error: any) {
-      toast.error(error.response?.data?.error || "Ошибка при рассылке");
+      toast.error(error?.response?.data?.error || error?.message || "Ошибка при рассылке");
     } finally {
       setIsBroadcasting(false);
     }

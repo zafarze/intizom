@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Q, OuterRef, Subquery, Count, F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -288,8 +289,13 @@ class ChatMessageDetailView(APIView):
             msg = Message.objects.get(id=message_id)
         except Message.DoesNotExist:
             return Response({"error": "Message not found"}, status=404)
-            
-        if for_all and msg.sender == request.user:
+
+        if msg.sender_id != request.user.id and msg.recipient_id != request.user.id:
+            return Response({"error": "Forbidden"}, status=403)
+
+        if for_all:
+            if msg.sender_id != request.user.id:
+                return Response({"error": "Удалять у всех может только отправитель."}, status=403)
             msg.delete()
         else:
             if msg.sender == request.user:
@@ -364,9 +370,10 @@ class ChatReadView(APIView):
             return Response({"error": "User not found"}, status=404)
             
         updated_count = Message.objects.filter(
-            sender=other_user, 
-            recipient=request.user, 
-            is_read=False
+            sender=other_user,
+            recipient=request.user,
+            is_read=False,
+            visible_to_recipient=True
         ).update(is_read=True, read_at=timezone.now())
         
         if updated_count > 0:
@@ -388,8 +395,9 @@ class ChatBroadcastView(APIView):
     """API для массовой рассылки (только для админов)"""
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
-        if not (request.user.is_superuser or request.user.is_staff):
+        if not request.user.is_superuser:
             return Response({"error": "Только администратор может делать рассылки."}, status=403)
 
         content = request.data.get('content', '').strip()

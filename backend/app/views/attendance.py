@@ -6,7 +6,23 @@ from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import AttendanceRecord, SchoolClass, Student, Quarter
+from app.models import AttendanceRecord, SchoolClass, Student, Quarter, Rule, ActionLog
+
+
+ABSENCE_RULE_TITLE = "Бесабаб иштирок накардан дар дарс (дар давоми рӯз)."
+ABSENCE_RULE_POINTS = -15
+
+
+def get_or_create_absence_rule():
+    rule, created = Rule.objects.get_or_create(
+        title=ABSENCE_RULE_TITLE,
+        defaults={
+            'category': Rule.Category.GROUP_B,
+            'points_impact': ABSENCE_RULE_POINTS,
+            'is_multiple': True,
+        },
+    )
+    return rule
 
 
 class IsSecretaryOrAdmin(BasePermission):
@@ -138,13 +154,30 @@ class AttendanceToggleView(APIView):
 
         record = AttendanceRecord.objects.filter(student=student, date=target_date).first()
         if record and record.is_absent:
+            # Снимаем отметку: удаляем связанный ActionLog (сигналы пересчитают баллы)
+            linked_log = record.action_log
             record.delete()
+            if linked_log:
+                linked_log.delete()
             is_absent = False
         else:
+            rule = get_or_create_absence_rule()
+            active_quarter = Quarter.get_current_quarter()
+            log = ActionLog.objects.create(
+                student=student,
+                rule=rule,
+                teacher=request.user,
+                quarter=active_quarter,
+                description=f"Автоматически: отмечен отсутствующим {target_date.isoformat()}",
+            )
             AttendanceRecord.objects.update_or_create(
                 student=student,
                 date=target_date,
-                defaults={'is_absent': True, 'marked_by': request.user},
+                defaults={
+                    'is_absent': True,
+                    'marked_by': request.user,
+                    'action_log': log,
+                },
             )
             is_absent = True
 

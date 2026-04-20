@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
 
 const SENTINEL = '__intizom_back_guard__';
 
@@ -14,34 +13,27 @@ function isStandalonePWA(): boolean {
 }
 
 /**
- * Intercepts the hardware back button in PWA so it navigates inside the app
- * instead of closing the whole application.
+ * Keeps a single sentinel entry at the bottom of the PWA's history so the hardware
+ * back button can navigate normally inside the app, but a back press at the very
+ * first entry doesn't close the whole application.
  */
 export function useBackButtonGuard() {
-	const location = useLocation();
-
 	useEffect(() => {
 		if (!isStandalonePWA()) return;
 
-		// Place a sentinel on top of the current history entry so the next
-		// "back" press pops into it instead of exiting the app.
+		// One-time sentinel push. Subsequent react-router pushes stack on top of it,
+		// so hardware back walks back through them normally.
 		window.history.pushState({ [SENTINEL]: true }, '', window.location.href);
 
 		const onPopState = (e: PopStateEvent) => {
-			const state = e.state as Record<string, unknown> | null;
-			const isSentinel = !!state && state[SENTINEL] === true;
-			// e.state is null when we've popped past our sentinel into the very
-			// first history entry — the next back press would close the PWA.
-			const isInitialEntry = state === null;
-
-			if (isSentinel || isInitialEntry) {
+			// Only trap the attempt to leave the PWA: when the popped entry has no
+			// state at all, we're about to fall off into the initial browser entry.
+			if (e.state === null) {
 				window.history.pushState({ [SENTINEL]: true }, '', window.location.href);
 			}
 		};
 
 		window.addEventListener('popstate', onPopState);
 		return () => window.removeEventListener('popstate', onPopState);
-		// Re-arm the sentinel after every in-app navigation so react-router's
-		// own pushState doesn't leave us without a guard entry on top.
-	}, [location.pathname, location.search]);
+	}, []);
 }

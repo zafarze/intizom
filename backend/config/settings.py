@@ -130,11 +130,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Безопасность CORS: в продакшне задайте CORS_ALLOWED_ORIGINS в .env через запятую
 # Пример: CORS_ALLOWED_ORIGINS=https://intizom.com,https://www.intizom.com
+_DEFAULT_PROD_ORIGINS = [
+    'https://intizom-school.web.app',
+    'https://intizom-school.firebaseapp.com',
+]
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
 else:
     CORS_ALLOW_ALL_ORIGINS = False
-    CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
+    CORS_ALLOWED_ORIGINS = list({
+        *_DEFAULT_PROD_ORIGINS,
+        *env.list('CORS_ALLOWED_ORIGINS', default=[]),
+    })
+    CSRF_TRUSTED_ORIGINS = list({
+        *_DEFAULT_PROD_ORIGINS,
+        *env.list('CSRF_TRUSTED_ORIGINS', default=[]),
+    })
 
 CORS_ALLOW_CREDENTIALS = True  # Разрешить куки/токены в cross-site запросах
 CORS_ALLOW_HEADERS = [

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.utils import timezone
 from rest_framework import status
@@ -6,7 +6,7 @@ from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import AttendanceRecord, SchoolClass, Student
+from app.models import AttendanceRecord, SchoolClass, Student, Quarter
 
 
 class IsSecretaryOrAdmin(BasePermission):
@@ -69,6 +69,51 @@ class SecretaryClassesView(APIView):
         return Response({
             'date': target_date.isoformat(),
             'classes': data,
+        })
+
+
+class AdminAttendanceStatsView(APIView):
+    """
+    Aggregated absence counts for various time ranges.
+    Admin-only. Counts distinct AttendanceRecord rows with is_absent=True.
+    GET /secretary/stats/
+    """
+
+    class IsAdmin(BasePermission):
+        def has_permission(self, request, view):
+            user = request.user
+            return bool(user and user.is_authenticated and user.is_superuser)
+
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        today = timezone.localdate()
+
+        week_start = today - timedelta(days=today.weekday())
+        month_start = today.replace(day=1)
+        year_start = today.replace(month=1, day=1)
+
+        current_quarter = Quarter.get_current_quarter()
+        if current_quarter and current_quarter.start_date and current_quarter.end_date:
+            q_start = current_quarter.start_date
+            q_end = min(current_quarter.end_date, today)
+        else:
+            q_start = q_end = None
+
+        qs = AttendanceRecord.objects.filter(is_absent=True)
+
+        def count_range(start, end):
+            if not start or not end:
+                return 0
+            return qs.filter(date__gte=start, date__lte=end).count()
+
+        return Response({
+            'today': qs.filter(date=today).count(),
+            'week': count_range(week_start, today),
+            'month': count_range(month_start, today),
+            'quarter': count_range(q_start, q_end),
+            'year': count_range(year_start, today),
+            'quarter_name': current_quarter.name if current_quarter else None,
         })
 
 

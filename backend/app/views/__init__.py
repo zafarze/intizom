@@ -11,5 +11,5 @@ from .auth import CustomTokenObtainPairView
 from .timetable import BellScheduleViewSet
 from .chat import ChatContactsView, ChatMessagesView, ChatReadView, ChatMessageDetailView, ChatHistoryDeleteView, ChatPinMessageView, ChatBroadcastView
 from .ai_chat import AIChatView, AITranslateView
-from .attendance import SecretaryClassesView, AttendanceToggleView
+from .attendance import SecretaryClassesView, AttendanceToggleView, AdminAttendanceStatsView
 from .system_users import SystemUserViewSet

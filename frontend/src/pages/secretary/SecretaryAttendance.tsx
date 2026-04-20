@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Users, UserX, Calendar, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Users, UserX, Calendar, CheckCircle2, CalendarDays, CalendarRange, GraduationCap, CalendarClock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../api/axios';
 
@@ -19,6 +19,15 @@ interface ClassRow {
 	total_count: number;
 }
 
+interface AdminStats {
+	today: number;
+	week: number;
+	month: number;
+	quarter: number;
+	year: number;
+	quarter_name: string | null;
+}
+
 function todayIso(): string {
 	const d = new Date();
 	const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -34,6 +43,11 @@ export default function SecretaryAttendance() {
 	const [loading, setLoading] = useState(true);
 	const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
 	const [togglingId, setTogglingId] = useState<number | null>(null);
+	const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+
+	const userStr = typeof localStorage !== 'undefined' ? localStorage.getItem('user') : null;
+	const user = userStr ? JSON.parse(userStr) : null;
+	const isAdmin = (user?.role || '').toLowerCase() === 'admin';
 
 	const fetchData = useCallback(async () => {
 		try {
@@ -51,6 +65,13 @@ export default function SecretaryAttendance() {
 	useEffect(() => {
 		fetchData();
 	}, [fetchData]);
+
+	useEffect(() => {
+		if (!isAdmin) return;
+		api.get('secretary/stats/')
+			.then(res => setAdminStats(res.data))
+			.catch(err => console.error('Failed to load admin stats:', err));
+	}, [isAdmin, classes]);
 
 	const selectedClass = classes.find(c => c.class_id === selectedClassId) || null;
 
@@ -111,6 +132,32 @@ export default function SecretaryAttendance() {
 					/>
 				</label>
 			</div>
+
+			{!selectedClass && isAdmin && adminStats && (
+				<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+					{[
+						{ key: 'today',   label: t('secretary.stats_today'),   value: adminStats.today,   Icon: UserX,         color: 'from-red-500/10 to-red-500/5 text-red-600 dark:text-red-400' },
+						{ key: 'week',    label: t('secretary.stats_week'),    value: adminStats.week,    Icon: CalendarDays,  color: 'from-orange-500/10 to-orange-500/5 text-orange-600 dark:text-orange-400' },
+						{ key: 'month',   label: t('secretary.stats_month'),   value: adminStats.month,   Icon: CalendarRange, color: 'from-amber-500/10 to-amber-500/5 text-amber-600 dark:text-amber-400' },
+						{ key: 'quarter', label: t('secretary.stats_quarter'), value: adminStats.quarter, Icon: CalendarClock, color: 'from-indigo-500/10 to-indigo-500/5 text-indigo-600 dark:text-indigo-400' },
+						{ key: 'year',    label: t('secretary.stats_year'),    value: adminStats.year,    Icon: GraduationCap, color: 'from-emerald-500/10 to-emerald-500/5 text-emerald-600 dark:text-emerald-400' },
+					].map(({ key, label, value, Icon, color }) => (
+						<div
+							key={key}
+							className={`bg-gradient-to-br ${color} bg-white/70 dark:bg-zinc-900 backdrop-blur-md rounded-2xl p-4 border border-white dark:border-zinc-800 shadow-sm`}
+						>
+							<div className="flex items-center justify-between mb-2">
+								<Icon size={18} />
+								<span className="text-xs font-medium opacity-75">{label}</span>
+							</div>
+							<div className="text-2xl font-black text-slate-800 dark:text-zinc-100">{value}</div>
+							<div className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+								{t('secretary.stats_absences')}
+							</div>
+						</div>
+					))}
+				</div>
+			)}
 
 			{!selectedClass && (
 				<>

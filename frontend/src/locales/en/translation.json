@@ -826,6 +826,12 @@
     "absent": "Absent",
     "present": "Present",
     "load_error": "Failed to load attendance",
-    "toggle_error": "Failed to save, try again"
+    "toggle_error": "Failed to save, try again",
+    "stats_today": "Today",
+    "stats_week": "This week",
+    "stats_month": "This month",
+    "stats_quarter": "This quarter",
+    "stats_year": "This year",
+    "stats_absences": "absences"
   }
 }

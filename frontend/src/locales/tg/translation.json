@@ -826,6 +826,12 @@
     "absent": "Ғоиб",
     "present": "Ҳозир",
     "load_error": "Маълумот бор нашуд",
-    "toggle_error": "Сабт нашуд, боз кӯшиш кунед"
+    "toggle_error": "Сабт нашуд, боз кӯшиш кунед",
+    "stats_today": "Имрӯз",
+    "stats_week": "Ҳафта",
+    "stats_month": "Моҳ",
+    "stats_quarter": "Чоряк",
+    "stats_year": "Сол",
+    "stats_absences": "ғоибӣ"
   }
 }

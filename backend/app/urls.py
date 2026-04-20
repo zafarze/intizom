@@ -33,6 +33,7 @@ from .views import (
     MyClassMatrixView,
     SecretaryClassesView,
     AttendanceToggleView,
+    AdminAttendanceStatsView,
     SystemUserViewSet,
 )
 from .views.fcm import FCMTokenRegisterView
@@ -71,6 +72,7 @@ urlpatterns = [
     # Панель секретаря (посещаемость)
     path('secretary/classes/', SecretaryClassesView.as_view(), name='secretary-classes'),
     path('secretary/attendance/toggle/', AttendanceToggleView.as_view(), name='attendance-toggle'),
+    path('secretary/stats/', AdminAttendanceStatsView.as_view(), name='secretary-stats'),
 
     # Chat
     path('chat/broadcast/', ChatBroadcastView.as_view(), name='chat_broadcast'),

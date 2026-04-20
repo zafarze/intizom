@@ -1,35 +1,44 @@
-import os
-from django.conf import settings
+import logging
+
 import firebase_admin
-from firebase_admin import credentials, messaging
+from firebase_admin import messaging
+
+logger = logging.getLogger(__name__)
+
 
 def send_push_notification(user, title, body, data=None):
-    """
-    Отправляет Push-уведомление через Firebase Cloud Messaging.
-    Требуется файл firebase-adminsdk.json в папке backend.
+    """Send an FCM push to every registered device for `user`.
+
+    Silent no-op if the user has no registered devices. Returns the number
+    of successful deliveries (0 if the SDK isn't initialised or there are
+    no tokens).
     """
     from app.models import FCMDevice
-    devices = FCMDevice.objects.filter(user=user)
-    if not devices.exists():
-        return
-
-    tokens = list(devices.values_list('token', flat=True))
+    tokens = list(FCMDevice.objects.filter(user=user).values_list('token', flat=True))
+    if not tokens:
+        return 0
 
     if not firebase_admin._apps:
-        print("FIREBASE ADMIN SDK is not initialized! Cannot send push.")
-        return
+        logger.error(
+            "FCM skipped: firebase_admin not initialised (firebase-adminsdk credentials missing). "
+            "user_id=%s title=%r", user.id, title,
+        )
+        return 0
 
     message = messaging.MulticastMessage(
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-        ),
-        data=data or {},
+        notification=messaging.Notification(title=title, body=body),
+        data={k: str(v) for k, v in (data or {}).items()},
         tokens=tokens,
     )
 
     try:
         response = messaging.send_multicast(message)
-        print(f"FCM: Sent {response.success_count} messages.")
-    except Exception as e:
-        print(f"FCM Error: {e}")
+        if response.failure_count:
+            logger.warning(
+                "FCM partial failure: success=%d failure=%d user_id=%s",
+                response.success_count, response.failure_count, user.id,
+            )
+        return response.success_count
+    except Exception:
+        logger.exception("FCM send failed for user_id=%s", user.id)
+        return 0

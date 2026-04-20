@@ -288,6 +288,7 @@ class Message(models.Model):
         ordering = ['created_at']
         indexes = [
             models.Index(fields=['sender', 'recipient']),
+            models.Index(fields=['recipient', 'sender', 'is_read']),
         ]
 
     def __str__(self):

@@ -537,6 +537,8 @@ class ChatBroadcastView(APIView):
 
         import asyncio
 
+        WS_BATCH_SIZE = 100  # cap concurrency to avoid saturating the channel layer on large broadcasts
+
         async def send_all_ws_messages():
             tasks = []
             for msg in created_messages:
@@ -591,8 +593,10 @@ class ChatBroadcastView(APIView):
                 }
             ))
 
-            if tasks:
-                await asyncio.gather(*tasks)
+            # Drain in batches so 1000-recipient broadcasts don't spawn 1000 concurrent
+            # Redis calls at once and exhaust the channel layer pool.
+            for i in range(0, len(tasks), WS_BATCH_SIZE):
+                await asyncio.gather(*tasks[i:i + WS_BATCH_SIZE])
 
         # Запускаем все WS рассылки асинхронно, без блокировки на каждом пользователе
         async_to_sync(send_all_ws_messages)()

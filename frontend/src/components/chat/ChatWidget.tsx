@@ -345,6 +345,9 @@ export const ChatWidget: React.FC = () => {
 
     fetchContacts();
 
+    let reconnectAttempt = 0;
+    let reconnectTimer: number | null = null;
+
     const connectWs = () => {
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       let wsUrl = '';
@@ -358,6 +361,7 @@ export const ChatWidget: React.FC = () => {
 
       ws.onopen = () => {
         console.log('Chat WebSocket connected');
+        reconnectAttempt = 0;
         ws.send(JSON.stringify({
           action: 'auth',
           token: token
@@ -426,8 +430,11 @@ export const ChatWidget: React.FC = () => {
       };
 
       ws.onclose = () => {
-        console.log('Chat WebSocket disconnected, reconnecting in 3s');
-        setTimeout(connectWs, 3000);
+        // Exponential backoff: 2s, 4s, 8s, 16s, 30s (cap).
+        const delay = Math.min(2000 * (2 ** reconnectAttempt), 30000);
+        reconnectAttempt += 1;
+        console.log(`Chat WebSocket disconnected, reconnecting in ${delay}ms`);
+        reconnectTimer = window.setTimeout(connectWs, delay);
       };
 
       wsRef.current = ws;
@@ -436,6 +443,10 @@ export const ChatWidget: React.FC = () => {
     connectWs();
 
     return () => {
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
       if (wsRef.current) {
         wsRef.current.onclose = null; // Prevent reconnect loop on unmount
         wsRef.current.close();

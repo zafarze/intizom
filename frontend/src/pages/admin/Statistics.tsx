@@ -106,11 +106,11 @@ export default function Statistics() {
 
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				const filtered = students.filter((s: any) => {
-					if (filterValue === 'exemplary') return s.points >= 90;
-					if (filterValue === 'verbal') return s.points >= 70 && s.points <= 89;
-					if (filterValue === 'written') return s.points >= 45 && s.points <= 69;
-					if (filterValue === 'labor') return s.points >= 30 && s.points <= 44;
-					if (filterValue === 'risk') return s.points < 30;
+					if (filterValue === 'exemplary') return s.points >= 81;
+					if (filterValue === 'verbal') return s.points >= 70 && s.points < 81;
+					if (filterValue === 'written') return s.points >= 45 && s.points < 70;
+					if (filterValue === 'labor') return s.points >= 30 && s.points < 45;
+					if (filterValue === 'risk') return s.points < 25;
 					return false;
 				});
 				setModalLogs(filtered);

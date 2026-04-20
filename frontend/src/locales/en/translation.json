@@ -832,6 +832,18 @@
     "stats_month": "This month",
     "stats_quarter": "This quarter",
     "stats_year": "This year",
-    "stats_absences": "absences"
+    "stats_absences": "absences",
+    "long_press_hint": "Short tap toggles absent. Long press to pick a status.",
+    "set_status_for": "Set status for",
+    "status_present": "Present",
+    "status_absent": "Absent (unexcused)",
+    "status_excused": "Excused",
+    "status_late": "Late",
+    "status_sick": "Sick",
+    "late_auto_rule": "Points are assigned automatically by schedule",
+    "no_points_impact": "No points impact",
+    "minutes_short": "min",
+    "minutes_placeholder": "How many minutes",
+    "apply": "Apply"
   }
 }

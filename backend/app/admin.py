@@ -58,8 +58,8 @@ class ActionLogAdmin(admin.ModelAdmin):
 
 @admin.register(AttendanceRecord)
 class AttendanceRecordAdmin(admin.ModelAdmin):
-    list_display = ('student', 'date', 'is_absent', 'marked_by', 'updated_at')
-    list_filter = ('date', 'is_absent')
+    list_display = ('student', 'date', 'status', 'late_minutes', 'marked_by', 'updated_at')
+    list_filter = ('date', 'status')
     search_fields = ('student__first_name', 'student__last_name')
     list_select_related = ('student', 'marked_by')
     date_hierarchy = 'date'

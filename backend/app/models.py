@@ -298,8 +298,16 @@ class Message(models.Model):
 # ПОСЕЩАЕМОСТЬ (Attendance)
 # ==========================================
 class AttendanceRecord(models.Model):
+    class Status(models.TextChoices):
+        ABSENT = 'ABSENT', 'Ғоиб (бесабаб)'
+        EXCUSED = 'EXCUSED', 'Иҷозат гирифтааст'
+        LATE = 'LATE', 'Дер омад'
+        SICK = 'SICK', 'Бемор'
+
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendance_records', verbose_name="Хонанда")
     date = models.DateField(db_index=True, verbose_name="Сана")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ABSENT, db_index=True, verbose_name="Ҳолат")
+    late_minutes = models.PositiveIntegerField(null=True, blank=True, verbose_name="Дақиқаҳои дерӣ")
     is_absent = models.BooleanField(default=True, verbose_name="Ғоиб аст")
     marked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='attendance_marked', verbose_name="Қайдкунанда")
     action_log = models.ForeignKey('ActionLog', on_delete=models.SET_NULL, null=True, blank=True, related_name='attendance_records', verbose_name="Сабти журнал")
@@ -312,8 +320,12 @@ class AttendanceRecord(models.Model):
         unique_together = ('student', 'date')
         ordering = ['-date']
 
+    def save(self, *args, **kwargs):
+        self.is_absent = (self.status == self.Status.ABSENT)
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.student} - {self.date} - {'Ғоиб' if self.is_absent else 'Ҳозир'}"
+        return f"{self.student} - {self.date} - {self.get_status_display()}"
 
 
 # ==========================================

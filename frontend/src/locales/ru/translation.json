@@ -832,6 +832,18 @@
     "stats_month": "За месяц",
     "stats_quarter": "За четверть",
     "stats_year": "За год",
-    "stats_absences": "отсутствий"
+    "stats_absences": "отсутствий",
+    "long_press_hint": "Короткий тап — переключить «отсутствует». Долгое нажатие — выбрать статус.",
+    "set_status_for": "Отметить статус",
+    "status_present": "На месте",
+    "status_absent": "Отсутствует (бесабаб)",
+    "status_excused": "Отпросился",
+    "status_late": "Опоздал",
+    "status_sick": "Болеет",
+    "late_auto_rule": "Баллы считаются автоматически по расписанию",
+    "no_points_impact": "Без потери баллов",
+    "minutes_short": "мин",
+    "minutes_placeholder": "Сколько минут",
+    "apply": "Применить"
   }
 }

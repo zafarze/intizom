@@ -832,6 +832,18 @@
     "stats_month": "Моҳ",
     "stats_quarter": "Чоряк",
     "stats_year": "Сол",
-    "stats_absences": "ғоибӣ"
+    "stats_absences": "ғоибӣ",
+    "long_press_hint": "Клики кӯтоҳ — ивази «ғоиб». Пахши дароз — интихоби ҳолат.",
+    "set_status_for": "Қайди ҳолат",
+    "status_present": "Ҳозир",
+    "status_absent": "Ғоиб (бесабаб)",
+    "status_excused": "Иҷозат гирифтааст",
+    "status_late": "Дер омад",
+    "status_sick": "Бемор",
+    "late_auto_rule": "Холҳо аз рӯи ҷадвал ҳисоб мешавад",
+    "no_points_impact": "Бе кам кардани хол",
+    "minutes_short": "дақ",
+    "minutes_placeholder": "Чанд дақиқа",
+    "apply": "Татбиқ"
   }
 }

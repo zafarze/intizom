@@ -32,7 +32,9 @@ def send_push_notification(user, title, body, data=None):
     )
 
     try:
-        response = messaging.send_multicast(message)
+        # send_multicast использовал удалённый /batch/fcm/send endpoint (404 с 2024).
+        # send_each_for_multicast шлёт каждое сообщение отдельно.
+        response = messaging.send_each_for_multicast(message)
         if response.failure_count:
             logger.warning(
                 "FCM partial failure: success=%d failure=%d user_id=%s",
@@ -76,7 +78,7 @@ def send_bulk_push_notification(users, title, body, data=None):
             tokens=chunk,
         )
         try:
-            response = messaging.send_multicast(message)
+            response = messaging.send_each_for_multicast(message)
             success_count += response.success_count
             failure_count += response.failure_count
         except Exception:

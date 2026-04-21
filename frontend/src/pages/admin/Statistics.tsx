@@ -55,22 +55,22 @@ export default function Statistics() {
 	const logsCacheRef = useRef<Record<string, any[]>>({});
 
 	useEffect(() => {
-		const fetchAll = async () => {
+		(async () => {
 			try {
-				const [statsRes, studentsRes] = await Promise.all([
-					api.get('statistics/'),
-					api.get('students/?limit=2000'),
-				]);
+				const statsRes = await api.get('statistics/');
 				setStats(statsRes.data);
-				studentsRef.current = studentsRes.data.results || studentsRes.data;
 			} catch (error) {
 				console.error(t('auto.t_203_oshibka_zagruzki_statistiki'), error);
 			} finally {
 				setIsLoading(false);
 			}
-		};
+		})();
 
-		fetchAll();
+		// Students are only needed for risk modals — fetch in background, don't block render.
+		api.get('students/?limit=2000')
+			.then(res => { studentsRef.current = res.data.results || res.data; })
+			.catch(() => { /* fallback fetch runs inside openModal if needed */ });
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	// Показываем спиннер, пока данные грузятся

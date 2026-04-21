@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons, Modal } from './Shared';
+import { useBackGuard } from '../../../hooks/useBackGuard';
 
 export default function StudentsTab({ data, classes, refresh }: { data: any[], classes: any[], refresh: () => void }) {
 	const { t } = useTranslation();
@@ -43,6 +44,13 @@ export default function StudentsTab({ data, classes, refresh }: { data: any[], c
 
 	// Кастомный Alert-модал для подтверждений
 	const [confirmDialog, setConfirmDialog] = useState<{message: string, onConfirm: () => void} | null>(null);
+
+	// Hardware "Назад" закрывает модалку вместо ухода со страницы.
+	useBackGuard(confirmDialog !== null, () => setConfirmDialog(null));
+	useBackGuard(isImportModalOpen, () => { setIsImportModalOpen(false); setSelectedImportFile(null); });
+	useBackGuard(isHistoryModalOpen, () => setIsHistoryModalOpen(false));
+	useBackGuard(showBulkModal, () => setShowBulkModal(false));
+	useBackGuard(isModalOpen, () => setIsModalOpen(false));
 
 	// Функция печати без блокирующих всплывающих окон (создает невидимый iframe)
 	const printHtml = (html: string) => {

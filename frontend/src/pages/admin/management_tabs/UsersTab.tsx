@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons, Modal } from './Shared';
+import { useBackGuard } from '../../../hooks/useBackGuard';
 
 interface SystemUser {
 	id: number;
@@ -39,6 +40,8 @@ export default function UsersTab() {
 		email: '',
 		role: 'secretary' as Role,
 	});
+
+	useBackGuard(isModalOpen, () => setIsModalOpen(false));
 
 	const fetchData = async () => {
 		try {

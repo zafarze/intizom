@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Users, UserX, Calendar, CheckCircle2, CalendarDays, CalendarRange, GraduationCap, CalendarClock, Clock, HeartPulse, UserCheck, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../api/axios';
+import { useBackGuard } from '../../hooks/useBackGuard';
 
 type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED' | 'LATE' | 'SICK';
 
@@ -73,6 +74,10 @@ export default function SecretaryAttendance() {
 	const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
 	const [sheetStudent, setSheetStudent] = useState<StudentRow | null>(null);
 	const [lateMinutesInput, setLateMinutesInput] = useState<string>('');
+
+	// Hardware "Назад": bottom-sheet > drill-down класса.
+	useBackGuard(sheetStudent !== null, () => setSheetStudent(null));
+	useBackGuard(selectedClassId !== null, () => setSelectedClassId(null));
 
 	const userStr = typeof localStorage !== 'undefined' ? localStorage.getItem('user') : null;
 	const user = userStr ? JSON.parse(userStr) : null;

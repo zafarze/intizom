@@ -4,6 +4,7 @@ import { Plus, Users, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons, Modal } from './Shared';
+import { useBackGuard } from '../../../hooks/useBackGuard';
 
 export default function SubjectsTab({ data, teachers = [], refresh }: { data: any[], teachers?: any[], refresh: () => void }) {
 	const { t } = useTranslation();
@@ -16,6 +17,9 @@ export default function SubjectsTab({ data, teachers = [], refresh }: { data: an
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const [selectedSubjectTeachers, setSelectedSubjectTeachers] = useState<any[] | null>(null);
 	const [subjectNameForTeachers, setSubjectNameForTeachers] = useState<string>('');
+
+	useBackGuard(selectedSubjectTeachers !== null, () => setSelectedSubjectTeachers(null));
+	useBackGuard(isModalOpen, () => setIsModalOpen(false));
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const openModal = (item?: any) => {

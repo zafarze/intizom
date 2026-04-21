@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, Sparkles, Loader2 } from 'lucide-react';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons, Modal } from './Shared';
+import { useBackGuard } from '../../../hooks/useBackGuard';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function RulesTab({ data, refresh }: { data: any[], refresh: () => void }) {
@@ -12,6 +13,8 @@ export default function RulesTab({ data, refresh }: { data: any[], refresh: () =
 	const [formData, setFormData] = useState({ title_ru: '', title_tg: '', title_en: '', category: 'A', points_impact: -5, is_multiple: false });
 	const [activeLang, setActiveLang] = useState<'ru' | 'tg' | 'en'>('ru');
 	const [isTranslating, setIsTranslating] = useState(false);
+
+	useBackGuard(isModalOpen, () => setIsModalOpen(false));
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const openModal = (item?: any) => {

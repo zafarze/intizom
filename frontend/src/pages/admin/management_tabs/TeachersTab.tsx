@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons, Modal } from './Shared';
+import { useBackGuard } from '../../../hooks/useBackGuard';
 
 export default function TeachersTab({ data, classes, subjects, refresh }: { data: any[], classes: any[], subjects: any[], refresh: () => void }) {
 	const { t } = useTranslation();
@@ -13,6 +14,8 @@ export default function TeachersTab({ data, classes, subjects, refresh }: { data
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [formData, setFormData] = useState({ username: '', password: '', t_first_name: '', t_last_name: '', subject_ids: [] as number[], led_class_ids: [] as number[] });
+
+	useBackGuard(isModalOpen, () => setIsModalOpen(false));
 
 	const openModal = (item?: any) => {
 		setEditingId(item ? item.id : null);

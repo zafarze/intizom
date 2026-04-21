@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons, Modal } from './Shared';
+import { useBackGuard } from '../../../hooks/useBackGuard';
 
 export default function YearsTab({ data, refresh }: { data: any[], refresh: () => void }) {
 	const { t } = useTranslation();
@@ -26,6 +27,9 @@ export default function YearsTab({ data, refresh }: { data: any[], refresh: () =
 	const [isQuarterActive, setIsQuarterActive] = useState(false);
 	const [quarterStartDate, setQuarterStartDate] = useState('');
 	const [quarterEndDate, setQuarterEndDate] = useState('');
+
+	useBackGuard(isYearModalOpen, () => setIsYearModalOpen(false));
+	useBackGuard(isQuarterModalOpen, () => setIsQuarterModalOpen(false));
 
 	// Загружаем четверти
 	const fetchQuarters = async () => {

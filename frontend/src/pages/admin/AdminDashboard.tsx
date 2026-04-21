@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import StatCard from '../../components/ui/StatCard';
 import api from '../../api/axios';
+import { useBackGuard } from '../../hooks/useBackGuard';
 
 // ==========================================
 // 1. ТИПИЗАЦИЯ (TypeScript)
@@ -65,6 +66,9 @@ export default function AdminDashboard() {
 	const [activeModal, setActiveModal] = useState<ModalType>(null);
 	const [atRiskStudents, setAtRiskStudents] = useState<Student[]>([]);
 	const [violationsModalData, setViolationsModalData] = useState<ActionLog[]>([]);
+
+	// Hardware "Назад" закрывает модалку вместо ухода со страницы.
+	useBackGuard(activeModal !== null, () => setActiveModal(null));
 
 	// --- СОСТОЯНИЯ ДЛЯ СЛАЙДЕРА ---
 	const [currentSlide, setCurrentSlide] = useState(0);

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { TableTemplate, ActionButtons, Modal } from './Shared';
+import { useBackGuard } from '../../../hooks/useBackGuard';
 
 export default function ClassesTab({ data, students, teachers, refresh }: { data: any[], students: any[], teachers: any[], refresh: () => void }) {
 	const { t } = useTranslation();
@@ -13,6 +14,8 @@ export default function ClassesTab({ data, students, teachers, refresh }: { data
 	const [classTeacherIds, setClassTeacherIds] = useState<number[]>([]);
 	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	useBackGuard(isModalOpen, () => setIsModalOpen(false));
 
 	// Закрытие при клике снаружи
 	useEffect(() => {

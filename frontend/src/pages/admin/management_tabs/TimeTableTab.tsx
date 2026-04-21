@@ -4,6 +4,7 @@ import { Plus, Clock, Bell, X, BookOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../api/axios';
 import { ActionButtons, Modal } from './Shared';
+import { useBackGuard } from '../../../hooks/useBackGuard';
 
 type BellEntry = {
 	id: number;
@@ -17,6 +18,8 @@ export default function TimeTableTab({ data, refresh }: { data: BellEntry[], ref
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [form, setForm] = useState({ lesson_number: 1, start_time: '08:00', end_time: '08:45' });
+
+	useBackGuard(isModalOpen, () => setIsModalOpen(false));
 
 	const openModal = (item?: BellEntry, isReading?: boolean) => {
 		if (item) {

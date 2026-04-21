@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { PieChart, BarChart3, TrendingUp, Award, Loader2, ShieldAlert, TrendingDown, Activity, X } from 'lucide-react';
 import api from '../../api/axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useBackGuard } from '../../hooks/useBackGuard';
 
 // Types for better structure and no ESLint errors
 interface StudentStat {
@@ -48,6 +49,8 @@ export default function Statistics() {
 	const [modalLogs, setModalLogs] = useState<any[]>([]);
 	const [isModalLoading, setIsModalLoading] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
+
+	useBackGuard(modalData.isOpen, () => setModalData(prev => ({ ...prev, isOpen: false })));
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const studentsRef = useRef<any[] | null>(null);

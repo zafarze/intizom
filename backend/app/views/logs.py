@@ -1,9 +1,12 @@
 from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 from django.core.cache import cache
-from app.models import ActionLog, Quarter, AppNotification
+from app.models import ActionLog, Quarter, AppNotification, Rule, Student
 from app.serializers import ActionLogSerializer, AppNotificationSerializer
 from app.permissions import IsTeacherOrAdmin
 from rest_framework.permissions import IsAuthenticated
@@ -49,6 +52,62 @@ class ActionLogViewSet(viewsets.ModelViewSet):
             raise ValidationError({"detail": "Шумо наметавонед баҳои мондаи дигар омӯзгорро нест кунед."})
         instance.delete()
         cache.delete_many(_STATS_CACHE_KEYS)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsTeacherOrAdmin])
+    def bulk(self, request):
+        """Массовое создание ActionLog по списку student_ids и одному rule_id."""
+        student_ids = request.data.get('student_ids') or []
+        rule_id = request.data.get('rule_id')
+        description = request.data.get('description', '')
+
+        if not isinstance(student_ids, list) or not student_ids:
+            raise ValidationError({"detail": "student_ids (непустой список) обязателен"})
+        if not rule_id:
+            raise ValidationError({"detail": "rule_id обязателен"})
+
+        try:
+            rule = Rule.objects.get(pk=rule_id)
+        except Rule.DoesNotExist:
+            raise ValidationError({"detail": "Правило не найдено"})
+
+        # Оставляем только реально существующих учеников (id-ы из чужих таблиц игнорируем)
+        valid_ids = list(Student.objects.filter(id__in=student_ids).values_list('id', flat=True))
+
+        active_quarter = Quarter.get_current_quarter()
+        teacher = request.user if request.user.is_authenticated else None
+        today = timezone.localdate()
+
+        created_ids = []
+        skipped_ids = []
+
+        with transaction.atomic():
+            # Для не-multiple нарушений — один раз собираем id учеников, у которых уже есть лог по этому правилу сегодня
+            dup_ids = set()
+            if rule.points_impact < 0 and not rule.is_multiple:
+                dup_ids = set(
+                    ActionLog.objects
+                    .filter(student_id__in=valid_ids, rule=rule, created_at__date=today)
+                    .values_list('student_id', flat=True)
+                )
+
+            for sid in valid_ids:
+                if sid in dup_ids:
+                    skipped_ids.append(sid)
+                    continue
+                log = ActionLog.objects.create(
+                    student_id=sid,
+                    rule=rule,
+                    teacher=teacher,
+                    quarter=active_quarter,
+                    description=description,
+                )
+                created_ids.append(log.id)
+
+        cache.delete_many(_STATS_CACHE_KEYS)
+        return Response(
+            {"created_count": len(created_ids), "skipped_count": len(skipped_ids), "skipped_student_ids": skipped_ids},
+            status=201,
+        )
 
     def perform_create(self, serializer):
         # 1. Проверяем правило: один минус по одному правилу в день (если это нарушение)

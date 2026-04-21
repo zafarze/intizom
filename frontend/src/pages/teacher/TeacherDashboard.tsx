@@ -56,6 +56,10 @@ export default function TeacherDashboard() {
 	const [activeGroup, setActiveGroup] = useState<string | null>(null);
 	const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
 
+	// Batch-режим: выбор нескольких учеников под одно правило
+	const [batchMode, setBatchMode] = useState(false);
+	const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
+
 	// Состояния загрузки и уведомлений
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -135,6 +139,8 @@ export default function TeacherDashboard() {
 
 	const handleReset = () => {
 		setSelectedStudent(null);
+		setSelectedStudents([]);
+		setBatchMode(false);
 		// WE DO NOT reset selectedClass here, so the teacher stays in the same class!
 		setActiveGroup(null);
 		setSelectedRule(null);
@@ -146,17 +152,33 @@ export default function TeacherDashboard() {
 	// 3. ОТПРАВКА ЖУРНАЛА (POST)
 	// ==========================================
 	const handleSubmit = async () => {
-		if (!selectedStudent || !selectedRule) return;
+		if (!selectedRule) return;
+		const isBatch = batchMode && selectedStudents.length > 0;
+		if (!isBatch && !selectedStudent) return;
 
 		setIsSubmitting(true);
 		try {
-			await api.post('logs/', {
-				student_id: selectedStudent.id,
-				rule_id: selectedRule.id,
-				description: t('auto.t_152_zafiksirovano_cherez_bystryy_pult')
-			});
-
-			setSuccessMessage(`Успешно! Баллы для ${selectedStudent.first_name} обновлены.`);
+			if (isBatch) {
+				const res = await api.post('logs/bulk/', {
+					student_ids: selectedStudents.map(s => s.id),
+					rule_id: selectedRule.id,
+					description: t('auto.t_152_zafiksirovano_cherez_bystryy_pult')
+				});
+				const created = res.data?.created_count ?? 0;
+				const skipped = res.data?.skipped_count ?? 0;
+				setSuccessMessage(
+					skipped > 0
+						? `Успешно для ${created} учеников. Пропущено (уже есть за сегодня): ${skipped}.`
+						: `Успешно! Баллы обновлены для ${created} учеников.`
+				);
+			} else {
+				await api.post('logs/', {
+					student_id: selectedStudent!.id,
+					rule_id: selectedRule.id,
+					description: t('auto.t_152_zafiksirovano_cherez_bystryy_pult')
+				});
+				setSuccessMessage(`Успешно! Баллы для ${selectedStudent!.first_name} обновлены.`);
+			}
 
 			// 👈 ОБНОВЛЯЕМ ДАННЫЕ, чтобы баллы ученика и история сразу обновились на экране
 			await fetchData();
@@ -404,13 +426,21 @@ export default function TeacherDashboard() {
 						</div>
 					)}
 
-					{selectedClass && !selectedStudent && (
+					{selectedClass && !selectedStudent && selectedStudents.length === 0 && (
 						<div className="animate-in fade-in slide-in-from-right-4 duration-300 relative z-20 mb-6">
-							<div className="flex items-center justify-between mb-4">
+							<div className="flex items-center justify-between mb-4 flex-wrap gap-2">
 								<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t('auto.t_21_2_vyberite_uchenika')}</label>
-								<button onClick={() => { setSelectedClass(null); setSearchQuery(''); }} className="text-[11px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95">
-									<ArrowLeft size={14} /> Назад к классам
-								</button>
+								<div className="flex items-center gap-2">
+									<button
+										onClick={() => setBatchMode(v => !v)}
+										className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95 border ${batchMode ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-500 border-indigo-200 hover:bg-indigo-50'}`}
+									>
+										<Users size={14} /> {batchMode ? 'Режим: несколько' : 'Выбрать несколько'}
+									</button>
+									<button onClick={() => { setSelectedClass(null); setSearchQuery(''); setBatchMode(false); }} className="text-[11px] font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95">
+										<ArrowLeft size={14} /> Назад к классам
+									</button>
+								</div>
 							</div>
 
 							{/* Поиск внутри класса */}
@@ -430,13 +460,27 @@ export default function TeacherDashboard() {
 							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[40vh] sm:max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
 								{studentsInClass
 									.filter(s => `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()))
-									.map(s => (
+									.map(s => {
+										// eslint-disable-next-line @typescript-eslint/no-explicit-any
+										const isChecked = batchMode && (selectedStudents as any[]).some(x => x.id === s.id);
+										return (
 										<button
 											key={s.id}
-											onClick={() => setSelectedStudent(s)}
-											className="bg-white border border-slate-100 p-3 rounded-2xl flex items-center justify-between hover:border-indigo-300 hover:shadow-sm transition-all text-left active:scale-[0.98]"
+											onClick={() => {
+												if (batchMode) {
+													setSelectedStudents(prev => prev.some(x => x.id === s.id) ? prev.filter(x => x.id !== s.id) : [...prev, s]);
+												} else {
+													setSelectedStudent(s);
+												}
+											}}
+											className={`bg-white border p-3 rounded-2xl flex items-center justify-between transition-all text-left active:scale-[0.98] ${isChecked ? 'border-indigo-500 ring-2 ring-indigo-200 shadow-md' : 'border-slate-100 hover:border-indigo-300 hover:shadow-sm'}`}
 										>
 											<div className="flex items-center gap-3 overflow-hidden">
+												{batchMode && (
+													<div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${isChecked ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white border-slate-300'}`}>
+														{isChecked && <CheckCircle2 size={14} />}
+													</div>
+												)}
 												<div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center font-black text-slate-600 border border-slate-100 shrink-0 shadow-sm">
 													{s.first_name.charAt(0)}
 												</div>
@@ -448,7 +492,8 @@ export default function TeacherDashboard() {
 												{s.points} б.
 											</div>
 										</button>
-									))}
+										);
+									})}
 								{studentsInClass.filter(s => `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
 									<div className="col-span-full p-4 text-center text-slate-400 text-sm font-medium">{t('auto.t_167_nikto_ne_nayden')}</div>
 								)}
@@ -476,8 +521,31 @@ export default function TeacherDashboard() {
 						</div>
 					)}
 
+					{batchMode && selectedStudents.length > 0 && !selectedStudent && (
+						<div className="animate-in fade-in zoom-in-95 duration-300 relative z-20 mb-6">
+							<div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-2xl p-4 shadow-inner">
+								<div className="flex items-center gap-3 overflow-hidden">
+									<div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center font-black text-indigo-600 border border-indigo-100 shrink-0">
+										<Users size={22} />
+									</div>
+									<div className="overflow-hidden">
+										<p className="font-black text-slate-800 text-lg leading-tight">Выбрано: {selectedStudents.length} уч.</p>
+										<p className="text-xs font-medium text-indigo-600 truncate">
+											{selectedStudents.slice(0, 3).map(s => `${s.first_name} ${s.last_name.charAt(0)}.`).join(', ')}
+											{selectedStudents.length > 3 ? ` и ещё ${selectedStudents.length - 3}` : ''}
+										</p>
+									</div>
+								</div>
+								<button onClick={() => { setSelectedStudents([]); setActiveGroup(null); setSelectedRule(null); }} className="p-2 sm:px-4 sm:py-2 text-slate-500 hover:text-red-500 hover:bg-red-50 bg-white rounded-xl shadow-sm border border-slate-200 transition-colors flex items-center gap-2 active:scale-95 shrink-0">
+									<span className="hidden sm:inline text-xs font-bold">Сброс</span>
+									<XCircle size={18} />
+								</button>
+							</div>
+						</div>
+					)}
+
 					{/* ШАГ 2: Категория нарушения */}
-					<div className={`transition-all duration-500 ${selectedStudent ? 'opacity-100 max-h-[3000px]' : 'opacity-30 pointer-events-none max-h-[400px]'}`}>
+					<div className={`transition-all duration-500 ${(selectedStudent || selectedStudents.length > 0) ? 'opacity-100 max-h-[3000px]' : 'opacity-30 pointer-events-none max-h-[400px]'}`}>
 						<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 block ml-1">{t('auto.t_121_2_kategoriya_sin')}</label>
 						<div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
 							{Object.keys(CATEGORY_UI_CONFIG).map((categoryKey) => {
@@ -541,6 +609,7 @@ export default function TeacherDashboard() {
 								<>
 									<CheckCircle2 size={20} />
 									{activeGroup === 'BONUS' ? 'Начислить баллы' : t('auto.t_142_zafiksirovat_narushenie')}
+									{batchMode && selectedStudents.length > 1 ? ` (${selectedStudents.length} уч.)` : ''}
 								</>
 							) : 'Заполните все поля'}
 						</button>

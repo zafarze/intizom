@@ -17,5 +17,6 @@ if [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
     export DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
     python manage.py createsuperuser --noinput || true
 fi
-# Запускаем сервер с 4 воркерами для параллельной обработки запросов
-exec uvicorn config.asgi:application --host 0.0.0.0 --port ${PORT:-8000} --workers 4 --proxy-headers
+# Cloud Run сам скейлит инстансы горизонтально, поэтому 1 воркер на контейнер.
+# 4 воркера × ~125 MiB Django = OOM в 512 MiB лимите. Конкурентность даёт asyncio event loop.
+exec uvicorn config.asgi:application --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --proxy-headers

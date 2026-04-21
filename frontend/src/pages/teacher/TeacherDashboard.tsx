@@ -87,39 +87,42 @@ export default function TeacherDashboard() {
 	// ==========================================
 	// Обернули в useCallback, чтобы можно было вызывать после сохранения оценки
 	const fetchData = useCallback(async () => {
+		// Двухволновая загрузка: блокирующая часть — только данные, без которых UI нерабочий.
+		// logs/timetable могут быть большими и не нужны для шагов "выбор класса → ученик → правило",
+		// поэтому тянем их параллельно в фоне и не держим спиннер.
 		try {
-			// Добавили запрос к logs/ для истории учителя
-			const [studentsRes, rulesRes, logsRes, bellsRes, classesRes] = await Promise.all([
-				api.get('students/'),
+			const [studentsRes, rulesRes, classesRes] = await Promise.all([
+				api.get('students/?light=1'),
 				api.get('rules/'),
-				api.get('logs/'),
-				api.get('timetable/'),
 				api.get('classes/')
 			]);
 
 			const studentsData = studentsRes.data.results || studentsRes.data;
 			const rulesData = rulesRes.data.results || rulesRes.data;
-			const logsData = logsRes.data.results || logsRes.data;
-			const bellsData = bellsRes.data.results || bellsRes.data;
 			const classesData = classesRes.data.results || classesRes.data;
 
 			setStudents(studentsData);
-			setRecentLogs(logsData);
-			setBells(bellsData);
 			setClasses(classesData);
 
-			const grouped = rulesData.reduce((acc: any, rule: Rule) => {
+			const grouped = rulesData.reduce((acc: Record<string, Rule[]>, rule: Rule) => {
 				if (!acc[rule.category]) acc[rule.category] = [];
 				acc[rule.category].push(rule);
 				return acc;
 			}, {});
 			setRulesGrouped(grouped);
-
 		} catch (error) {
 			console.error(t('auto.t_169_oshibka_zagruzki_dannyh'), error);
 		} finally {
 			setIsLoading(false);
 		}
+
+		api.get('logs/?page_size=30')
+			.then(r => setRecentLogs(r.data.results || r.data))
+			.catch(err => console.error('Не удалось загрузить историю:', err));
+
+		api.get('timetable/')
+			.then(r => setBells(r.data.results || r.data))
+			.catch(err => console.error('Не удалось загрузить расписание:', err));
 	}, []);
 
 	useEffect(() => {

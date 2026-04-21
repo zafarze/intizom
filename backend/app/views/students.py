@@ -8,7 +8,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 
 from app.models import Student, SchoolClass, Quarter, QuarterResult
-from app.serializers import StudentSerializer
+from app.serializers import StudentSerializer, StudentLiteSerializer
 
 # 👇 ИМПОРТИРУЕМ НАШ СЕРВИС ГЕНЕРАЦИИ АККАУНТОВ
 from app.services import create_user_for_student, generate_random_password
@@ -19,11 +19,18 @@ class StudentViewSet(viewsets.ModelViewSet):
     queryset = Student.objects.select_related('school_class').all()
     serializer_class = StudentSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['school_class'] 
+    filterset_fields = ['school_class']
     search_fields = ['first_name', 'last_name']
-    
+
     # Базовые права: смотреть могут все авторизованные, менять — в зависимости от настроек
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        # ?light=1 на list — отдаём урезанный JSON без i18n-дубликатов (в 4× меньше).
+        # Retrieve/create/update всегда используют полный сериализатор.
+        if self.action == 'list' and self.request.query_params.get('light') in ('1', 'true'):
+            return StudentLiteSerializer
+        return StudentSerializer
 
     # ========================================================
     # 1. МАССОВЫЕ ОПЕРАЦИИ (ИМПОРТ И ПЕРЕВОД)

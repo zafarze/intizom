@@ -149,11 +149,19 @@ api.interceptors.response.use(
 
 						return newAccessToken;
 					}).catch(refreshError => {
-						// Если рефреш-токен протух — убиваем сессию полностью
-						localStorage.removeItem('access_token');
-						localStorage.removeItem('refresh_token');
-						localStorage.removeItem('user_role'); // 👈 ДОБАВЛЕНО: Полностью очищаем стейт юзера
-						window.location.href = '/login';
+						// Различаем: сервер ответил отказом (401/400) vs сеть отвалилась.
+						// При сетевой ошибке токены могут быть валидны — не разлогиниваем юзера.
+						const status = refreshError?.response?.status;
+						const isAuthRejection = status === 401 || status === 400;
+
+						if (isAuthRejection) {
+							localStorage.removeItem('access_token');
+							localStorage.removeItem('refresh_token');
+							localStorage.removeItem('user_role');
+							window.location.href = '/login';
+						}
+						// Иначе (ERR_NETWORK, 5xx, CORS и т.п.) — просто пробрасываем ошибку,
+						// следующий запрос с живым рефреш-токеном отработает нормально.
 						throw refreshError;
 					}).finally(() => {
 						refreshPromise = null;

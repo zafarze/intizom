@@ -1,6 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
@@ -14,10 +15,19 @@ from django.db.models import Q
 
 _STATS_CACHE_KEYS = ['dashboard_stats', 'statistics_view']
 
+
+class ActionLogPagination(PageNumberPagination):
+    # Дефолт 50, клиент может запросить до 2000 (нужно Statistics.tsx).
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 2000
+
+
 class ActionLogViewSet(viewsets.ModelViewSet):
     """API для журнала активности (кто кому поставил минус/плюс)"""
-    
+
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
+    pagination_class = ActionLogPagination
     # 👇 ДОБАВИЛИ ЭТУ СТРОКУ (Она нужна Роутеру для генерации ссылок)
     queryset = ActionLog.objects.all() 
     
@@ -32,18 +42,17 @@ class ActionLogViewSet(viewsets.ModelViewSet):
         return [IsTeacherOrAdmin()]
 
     def get_queryset(self):
-        # А вот здесь мы уже по-настоящему фильтруем данные для пользователя
-        qs = ActionLog.objects.select_related('student', 'rule', 'teacher').all()
+        # select_related на student__school_class убирает N+1 при сериализации class_name.
+        # order_by нужен для стабильной пагинации (иначе DRF предупреждает UnorderedObjectListWarning).
+        qs = ActionLog.objects.select_related('student__school_class', 'rule', 'teacher').order_by('-created_at')
         user = self.request.user
-        
+
         if user.is_superuser:
             return qs
-            
-        if user.is_staff: # Учитель
-            # Показывать логи, где он сам поставил оценки, ИЛИ логи учеников его класса (где он классный руководитель)
+
+        if user.is_staff:  # Учитель
             return qs.filter(Q(teacher=user) | Q(student__school_class__class_teachers=user)).distinct()
-            
-        # Ученик: видит только свои логи
+
         return qs.filter(student__user=user)
 
     def perform_destroy(self, instance):

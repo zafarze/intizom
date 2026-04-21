@@ -5,7 +5,7 @@ import {
 	Settings, LogOut, PanelLeftClose, PanelLeftOpen, RefreshCw, GitCompare,
 	ClipboardCheck
 } from 'lucide-react';
-import logoUrl from '../../assets/logo.png';
+import logoUrl from '../../assets/logo.webp';
 import { useTranslation } from 'react-i18next';
 
 interface SidebarProps {

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Sparkles, AlertCircle } from 'lucide-react';
 import api from '../../api/axios';
-import logoUrl from '../../assets/logo.png';
+import logoUrl from '../../assets/logo.webp';
 
 export default function LoginPage() {
   const { t } = useTranslation();

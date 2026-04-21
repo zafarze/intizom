@@ -269,8 +269,19 @@ class TeacherSerializer(serializers.ModelSerializer):
 # ==========================================
 # 5. ЖУРНАЛ АКТИВНОСТИ (ActionLog)
 # ==========================================
+class StudentLiteSerializer(serializers.ModelSerializer):
+    """Облегчённый сериализатор для списков/вложений (без i18n-дубликатов и учётных полей).
+    В ~4 раза меньше StudentSerializer — критично для /logs/ и /students/?light=1."""
+    class_name = serializers.CharField(source='school_class.name', read_only=True)
+    status_info = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Student
+        fields = ['id', 'first_name', 'last_name', 'class_name', 'school_class', 'points', 'status_info']
+
+
 class ActionLogSerializer(serializers.ModelSerializer):
-    student_detail = StudentSerializer(source='student', read_only=True)
+    student_detail = StudentLiteSerializer(source='student', read_only=True)
     rule_detail = RuleSerializer(source='rule', read_only=True)
     teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
     teacher_id = serializers.PrimaryKeyRelatedField(source='teacher', read_only=True)

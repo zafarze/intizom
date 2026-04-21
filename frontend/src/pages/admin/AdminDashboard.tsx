@@ -36,21 +36,21 @@ export default function AdminDashboard() {
 		{
 			id: 1,
 			type: 'image',
-			src: 'https://media.tenor.com/JaS6UyBMXtEAAAAC/tc-classmate.gif',
+			src: 'https://media.tenor.com/JaS6UyBMXtEAAAAM/tc-classmate.webp',
 			title: t('dashboard.slides.welcome.title'),
 			desc: t('dashboard.slides.welcome.desc')
 		},
 		{
 			id: 2,
 			type: 'image',
-			src: 'https://media.tenor.com/CXSAcNItAF8AAAAC/yes-blippi.gif',
+			src: 'https://media.tenor.com/CXSAcNItAF8AAAAM/yes-blippi.webp',
 			title: t('dashboard.slides.performance.title'),
 			desc: t('dashboard.slides.performance.desc')
 		},
 		{
 			id: 3,
 			type: 'image',
-			src: 'https://media.tenor.com/7Z37gFSTJPcAAAAC/happy-children%27s-day-mighty-little-bheem.gif',
+			src: 'https://media.tenor.com/7Z37gFSTJPcAAAAM/happy-children%27s-day-mighty-little-bheem.webp',
 			title: t('dashboard.slides.future.title'),
 			desc: t('dashboard.slides.future.desc')
 		}
@@ -180,7 +180,7 @@ export default function AdminDashboard() {
 						>
 							{/* Отрисовка фото или видео */}
 							{slide.type === 'image' ? (
-								<img src={slide.src} alt={slide.title} className="absolute right-0 top-1/2 -translate-y-1/2 w-36 sm:w-48 md:w-64 lg:w-72 object-contain opacity-100 drop-shadow-xl mr-2 md:mr-10 z-0" />
+								<img src={slide.src} alt={slide.title} loading="lazy" decoding="async" className="absolute right-0 top-1/2 -translate-y-1/2 w-36 sm:w-48 md:w-64 lg:w-72 object-contain opacity-100 drop-shadow-xl mr-2 md:mr-10 z-0" />
 							) : slide.type === 'video' ? (
 								<video src={slide.src} autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover z-0" />
 							) : null}

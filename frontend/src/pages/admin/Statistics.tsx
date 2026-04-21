@@ -114,7 +114,7 @@ export default function Statistics() {
 
 		try {
 			if (type === 'category') {
-				const response = await api.get(`logs/?rule__category=${filterValue}&limit=500`);
+				const response = await api.get(`logs/?rule__category=${filterValue}&page_size=500`);
 				const data = response.data.results || response.data;
 				logsCacheRef.current[cacheKey] = data;
 				setModalLogs(data);

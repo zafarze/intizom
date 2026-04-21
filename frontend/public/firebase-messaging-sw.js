@@ -1,17 +1,18 @@
 importScripts('https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js');
 importScripts('https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js');
 
-// Замените этот конфиг на свой
+// SW-скрипт грузится браузером как статика и не видит import.meta.env,
+// поэтому конфиг инлайнится здесь. Web-ключи Firebase публичны по дизайну.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDZMDN1u5iufHHlsAQH-12Z0PjoUPNYGS4",
+  authDomain: "intizom-school.firebaseapp.com",
+  projectId: "intizom-school",
+  storageBucket: "intizom-school.firebasestorage.app",
+  messagingSenderId: "597088346121",
+  appId: "1:597088346121:web:c0e4fdd9f9d832fd3798d8"
 };
 
-const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+const isFirebaseConfigured = !!firebaseConfig.apiKey;
 
 if (isFirebaseConfigured) {
   firebase.initializeApp(firebaseConfig);

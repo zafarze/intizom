@@ -9,9 +9,12 @@ from django.utils import timezone
 from django.core.cache import cache
 from app.models import ActionLog, Quarter, AppNotification, Rule, Student
 from app.serializers import ActionLogSerializer, AppNotificationSerializer
-from app.permissions import IsTeacherOrAdmin
+from app.permissions import IsTeacherOrAdmin, IsSuperAdmin
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from django.db.models import Q
+from app.fcm_utils import send_bulk_push_notification
+from django.contrib.auth import get_user_model
 
 _STATS_CACHE_KEYS = ['dashboard_stats', 'statistics_view']
 
@@ -153,3 +156,28 @@ class AppNotificationViewSet(viewsets.ReadOnlyModelViewSet):
         if not user.is_authenticated:
             return AppNotification.objects.none()
         return AppNotification.objects.filter(Q(recipient=user) | Q(recipient__isnull=True))
+
+
+class BroadcastNotificationView(APIView):
+    """Admin-only: создать одно AppNotification всем (recipient=null)
+    и при желании продублировать пушем тем, у кого есть FCM-токен.
+    """
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request):
+        title = (request.data.get('title') or '').strip()
+        message = (request.data.get('message') or '').strip()
+        send_push = bool(request.data.get('send_push', True))
+
+        if not title or not message:
+            raise ValidationError({"detail": "title и message обязательны"})
+
+        AppNotification.objects.create(title=title, message=message, recipient=None)
+
+        pushed = 0
+        if send_push:
+            User = get_user_model()
+            users = list(User.objects.filter(is_active=True))
+            pushed = send_bulk_push_notification(users, title, message)
+
+        return Response({"created": 1, "pushed": pushed}, status=201)

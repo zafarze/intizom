@@ -87,8 +87,8 @@ if (isFirebaseConfigured) {
     const notificationTitle = (payload.notification && payload.notification.title) || 'Intizom';
     const notificationOptions = {
       body: (payload.notification && payload.notification.body) || '',
-      icon: '/vite.svg',
-      badge: '/vite.svg',
+      icon: '/icon-192x192.png',
+      badge: '/icon-192x192.png',
     };
 
     // Инкрементируем бейдж. Если backend прислал data.unread_total —

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, AlertOctagon, ShieldAlert, Download, Award, Loader2, X, UserX } from 'lucide-react';
+import { Users, TrendingUp, AlertOctagon, ShieldAlert, Download, Award, Loader2, X, UserX, Bell } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import StatCard from '../../components/ui/StatCard';
@@ -69,6 +70,34 @@ export default function AdminDashboard() {
 
 	// Hardware "Назад" закрывает модалку вместо ухода со страницы.
 	useBackGuard(activeModal !== null, () => setActiveModal(null));
+
+	// Admin broadcast state
+	const [broadcastOpen, setBroadcastOpen] = useState(false);
+	const [bcTitle, setBcTitle] = useState(t('broadcast.default_title', 'Включите уведомления'));
+	const [bcMessage, setBcMessage] = useState(t('broadcast.default_message', 'Включите уведомления в настройках приложения, чтобы не пропускать сообщения и оповещения.'));
+	const [bcSending, setBcSending] = useState(false);
+	useBackGuard(broadcastOpen, () => setBroadcastOpen(false));
+
+	const sendBroadcast = async () => {
+		if (!bcTitle.trim() || !bcMessage.trim()) {
+			toast.error(t('broadcast.empty', 'Заполните заголовок и текст'));
+			return;
+		}
+		setBcSending(true);
+		try {
+			const { data } = await api.post('broadcast-notification/', {
+				title: bcTitle.trim(),
+				message: bcMessage.trim(),
+				send_push: true,
+			});
+			toast.success(t('broadcast.sent', `Отправлено. Пушей доставлено: ${data.pushed}`));
+			setBroadcastOpen(false);
+		} catch {
+			toast.error(t('broadcast.failed', 'Не удалось отправить'));
+		} finally {
+			setBcSending(false);
+		}
+	};
 
 	// --- СОСТОЯНИЯ ДЛЯ СЛАЙДЕРА ---
 	const [currentSlide, setCurrentSlide] = useState(0);
@@ -241,6 +270,10 @@ export default function AdminDashboard() {
 										<div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover/btn:translate-x-full duration-1000 ease-in-out transition-transform"></div>
 										<Download size={18} />
 										<span>{t('dashboard.report')}</span>
+									</button>
+									<button onClick={() => setBroadcastOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 rounded-xl text-sm font-bold border border-white/20 backdrop-blur-md transition-all active:scale-95 shadow-lg">
+										<Bell size={18} />
+										<span>{t('broadcast.button', 'Оповестить всех')}</span>
 									</button>
 									<button onClick={() => navigate('/teacher')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white text-indigo-700 hover:text-indigo-800 hover:bg-indigo-50 px-5 py-2.5 rounded-xl text-sm font-bold shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all active:scale-95 border border-white group/btn relative overflow-hidden">
 										<div className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-100/50 to-transparent -translate-x-full group-hover/btn:translate-x-full duration-1000 ease-in-out transition-transform"></div>
@@ -548,6 +581,55 @@ export default function AdminDashboard() {
 									</button>
 								</div>
 							)}
+						</div>
+					</div>
+				</div>
+			)}
+
+			{broadcastOpen && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => !bcSending && setBroadcastOpen(false)}>
+					<div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 dark:border-zinc-700" onClick={e => e.stopPropagation()}>
+						<div className="flex items-center justify-between mb-4">
+							<h3 className="text-lg font-black text-slate-800 dark:text-zinc-100 flex items-center gap-2">
+								<Bell size={20} className="text-indigo-600" />
+								{t('broadcast.title', 'Оповестить всех')}
+							</h3>
+							<button onClick={() => !bcSending && setBroadcastOpen(false)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-zinc-800">
+								<X size={18} />
+							</button>
+						</div>
+						<label className="block text-xs font-bold text-slate-500 dark:text-zinc-400 mb-1">{t('broadcast.field_title', 'Заголовок')}</label>
+						<input
+							value={bcTitle}
+							onChange={e => setBcTitle(e.target.value)}
+							className="w-full mb-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+						/>
+						<label className="block text-xs font-bold text-slate-500 dark:text-zinc-400 mb-1">{t('broadcast.field_message', 'Сообщение')}</label>
+						<textarea
+							value={bcMessage}
+							onChange={e => setBcMessage(e.target.value)}
+							rows={4}
+							className="w-full mb-4 px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
+						/>
+						<p className="text-xs text-slate-400 dark:text-zinc-500 mb-4">
+							{t('broadcast.hint', 'Появится в колокольчике у всех пользователей + push тем, у кого уже включены уведомления.')}
+						</p>
+						<div className="flex justify-end gap-2">
+							<button
+								onClick={() => setBroadcastOpen(false)}
+								disabled={bcSending}
+								className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50"
+							>
+								{t('common.cancel', 'Отмена')}
+							</button>
+							<button
+								onClick={sendBroadcast}
+								disabled={bcSending}
+								className="px-4 py-2 rounded-lg text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all active:scale-95 disabled:opacity-60 flex items-center gap-2"
+							>
+								{bcSending && <Loader2 size={16} className="animate-spin" />}
+								{t('broadcast.send', 'Отправить')}
+							</button>
 						</div>
 					</div>
 				</div>

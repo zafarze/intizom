@@ -8,6 +8,7 @@ from .views import (
     RuleViewSet, 
     ActionLogViewSet, 
     AppNotificationViewSet,
+    BroadcastNotificationView,
     AcademicYearViewSet, 
     TeacherViewSet, 
     SubjectViewSet, 
@@ -93,6 +94,9 @@ urlpatterns = [
     
     # FCM
     path('fcm-token/', FCMTokenRegisterView.as_view(), name='fcm-token'),
+
+    # Admin broadcast
+    path('broadcast-notification/', BroadcastNotificationView.as_view(), name='broadcast-notification'),
 
     # 2. Затем подключаем все стандартные роуты (CRUD), сгенерированные роутером
     path('', include(router.urls)),

@@ -129,7 +129,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 
 						new Notification(title, {
 							body: body,
-							icon: '/vite.svg'
+							icon: '/icon-192x192.png'
 						});
 					});
 
@@ -162,7 +162,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			if (Notification.permission === 'granted') {
 				new Notification(payload.notification?.title || t('auto.t_159_novoe_uvedomlenie'), {
 					body: payload.notification?.body || "",
-					icon: '/vite.svg'
+					icon: '/icon-192x192.png'
 				});
 			}
 		}).catch(err => console.log('failed: ', err));

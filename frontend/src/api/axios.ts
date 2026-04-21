@@ -12,6 +12,39 @@ const api = axios.create({
 let refreshPromise: Promise<string> | null = null;
 
 // ==========================================
+// OFFLINE GET-CACHE (fallback поверх Service Worker)
+// Ключ — относительный URL запроса (без base). Значение — JSON data.
+// Лимит размера на запись, чтобы localStorage не взрывался.
+// ==========================================
+const OFFLINE_GET_PREFIX = 'offline_get:';
+const OFFLINE_GET_MAX_BYTES = 500_000; // ~500 КБ на эндпоинт
+
+const getCacheKey = (url?: string) => (url ? `${OFFLINE_GET_PREFIX}${url}` : null);
+
+const saveGetCache = (url: string | undefined, data: unknown) => {
+	const key = getCacheKey(url);
+	if (!key) return;
+	try {
+		const serialized = JSON.stringify(data);
+		if (serialized.length > OFFLINE_GET_MAX_BYTES) return;
+		localStorage.setItem(key, serialized);
+	} catch {
+		// QuotaExceeded — игнорируем, кэш не критичен
+	}
+};
+
+const loadGetCache = (url: string | undefined): unknown | undefined => {
+	const key = getCacheKey(url);
+	if (!key) return undefined;
+	try {
+		const raw = localStorage.getItem(key);
+		return raw ? JSON.parse(raw) : undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+// ==========================================
 // 1. ИНТЕРЦЕПТОР ЗАПРОСОВ (Добавляем токен)
 // ==========================================
 api.interceptors.request.use(
@@ -34,7 +67,14 @@ api.interceptors.request.use(
 // 2. ИНТЕРЦЕПТОР ОТВЕТОВ (Ловим офлайн и 401)
 // ==========================================
 api.interceptors.response.use(
-	(response) => response,
+	(response) => {
+		// Кэшируем успешные GET-ответы для офлайн-фолбэка
+		const method = response.config?.method?.toLowerCase();
+		if (method === 'get') {
+			saveGetCache(response.config?.url, response.data);
+		}
+		return response;
+	},
 	async (error) => {
 		const originalRequest = error.config;
 
@@ -44,6 +84,21 @@ api.interceptors.response.use(
 		if (!window.navigator.onLine || error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
 
 			const method = originalRequest.method?.toLowerCase();
+
+			// GET — отдаём последний известный ответ из localStorage, если есть
+			if (method === 'get') {
+				const cached = loadGetCache(originalRequest.url);
+				if (cached !== undefined) {
+					return Promise.resolve({
+						data: cached,
+						status: 200,
+						isOffline: true,
+						fromCache: true,
+					});
+				}
+				return Promise.reject(error);
+			}
+
 			if (['post', 'patch', 'put', 'delete'].includes(method || '')) {
 				// FormData can't be JSON-serialized into localStorage — drop offline support for those.
 				if (originalRequest.data instanceof FormData) {

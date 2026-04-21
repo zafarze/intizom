@@ -11,8 +11,8 @@ import OfflineBanner from '../OfflineBanner';
 import { useBackButtonGuard } from '../../hooks/useBackButtonGuard';
 
 export default function MainLayout() {
-  const { t } = useTranslation();
-  useBackButtonGuard();
+	const { t } = useTranslation();
+	useBackButtonGuard();
 
 	const [isMobileOpen, setIsMobileOpen] = useState(false);
 	const [pullProgress, setPullProgress] = useState(0);

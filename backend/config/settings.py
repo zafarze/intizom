@@ -137,7 +137,7 @@ _DEFAULT_PROD_ORIGINS = [
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
 else:
-    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', default=False)
     CORS_ALLOWED_ORIGINS = list({
         *_DEFAULT_PROD_ORIGINS,
         *env.list('CORS_ALLOWED_ORIGINS', default=[]),

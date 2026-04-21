@@ -42,3 +42,47 @@ def send_push_notification(user, title, body, data=None):
     except Exception:
         logger.exception("FCM send failed for user_id=%s", user.id)
         return 0
+
+def send_bulk_push_notification(users, title, body, data=None):
+    """Send an FCM push to multiple users at once.
+
+    Extracts all tokens for the provided list or queryset of users and sends multicast messages.
+    Handles chunking if tokens exceed the Firebase limit of 500 per request.
+    """
+    from app.models import FCMDevice
+    if not users:
+        return 0
+        
+    tokens = list(FCMDevice.objects.filter(user__in=users).values_list('token', flat=True))
+    if not tokens:
+        return 0
+
+    if not firebase_admin._apps:
+        logger.error(
+            "FCM bulk skipped: firebase_admin not initialised (firebase-adminsdk credentials missing). "
+            "title=%r", title,
+        )
+        return 0
+
+    success_count = 0
+    failure_count = 0
+    
+    # Firebase limits multicast message to 500 tokens at once
+    for i in range(0, len(tokens), 500):
+        chunk = tokens[i:i+500]
+        message = messaging.MulticastMessage(
+            notification=messaging.Notification(title=title, body=body),
+            data={k: str(v) for k, v in (data or {}).items()},
+            tokens=chunk,
+        )
+        try:
+            response = messaging.send_multicast(message)
+            success_count += response.success_count
+            failure_count += response.failure_count
+        except Exception:
+            logger.exception("FCM bulk send failed")
+
+    if failure_count > 0:
+        logger.warning("FCM bulk partial failure: success=%d failure=%d", success_count, failure_count)
+        
+    return success_count

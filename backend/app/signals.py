@@ -2,7 +2,7 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from .models import ActionLog, Student, Rule, AppNotification, User
 from .services import create_user_for_student # 👈 Импортируем наш сервис
-from .fcm_utils import send_push_notification
+from .fcm_utils import send_push_notification, send_bulk_push_notification
 
 @receiver(post_save, sender=ActionLog)
 def notify_action_log(sender, instance, created, **kwargs):
@@ -10,36 +10,41 @@ def notify_action_log(sender, instance, created, **kwargs):
         # Обновляем баллы
         instance.student.recalculate_points()
         
-        # Отправляем Push ученику
+        sign = '+' if instance.rule.points_impact > 0 else ''
+        points_str = f"{sign}{instance.rule.points_impact} баллов: {instance.rule.title}"
+        
+        # 1. Отправляем Push ученику
         if instance.student.user:
-            sign = '+' if instance.rule.points_impact > 0 else ''
             send_push_notification(
                 user=instance.student.user,
                 title="Изменение баллов",
-                body=f"Вам начислено {sign}{instance.rule.points_impact} баллов за {instance.rule.title}"
+                body=f"Вам начислено {points_str}"
             )
             
-        # Отправляем Push классным руководителям (если это не они сами поставили)
+        # 2. Отправляем Push классным руководителям (оптимизировано, один вызов)
         if instance.student.school_class:
-            class_teachers = instance.student.school_class.class_teachers.all()
-            for ct in class_teachers:
-                if ct != instance.teacher:
-                    sign = '+' if instance.rule.points_impact > 0 else ''
-                    send_push_notification(
-                        user=ct,
-                        title=f"Баллы ученика: {instance.student.first_name} {instance.student.last_name}",
-                        body=f"{sign}{instance.rule.points_impact} баллов: {instance.rule.title}"
-                    )
-        
-        # Отправляем Push всем админам
-        admins = User.objects.filter(is_superuser=True)
-        for admin in admins:
-            if admin != instance.teacher:
-                send_push_notification(
-                    user=admin,
-                    title=f"Действие: {instance.student.first_name} {instance.student.last_name}",
-                    body=f"{instance.teacher.username if instance.teacher else 'Система'} поставил(а) {instance.rule.points_impact} баллов."
+            class_teachers_to_notify = [
+                ct for ct in instance.student.school_class.class_teachers.all() 
+                if ct != instance.teacher
+            ]
+            if class_teachers_to_notify:
+                send_bulk_push_notification(
+                    users=class_teachers_to_notify,
+                    title=f"Баллы ученика: {instance.student.first_name} {instance.student.last_name}",
+                    body=points_str
                 )
+        
+        # 3. Отправляем Push всем админам (оптимизировано, один вызов)
+        admins_to_notify = [
+            admin for admin in User.objects.filter(is_superuser=True)
+            if admin != instance.teacher
+        ]
+        if admins_to_notify:
+            send_bulk_push_notification(
+                users=admins_to_notify,
+                title=f"Действие: {instance.student.first_name} {instance.student.last_name}",
+                body=f"{instance.teacher.username if instance.teacher else 'Система'} поставил(а) {instance.rule.points_impact} баллов."
+            )
 
 @receiver(post_delete, sender=ActionLog)
 def delete_action_log(sender, instance, **kwargs):

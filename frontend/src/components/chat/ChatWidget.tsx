@@ -262,6 +262,7 @@ export const ChatWidget: React.FC = () => {
   const [isDesktopMode, setIsDesktopMode] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastContactIdRef = useRef<number | null>(null);
 
   const fetchContacts = async () => {
     try {
@@ -457,9 +458,29 @@ export const ChatWidget: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Scroll to bottom when messages change
+    // При смене контакта — мгновенный скролл к последнему сообщению (без анимации),
+    // иначе на мобилке смахивается куда-то в середину из-за доставок картинок.
+    // При обычном приросте messages (новое входящее/исходящее) — плавный скролл.
+    const contactChanged = activeContact?.id !== lastContactIdRef.current;
+    if (activeContact) lastContactIdRef.current = activeContact.id;
+
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      if (contactChanged) {
+        // Два прохода через rAF: первый после layout, второй — когда докрутились
+        // изображения/превью, чтобы точно оказаться в самом низу.
+        requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+          requestAnimationFrame(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+          });
+        });
+        // Страховка для медленно грузящихся картинок
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+        }, 250);
+      } else {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
     }
 
     // Mark as read if receiving new messages

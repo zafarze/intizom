@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../../api/axios';
 import { requestFirebaseNotificationPermission, onMessageListener } from '../../firebase';
 import { useTheme } from '../providers/ThemeProvider';
+import { setBadgeSource } from '../../utils/badge';
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 	const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -111,16 +112,8 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			const unread = latestLogs.filter((item: any) => new Date(item.created_at).getTime() > lastSeenTime).length;
 			setUnreadCount(unread);
 
-			// PWA Апдейт иконки (для телефонов и ПК)
-			if ('setAppBadge' in navigator) {
-				if (unread > 0) {
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					(navigator as any).setAppBadge(unread).catch(console.error);
-				} else {
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					(navigator as any).clearAppBadge().catch(console.error);
-				}
-			}
+			// PWA Апдейт иконки — через единый менеджер (суммируется с чат-непрочитанными).
+			setBadgeSource('notifications', unread);
 
 			// Browser Push Notifications
 			if (unread > 0 && Notification.permission === 'granted') {
@@ -185,11 +178,8 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
 			localStorage.setItem('last_seen_notif_time', new Date().toISOString());
 			setUnreadCount(0); // Убираем красную точку
 
-			// PWA: Убираем бейдж с иконки на рабочем столе
-			if ('clearAppBadge' in navigator) {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(navigator as any).clearAppBadge().catch(console.error);
-			}
+			// PWA: сбрасываем источник уведомлений (бейдж пересчитается с учётом чата).
+			setBadgeSource('notifications', 0);
 		}
 	};
 

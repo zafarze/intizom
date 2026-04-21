@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle, X, Send, ArrowLeft, Check, CheckCheck, User, MessageSquare, Trash2, Edit2, MoreVertical, CheckCircle2, Reply, Pin, Copy, Forward, CheckSquare, Maximize2, Minimize2, Bot, Sparkles, Loader, RotateCcw, Mic, StopCircle, Paperclip } from 'lucide-react';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
+import { setBadgeSource } from '../../utils/badge';
 import './chat.css';
 
 // Build absolute URL for media files from VITE_API_URL
@@ -973,6 +974,11 @@ export const ChatWidget: React.FC = () => {
   };
 
   const totalUnread = Array.isArray(contacts) ? contacts.reduce((sum, c) => sum + (c.unread_count || 0), 0) : 0;
+
+  // Пушим чат-непрочитанные в единый менеджер бейджа иконки PWA.
+  useEffect(() => {
+    setBadgeSource('chat', totalUnread);
+  }, [totalUnread]);
 
   const filteredContacts = React.useMemo(() => {
     let result = Array.isArray(contacts) ? contacts : [];

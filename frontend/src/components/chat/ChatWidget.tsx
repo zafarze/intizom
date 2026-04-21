@@ -508,19 +508,36 @@ export const ChatWidget: React.FC = () => {
     }, 300); // Matches animation duration
   };
 
-  // Hardware/browser back button:
-  // fullscreen image -> broadcast modal -> active dialog -> close widget.
-  // NB: effect depends ONLY on isOpen; we read the other layers from a ref to
-  // avoid re-running cleanup (and its history.back()) on every layer change,
-  // which previously broke contact selection (async popstate closed the dialog).
+  // Hardware/browser back button: разматывает слои от самого "верхнего" (контекстные меню,
+  // пикеры) к низу (закрытие чата). Порядок совпадает с Escape-handler'ом выше.
+  // NB: effect depends ONLY on isOpen; layers читаются из ref, чтобы не пересоздавать
+  // popstate-listener на каждое изменение state (иначе выбор контакта будет конфликтовать).
   const backLayersRef = useRef({
     activeContact: null as Contact | null,
     fullScreenImage: null as string | null,
+    previewImage: null as string | null,
     isBroadcastModalOpen: false,
+    showClearChatModal: false,
+    forwardModalOpen: false,
+    showEmojiPicker: false,
+    reactionPickerMsgId: null as number | null,
+    contactCtxMenu: null as { contact: Contact; x: number; y: number } | null,
+    dropdownMessageId: null as number | null,
+    isSelectMode: false,
+    replyingMessage: null as Message | null,
+    editingMessageId: null as number | null,
   });
   useEffect(() => {
-    backLayersRef.current = { activeContact, fullScreenImage, isBroadcastModalOpen };
-  }, [activeContact, fullScreenImage, isBroadcastModalOpen]);
+    backLayersRef.current = {
+      activeContact, fullScreenImage, previewImage, isBroadcastModalOpen,
+      showClearChatModal, forwardModalOpen, showEmojiPicker, reactionPickerMsgId,
+      contactCtxMenu, dropdownMessageId, isSelectMode, replyingMessage, editingMessageId,
+    };
+  }, [
+    activeContact, fullScreenImage, previewImage, isBroadcastModalOpen,
+    showClearChatModal, forwardModalOpen, showEmojiPicker, reactionPickerMsgId,
+    contactCtxMenu, dropdownMessageId, isSelectMode, replyingMessage, editingMessageId,
+  ]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -530,10 +547,29 @@ export const ChatWidget: React.FC = () => {
 
     const onPop = () => {
       const l = backLayersRef.current;
-      if (l.fullScreenImage) {
+      if (l.contactCtxMenu) {
+        setContactCtxMenu(null);
+      } else if (l.dropdownMessageId) {
+        setDropdownMessageId(null);
+      } else if (l.showEmojiPicker) {
+        setShowEmojiPicker(false);
+      } else if (l.reactionPickerMsgId !== null) {
+        setReactionPickerMsgId(null);
+      } else if (l.previewImage) {
+        setPreviewImage(null);
+        setSelectedImage(null);
+      } else if (l.fullScreenImage) {
         setFullScreenImage(null);
+      } else if (l.forwardModalOpen) {
+        setForwardModalOpen(false); setForwardingMessage(null);
+      } else if (l.showClearChatModal) {
+        setShowClearChatModal(false); setClearForAll(false);
       } else if (l.isBroadcastModalOpen) {
         setIsBroadcastModalOpen(false);
+      } else if (l.isSelectMode) {
+        setIsSelectMode(false); setSelectedMessages(new Set());
+      } else if (l.replyingMessage || l.editingMessageId) {
+        setReplyingMessage(null); setEditingMessageId(null); setInputText('');
       } else if (l.activeContact) {
         setActiveContact(null);
       } else {

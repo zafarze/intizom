@@ -9,3 +9,4 @@ fix_*.py
 replace_*.py
 translate_*.py
 *.json
+!firebase-adminsdk.json

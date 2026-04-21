@@ -7,8 +7,33 @@ from django.db.models import Q, OuterRef, Subquery, Count, F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from app.models import Message, UserActivity, AppNotification
+from app.fcm_utils import send_push_notification, send_bulk_push_notification
 from django.core.paginator import Paginator
 import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _sender_display_name(user):
+    name = f"{user.first_name} {user.last_name}".strip()
+    return name or user.username
+
+
+def _unread_total_for(user):
+    return Message.objects.filter(recipient=user, is_read=False, visible_to_recipient=True).count()
+
+
+def _preview_for_message(content, has_image, has_audio, has_document):
+    if content:
+        return content[:120]
+    if has_image:
+        return "📷 Фото"
+    if has_audio:
+        return "🎤 Голосовое сообщение"
+    if has_document:
+        return "📎 Документ"
+    return "Новое сообщение"
 
 class ChatContactsView(APIView):
     """API для получения списка контактов в чате"""
@@ -262,7 +287,25 @@ class ChatMessagesView(APIView):
                 "message": response_data
             }
         )
-        
+
+        # Push-уведомление получателю. Не падаем, если FCM недоступен.
+        try:
+            sender_name = _sender_display_name(request.user)
+            body = _preview_for_message(content, bool(image_file), bool(audio_file), bool(document_file))
+            send_push_notification(
+                user=other_user,
+                title=sender_name,
+                body=body,
+                data={
+                    'type': 'chat_message',
+                    'sender_id': request.user.id,
+                    'message_id': msg.id,
+                    'unread_total': _unread_total_for(other_user),
+                }
+            )
+        except Exception:
+            logger.exception("Chat push failed: sender=%s recipient=%s", request.user.id, other_user.id)
+
         return Response(response_data)
 
 
@@ -608,5 +651,18 @@ class ChatBroadcastView(APIView):
 
         # Запускаем все WS рассылки асинхронно, без блокировки на каждом пользователе
         async_to_sync(send_all_ws_messages)()
+
+        # Push всем получателям рассылки. Chunk-safe внутри send_bulk_push_notification.
+        try:
+            sender_name = _sender_display_name(request.user)
+            body = _preview_for_message(content, bool(image_file), False, False)
+            send_bulk_push_notification(
+                users=recipients,
+                title=f"📢 {sender_name}",
+                body=body,
+                data={'type': 'chat_broadcast', 'sender_id': request.user.id},
+            )
+        except Exception:
+            logger.exception("Chat broadcast push failed: sender=%s count=%d", request.user.id, len(recipients))
 
         return Response({"status": "success", "sent_count": len(recipients)})

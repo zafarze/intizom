@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useCallback } from 'react';
 import { Search, CheckCircle2, Award, Clock, Smartphone, UserX, XCircle, Zap, Loader2, X, History, Users, ArrowLeft } from 'lucide-react';
 import api from '../../api/axios';
+import { useBackGuard } from '../../hooks/useBackGuard';
 
 // ==========================================
 // 1. ТИПИЗАЦИЯ (TypeScript)
@@ -78,6 +79,24 @@ export default function TeacherDashboard() {
 		const interval = setInterval(() => setCurrentTime(new Date()), 10000); // 10 sec update
 		return () => clearInterval(interval);
 	}, []);
+
+	// Hardware "Назад" на телефоне: закрываем последний открытый уровень, а не уходим с /teacher.
+	// Порядок регистрации = порядок закрытия (LIFO): модалка > история > ученик > класс.
+	useBackGuard(!!selectedClass, () => {
+		setSelectedClass(null);
+		setSelectedStudent(null);
+		setSelectedRule(null);
+		setBatchMode(false);
+		setSelectedStudents([]);
+	});
+	useBackGuard(!!selectedStudent, () => {
+		setSelectedStudent(null);
+		setSelectedRule(null);
+	});
+	useBackGuard(showMobileHistory, () => setShowMobileHistory(false));
+	useBackGuard(deleteModalInfo.isOpen, () =>
+		setDeleteModalInfo({ isOpen: false, logId: null, error: null })
+	);
 
 	const userStr = localStorage.getItem('user');
 	const user = userStr ? JSON.parse(userStr) : { name: t('auto.t_18_uchitel') };

@@ -426,7 +426,7 @@ export default function TeacherDashboard() {
 						</div>
 					)}
 
-					{selectedClass && !selectedStudent && selectedStudents.length === 0 && (
+					{selectedClass && !selectedStudent && (batchMode || selectedStudents.length === 0) && (
 						<div className="animate-in fade-in slide-in-from-right-4 duration-300 relative z-20 mb-6">
 							<div className="flex items-center justify-between mb-4 flex-wrap gap-2">
 								<label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t('auto.t_21_2_vyberite_uchenika')}</label>

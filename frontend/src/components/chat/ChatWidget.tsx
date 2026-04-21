@@ -510,32 +510,44 @@ export const ChatWidget: React.FC = () => {
 
   // Hardware/browser back button:
   // fullscreen image -> broadcast modal -> active dialog -> close widget.
+  // NB: effect depends ONLY on isOpen; we read the other layers from a ref to
+  // avoid re-running cleanup (and its history.back()) on every layer change,
+  // which previously broke contact selection (async popstate closed the dialog).
+  const backLayersRef = useRef({
+    activeContact: null as Contact | null,
+    fullScreenImage: null as string | null,
+    isBroadcastModalOpen: false,
+  });
   useEffect(() => {
-    if (!isOpen && !fullScreenImage && !isBroadcastModalOpen && !activeContact) return;
+    backLayersRef.current = { activeContact, fullScreenImage, isBroadcastModalOpen };
+  }, [activeContact, fullScreenImage, isBroadcastModalOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
 
     const MARK = '__chat_back_guard__';
     window.history.pushState({ [MARK]: true }, '');
 
     const onPop = () => {
-      if (fullScreenImage) {
+      const l = backLayersRef.current;
+      if (l.fullScreenImage) {
         setFullScreenImage(null);
-      } else if (isBroadcastModalOpen) {
+      } else if (l.isBroadcastModalOpen) {
         setIsBroadcastModalOpen(false);
-      } else if (activeContact) {
+      } else if (l.activeContact) {
         setActiveContact(null);
-      } else if (isOpen) {
+      } else {
         handleClose();
       }
+      // Re-arm the guard so the next back press is also captured.
+      window.history.pushState({ [MARK]: true }, '');
     };
     window.addEventListener('popstate', onPop);
 
     return () => {
       window.removeEventListener('popstate', onPop);
-      if (window.history.state && window.history.state[MARK]) {
-        window.history.back();
-      }
     };
-  }, [isOpen, activeContact, fullScreenImage, isBroadcastModalOpen]);
+  }, [isOpen]);
 
   const handleSelectContact = async (contact: Contact) => {
     setActiveContact(contact);

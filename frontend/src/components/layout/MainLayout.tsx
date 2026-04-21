@@ -7,6 +7,7 @@ import Header from './Header';
 import { syncOfflineData } from '../../api/syncQueue'; // 👈 Импорт функции синхронизации
 import toast from 'react-hot-toast'; // 👈 Импорт уведомлений
 import { ChatWidget } from '../chat/ChatWidget';
+import OfflineBanner from '../OfflineBanner';
 import { useBackButtonGuard } from '../../hooks/useBackButtonGuard';
 
 export default function MainLayout() {
@@ -144,6 +145,7 @@ export default function MainLayout() {
 
 			<div className="flex-1 flex flex-col overflow-hidden relative">
 
+				<OfflineBanner />
 				<Header onMenuClick={() => setIsMobileOpen(true)} />
 
 				{/* Pull to refresh индикатор */}

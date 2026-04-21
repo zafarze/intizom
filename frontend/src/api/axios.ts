@@ -45,17 +45,20 @@ api.interceptors.response.use(
 
 			const method = originalRequest.method?.toLowerCase();
 			if (['post', 'patch', 'put', 'delete'].includes(method || '')) {
+				// FormData can't be JSON-serialized into localStorage — drop offline support for those.
+				if (originalRequest.data instanceof FormData) {
+					return Promise.reject(error);
+				}
 
-				const queue = JSON.parse(localStorage.getItem('offline_queue') || '[]');
-				queue.push({
+				const { enqueueRequest } = await import('./syncQueue');
+				const entry = enqueueRequest({
 					method: originalRequest.method,
 					url: originalRequest.url,
-					data: originalRequest.data
+					data: originalRequest.data,
 				});
-				localStorage.setItem('offline_queue', JSON.stringify(queue));
 
 				return Promise.resolve({
-					data: { detail: i18n.t('common.network_offline') },
+					data: { detail: i18n.t('common.network_offline'), queued: true, localId: entry.id },
 					status: 200,
 					isOffline: true
 				});

@@ -23,6 +23,34 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      workbox: {
+        navigateFallbackDenylist: [/^\/api\//, /^\/admin/, /^\/ws\//],
+        runtimeCaching: [
+          {
+            // All GET /api/... — NetworkFirst with 3s timeout; falls back to cache offline
+            urlPattern: /\/api\/.*/i,
+            method: 'GET',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'intizom-api-get',
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Uploaded media (avatars, chat images) — stale-while-revalidate
+            urlPattern: /\/media\/.*/i,
+            method: 'GET',
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'intizom-media',
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
       manifest: {
         name: 'Интизом - Системаи идоракунӣ',
         short_name: 'Интизом',

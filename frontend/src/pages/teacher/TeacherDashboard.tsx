@@ -67,6 +67,11 @@ export default function TeacherDashboard() {
 	const [successMessage, setSuccessMessage] = useState('');
 	const [showMobileHistory, setShowMobileHistory] = useState(false);
 
+	// Режим "показать всю историю" (по выбранному ученику/классу) — грузит все логи, минуя срез до 10.
+	const [showAllLogs, setShowAllLogs] = useState(false);
+	const [fullLogs, setFullLogs] = useState<ActionLog[]>([]);
+	const [loadingFullLogs, setLoadingFullLogs] = useState(false);
+
 	const [deleteModalInfo, setDeleteModalInfo] = useState<{ isOpen: boolean; logId: number | null; error: string | null }>({
 		isOpen: false,
 		logId: null,
@@ -79,6 +84,20 @@ export default function TeacherDashboard() {
 		const interval = setInterval(() => setCurrentTime(new Date()), 10000); // 10 sec update
 		return () => clearInterval(interval);
 	}, []);
+
+	// Сбрасываем режим "все" при смене выбора, чтобы старые fullLogs не показывались для нового ученика/класса.
+	useEffect(() => {
+		setShowAllLogs(false);
+		setFullLogs([]);
+	}, [selectedStudent?.id, selectedClass]);
+
+	// Блокируем скролл страницы под открытой мобильной модалкой истории, чтобы внутренний скролл не "протекал" наружу.
+	useEffect(() => {
+		if (!showMobileHistory) return;
+		const prev = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		return () => { document.body.style.overflow = prev; };
+	}, [showMobileHistory]);
 
 	// Hardware "Назад" на телефоне: закрываем последний открытый уровень, а не уходим с /teacher.
 	// Порядок регистрации = порядок закрытия (LIFO): модалка > история > ученик > класс.
@@ -300,7 +319,9 @@ export default function TeacherDashboard() {
 	const lessonInfo = getCurrentLessonInfo();
 
 	const getFilteredLogs = () => {
-		let logs = recentLogs;
+		// В режиме "показать все" (только при выбранном ученике/классе) берём полностью загруженный fullLogs без среза.
+		const useFull = showAllLogs && (selectedStudent || selectedClass);
+		let logs = useFull ? fullLogs : recentLogs;
 		if (selectedStudent) {
 			logs = logs.filter(log => log.student_detail.id === selectedStudent.id);
 		} else if (selectedClass) {
@@ -308,7 +329,23 @@ export default function TeacherDashboard() {
 		} else {
 			logs = logs.filter(log => log.teacher_id === user.id);
 		}
-		return logs.slice(0, 10);
+		return useFull ? logs : logs.slice(0, 10);
+	};
+
+	const handleShowAllLogs = async () => {
+		if (!selectedStudent && !selectedClass) return;
+		setLoadingFullLogs(true);
+		try {
+			const params = new URLSearchParams({ page_size: '2000' });
+			if (selectedStudent) params.set('student', String(selectedStudent.id));
+			const r = await api.get(`logs/?${params.toString()}`);
+			setFullLogs(r.data.results || r.data);
+			setShowAllLogs(true);
+		} catch (err) {
+			console.error('Не удалось загрузить полную историю:', err);
+		} finally {
+			setLoadingFullLogs(false);
+		}
 	};
 
 	const displayedLogs = getFilteredLogs();
@@ -640,9 +677,29 @@ export default function TeacherDashboard() {
 
 				{/* БОКОВАЯ КОЛОНКА (ИСТОРИЯ УЧИТЕЛЯ - ОЖИВЛЕНА!) */}
 				<div className="hidden xl:flex bg-white/60 backdrop-blur-xl border border-white rounded-[2rem] p-6 shadow-sm flex-col h-full overflow-hidden">
-					<h2 className="text-lg font-bold text-slate-800 mb-6 border-b border-white pb-4">
-						{selectedStudent ? 'История ученика' : selectedClass ? `История класса ${selectedClass}` : t('auto.t_36_vasha_nedavnyaya_istoriya')}
-					</h2>
+					<div className="flex items-center justify-between mb-6 border-b border-white pb-4 gap-3">
+						<h2 className="text-lg font-bold text-slate-800">
+							{selectedStudent ? 'История ученика' : selectedClass ? `История класса ${selectedClass}` : t('auto.t_36_vasha_nedavnyaya_istoriya')}
+						</h2>
+						{(selectedStudent || selectedClass) && (
+							showAllLogs ? (
+								<button
+									onClick={() => { setShowAllLogs(false); setFullLogs([]); }}
+									className="text-[12px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+								>
+									Свернуть
+								</button>
+							) : (
+								<button
+									onClick={handleShowAllLogs}
+									disabled={loadingFullLogs}
+									className="text-[12px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap disabled:opacity-60"
+								>
+									{loadingFullLogs ? '...' : 'Показать все'}
+								</button>
+							)
+						)}
+					</div>
 					<div className="flex-1 overflow-y-auto pr-2 space-y-4 hide-scrollbar">
 						{displayedLogs.length > 0 ? (
 							displayedLogs.map(log => {
@@ -751,24 +808,47 @@ export default function TeacherDashboard() {
 
 					{/* Контент модального окна */}
 					<div className="relative w-full max-w-lg bg-white/95 backdrop-blur-xl border border-white rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-300">
-						<div className="flex items-center justify-between p-6 border-b border-slate-100">
-							<div className="flex items-center gap-3">
-								<div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
+						<div className="flex items-center justify-between p-6 border-b border-slate-100 gap-2">
+							<div className="flex items-center gap-3 min-w-0">
+								<div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
 									<History size={20} />
 								</div>
-								<h2 className="text-lg font-black text-slate-800">
+								<h2 className="text-lg font-black text-slate-800 truncate">
 									{selectedStudent ? 'История ученика' : selectedClass ? `История класса ${selectedClass}` : t('auto.t_36_vasha_nedavnyaya_istoriya')}
 								</h2>
 							</div>
-							<button
-								onClick={() => setShowMobileHistory(false)}
-								className="p-2 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors"
-							>
-								<X size={20} />
-							</button>
+							<div className="flex items-center gap-2 shrink-0">
+								{(selectedStudent || selectedClass) && (
+									showAllLogs ? (
+										<button
+											onClick={() => { setShowAllLogs(false); setFullLogs([]); }}
+											className="text-[12px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
+										>
+											Свернуть
+										</button>
+									) : (
+										<button
+											onClick={handleShowAllLogs}
+											disabled={loadingFullLogs}
+											className="text-[12px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+										>
+											{loadingFullLogs ? '...' : 'Показать все'}
+										</button>
+									)
+								)}
+								<button
+									onClick={() => setShowMobileHistory(false)}
+									className="p-2 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors"
+								>
+									<X size={20} />
+								</button>
+							</div>
 						</div>
 
-						<div className="flex-1 overflow-y-auto p-6 space-y-4 hide-scrollbar">
+						<div
+							className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4 hide-scrollbar"
+							style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
+						>
 							{displayedLogs.length > 0 ? (
 								displayedLogs.map(log => {
 									const isPositive = log.rule_detail.points_impact > 0;

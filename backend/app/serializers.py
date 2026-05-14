@@ -150,10 +150,27 @@ class StudentSerializer(serializers.ModelSerializer):
 # ==========================================
 class RuleSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(source='get_category_display', read_only=True)
+    title = serializers.CharField(required=False, allow_blank=True)
+    title_ru = serializers.CharField(required=False, allow_blank=True)
+    title_tg = serializers.CharField(required=False, allow_blank=True)
+    title_en = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Rule
         fields = ['id', 'title', 'title_ru', 'title_tg', 'title_en', 'category', 'category_display', 'points_impact', 'is_multiple']
+
+    def validate(self, attrs):
+        title = attrs.get('title')
+        translated_title = attrs.get('title_ru') or attrs.get('title_en') or attrs.get('title_tg')
+
+        if not title and translated_title:
+            attrs['title'] = translated_title
+            title = translated_title
+
+        if not title and not self.partial:
+            raise serializers.ValidationError({'title': 'This field is required.'})
+
+        return attrs
 
 # ==========================================
 # 4. УЧИТЕЛЯ (ПОЛЬЗОВАТЕЛИ) И ПРЕДМЕТЫ

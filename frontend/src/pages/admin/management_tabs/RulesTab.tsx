@@ -40,10 +40,13 @@ export default function RulesTab({ data, refresh }: { data: any[], refresh: () =
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		const titleValue = formData[`title_${activeLang}`] || formData.title_ru || formData.title_en || formData.title_tg;
+		const payload = { ...formData, title: titleValue };
+
 		if (editingId) {
-			await api.patch(`rules/${editingId}/`, formData);
+			await api.patch(`rules/${editingId}/`, payload);
 		} else {
-			await api.post(`rules/`, formData);
+			await api.post(`rules/`, payload);
 		}
 		setIsModalOpen(false);
 		refresh();

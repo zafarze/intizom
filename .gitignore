@@ -60,6 +60,9 @@ frontend/node_modules/.vite/
 # =========================
 .vscode/
 .idea/
+.claude/
+.agents/
+.qoder/
 *.suo
 *.ntvs*
 *.njsproj

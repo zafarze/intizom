@@ -70,13 +70,17 @@ export default function StudentDashboard() {
 	const statusText = student.status_info?.text || t('auto.t_202_obraztsovyy');
 
 	if (lvl === 'excellent') {
-		statusConfig = { color: 'text-green-500', bg: 'bg-green-500', icon: <ShieldCheck size={24} className="text-green-500" />, message: t('auto.t_66_otlichnaya_distsiplina_tak_derzhat'), alert: 'bg-green-50 text-green-700 border-green-200' };
+		statusConfig = { color: 'text-emerald-600', bg: 'bg-emerald-500', icon: <ShieldCheck size={24} className="text-emerald-600" />, message: t('auto.t_66_otlichnaya_distsiplina_tak_derzhat'), alert: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+	} else if (lvl === 'good') {
+		statusConfig = { color: 'text-green-500', bg: 'bg-green-500', icon: <ShieldCheck size={24} className="text-green-500" />, message: t('auto.status_good_message'), alert: 'bg-green-50 text-green-700 border-green-200' };
 	} else if (lvl === 'warning') {
 		statusConfig = { color: 'text-yellow-500', bg: 'bg-yellow-500', icon: <AlertTriangle size={24} className="text-yellow-500" />, message: t('auto.t_138_vy_poteryali_neskolko_ballov'), alert: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
 	} else if (lvl === 'danger') {
 		statusConfig = { color: 'text-orange-500', bg: 'bg-orange-500', icon: <ShieldAlert size={24} className="text-orange-500" />, message: t('auto.t_174_kriticheskaya_situatsiya_v_shkolu'), alert: 'bg-orange-50 text-orange-700 border-orange-200' };
+	} else if (lvl === 'critical') {
+		statusConfig = { color: 'text-red-500', bg: 'bg-red-500', icon: <ShieldAlert size={24} className="text-red-500" />, message: t('auto.status_critical_message'), alert: 'bg-red-50 text-red-700 border-red-200' };
 	} else {
-		statusConfig = { color: 'text-red-500', bg: 'bg-red-500', icon: <ShieldAlert size={24} className="text-red-500" />, message: t('auto.t_213_vashe_delo_peredano_na'), alert: 'bg-red-50 text-red-700 border-red-200' };
+		statusConfig = { color: 'text-red-700', bg: 'bg-red-700', icon: <ShieldAlert size={24} className="text-red-700" />, message: t('auto.t_213_vashe_delo_peredano_na'), alert: 'bg-red-50 text-red-700 border-red-200' };
 	}
 
 	// Защита прогресс-бара: баллы от 0 до 100 для корректной отрисовки SVG

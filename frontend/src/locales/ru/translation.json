@@ -642,7 +642,9 @@
     "t_222_sbroshennye_dostupy_uchenikov_intizom": "Сброшенные доступы учеников - Интизом",
     "t_223_sa_ifa_eft_nashud": "Саҳифа ёфт нашуд (404)",
     "t_224_net_interneta_vklyuchen_oflayn": "📶 Нет интернета. Включен офлайн-режим.",
-    "t_225_nazhmite_chtoby_otkryt": "Нажмите, чтобы открыть"
+    "t_225_nazhmite_chtoby_otkryt": "Нажмите, чтобы открыть",
+    "status_good_message": "Хорошая дисциплина. Продолжайте в том же духе.",
+    "status_critical_message": "Назначено трудовое наказание. Срочно исправляйте ситуацию."
   },
   "stats": {
     "analyzing_data": "Анализ данных...",
